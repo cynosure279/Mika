@@ -137,4 +137,5 @@
     <string name="chat_quoting_you">引用你的話:%1$s</string>
     <string name="chat_edit_message">編輯訊息</string>
     <string name="chat_withdraw_message">收回訊息</string>
+    <string name="chat_step_details">這一步做了什麼</string>
 </resources>

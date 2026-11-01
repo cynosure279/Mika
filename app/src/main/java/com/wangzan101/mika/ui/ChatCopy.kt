@@ -87,6 +87,22 @@ object ChatCopy {
     /** 在后台操作手机时步骤下面那行小字。 */
     val BACKGROUND_NOTE get() = tr(R.string.chat_background_note)
 
+    /**
+     * 一个动作的结果(记录里的 effect 代号 → 给人看的一句话)。错误码只对开发有意义,
+     * 给人看的一律说「没成功」。运行过程页用的是同一份说法。
+     */
+    fun effectLabel(effect: String?): String = when (effect) {
+        "changed", "done", "place_changed" -> tr(R.string.result_effective)
+        "small_change" -> tr(R.string.effect_small_change)
+        "unchanged", "no_effect" -> tr(R.string.result_unchanged)
+        "completed" -> tr(R.string.result_completed)
+        null, "" -> ""
+        else -> tr(R.string.step_failed)
+    }
+
+    /** 点开一步后,那一行小标题。 */
+    val WHAT_IT_DID get() = tr(R.string.chat_step_details)
+
     fun placeholder(mode: ComposerMode, hasHistory: Boolean): String = when (mode) {
         ComposerMode.Busy -> tr(R.string.chat_placeholder_busy)
         ComposerMode.Answer -> tr(R.string.chat_placeholder_answer)

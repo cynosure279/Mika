@@ -180,15 +180,8 @@ private fun TimelineRow(s: TimelineStep, first: Boolean, last: Boolean, vm: RunT
             }
             s.activities.forEach { a ->
                 val action = if (a.count > 1) trPlural(R.plurals.timeline_viewed_times, a.count) else a.label
-                val effect = when (a.effect) {
-                    "changed", "done", "place_changed" -> stringResource(R.string.result_effective)
-                    "small_change" -> stringResource(R.string.effect_small_change)
-                    "unchanged", "no_effect" -> stringResource(R.string.result_unchanged)
-                    "completed" -> stringResource(R.string.result_completed)
-                    null -> ""
-                    // 错误码只对开发有意义,给人看的是没成功
-                    else -> stringResource(R.string.step_failed)
-                }
+                // 和对话里点开一步用的是同一份说法(错误码只对开发有意义,给人看的是没成功)
+                val effect = ChatCopy.effectLabel(a.effect)
                 Text(
                     listOfNotNull(action, a.target?.takeIf(String::isNotBlank), effect.takeIf(String::isNotBlank)).joinToString(" · "),
                     Modifier.padding(top = 3.dp), style = MikaType.Caption, color = c.ink2,

@@ -65,6 +65,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -651,7 +652,7 @@ private fun WorkBlock(ex: Exchange, reduceMotion: Boolean, backgroundNote: Boole
             )
             if (elapsed != null) Text(ChatCopy.clock(elapsed), style = ClockText, color = c.ink3)
         }
-        if (ex.steps.isNotEmpty()) StepLine(ex.steps, live = true, paused = paused)
+        if (ex.steps.isNotEmpty()) StepLine(ex.steps, ex.stepActions, live = true, paused = paused)
         if (backgroundNote) {
             Row(
                 Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically,
@@ -684,9 +685,11 @@ private enum class Dot { Done, Current, Paused, Dim }
  * 前面的收成一行,点开看全部。
  */
 @Composable
-private fun StepLine(steps: List<StepRow>, live: Boolean, paused: Boolean) {
+private fun StepLine(steps: List<StepRow>, actions: Map<Int, List<StepAction>>, live: Boolean, paused: Boolean) {
     val c = MikaTheme.colors
     var all by rememberSaveable { mutableStateOf(!live) }
+    // 哪几步点开了:按这一屏里的序号记,列表变长也不乱
+    val expanded = remember { mutableStateMapOf<Int, Boolean>() }
     val hidden = if (all) 0 else (steps.size - ChatCopy.VISIBLE_STEPS).coerceAtLeast(0)
     Column(
         Modifier.padding(top = 6.dp).fillMaxWidth().drawBehind {
@@ -698,24 +701,36 @@ private fun StepLine(steps: List<StepRow>, live: Boolean, paused: Boolean) {
             StepItem(ChatCopy.earlierSteps(hidden), "", Dot.Dim, current = false, link = true, onClick = { all = true })
         }
         steps.drop(hidden).forEachIndexed { i, row ->
-            val isLast = hidden + i == steps.lastIndex
+            val key = hidden + i
+            val isLast = key == steps.lastIndex
             val dot = when {
                 live && isLast && paused -> Dot.Paused
                 live && isLast && row.state == StepState.Run -> Dot.Current
                 row.state == StepState.Dim -> Dot.Dim
                 else -> Dot.Done
             }
-            StepItem(row.text, row.subtitle, dot, current = dot == Dot.Current || dot == Dot.Paused)
+            val open = expanded[key] == true
+            val detail = actions[row.step].orEmpty()
+            StepItem(
+                row.text, row.subtitle, dot, current = dot == Dot.Current || dot == Dot.Paused,
+                actions = detail, open = open,
+                // 有具体动作才点得开:点开看这一步到底用了什么、对什么、结果如何
+                onToggle = if (detail.isEmpty()) null else ({ expanded[key] = !open }),
+            )
         }
     }
 }
 
 @Composable
-private fun StepItem(text: String, subtitle: String, dot: Dot, current: Boolean, link: Boolean = false, onClick: (() -> Unit)? = null) {
+private fun StepItem(
+    text: String, subtitle: String, dot: Dot, current: Boolean, link: Boolean = false, onClick: (() -> Unit)? = null,
+    actions: List<StepAction> = emptyList(), open: Boolean = false, onToggle: (() -> Unit)? = null,
+) {
     val c = MikaTheme.colors
     Row(
         Modifier.fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClickLabel = stringResource(R.string.chat_expand_steps), onClick = onClick) else Modifier)
+            .then(if (onToggle != null) Modifier.clickable(onClickLabel = stringResource(R.string.chat_expand_steps), onClick = onToggle) else Modifier)
             .heightIn(min = 28.dp).padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -732,6 +747,25 @@ private fun StepItem(text: String, subtitle: String, dot: Dot, current: Boolean,
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
             if (subtitle.isNotEmpty()) Text(subtitle, style = MikaType.Hint, color = c.ink3, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            // 能点开的只有有动作的那些:右边的箭头把这件事说出来
+            if (actions.isNotEmpty()) Icon(
+                MikaIcons.Chevron, null,
+                Modifier.padding(top = 2.dp).size(12.dp).graphicsLayer { rotationZ = if (open) 90f else 0f },
+                tint = c.ink3,
+            )
+            // 点开:这一步到底做了什么——哪个工具、对什么、结果如何
+            if (open && actions.isNotEmpty()) {
+                Text(ChatCopy.WHAT_IT_DID, Modifier.padding(top = 3.dp), style = MikaType.Hint, color = c.ink3)
+                actions.forEach { a ->
+                    val effect = ChatCopy.effectLabel(a.effect)
+                    val tool = if (a.tool.isNotBlank() && a.tool != a.label) "${a.label} (${a.tool})" else a.label
+                    Text(
+                        listOfNotNull(tool, a.target?.takeIf(String::isNotBlank), effect.takeIf(String::isNotBlank))
+                            .joinToString(" · "),
+                        Modifier.padding(top = 2.dp), style = MikaType.Hint, color = if (a.failed) c.bad else c.ink2,
+                    )
+                }
+            }
         }
     }
 }
@@ -805,7 +839,7 @@ private fun DoneLine(ex: Exchange, reduceMotion: Boolean, openRun: (String) -> U
                 )
             }
         }
-        Reveal(open && ex.steps.isNotEmpty(), reduceMotion) { StepLine(ex.steps, live = false, paused = false) }
+        Reveal(open && ex.steps.isNotEmpty(), reduceMotion) { StepLine(ex.steps, ex.stepActions, live = false, paused = false) }
     }
 }
 

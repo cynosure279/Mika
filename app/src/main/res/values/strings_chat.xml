@@ -142,4 +142,5 @@
     <string name="chat_quoting_you">Quoting you: %1$s</string>
     <string name="chat_edit_message">Edit message</string>
     <string name="chat_withdraw_message">Withdraw message</string>
+    <string name="chat_step_details">What it did</string>
 </resources>

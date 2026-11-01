@@ -178,6 +178,26 @@ class ChatViewModelTest {
         assertEquals("结论。" to "来自搜索结果第一条", splitEvidence("结论。证据：来自搜索结果第一条"))
     }
 
+    /** 每一步都带着它实际做的动作:点开这一步才看得到用了哪个工具、对什么、结果如何。 */
+    @Test fun eachStepCarriesWhatItActuallyDid() = runTest {
+        val vm = vm()
+        vm.send("打开设置看电量", ok)
+        emit(TaskState.Running(0, "正在准备"))
+        did(1, "act", "phone_tap", "com.chat", "changed")
+        did(1, "act", "phone_type_text", "com.other", "unknown_code", failed = true)
+        val ex = vm.ui.value.exchanges.single()
+        assertEquals(
+            listOf(
+                // label 是给人看的,后面带着记录里原样的工具名
+                StepAction("点击", "phone_tap", "聊天", "changed", false),
+                StepAction("输入文字", "phone_type_text", "com.other", "unknown_code", true),
+            ),
+            ex.stepActions.getValue(1),
+        )
+        // 只挂在有动作的那一步上
+        assertEquals(setOf(1), ex.stepActions.keys)
+    }
+
     @Test fun unverifiedIsMarkedOnTheResult() = runTest {
         val vm = vm()
         vm.send("查余额", ok)

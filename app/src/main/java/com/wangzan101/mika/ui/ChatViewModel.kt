@@ -86,6 +86,12 @@ enum class StepState { Ok, Run, Wait, Dim }
  * 执行过程里的一行,来自实际做过的事(运行事件里的活动):[title] 是做了什么(读取类合并成「看了微信的聊天列表」),
  * [reason] 是模型给那一步写的用意(没写时为空),[subtitle] 是没成功时的说明,平时为空。
  */
+/**
+ * 一步里的一个动作:用了哪个工具、对什么、结果如何。点开这一步时逐条列出来——
+ * 一行标题写的是汇总结论,想看它到底点了哪个按钮、打了什么字,看这里。
+ */
+data class StepAction(val label: String, val tool: String, val target: String?, val effect: String?, val failed: Boolean)
+
 data class StepRow(val step: Int, val title: String, val subtitle: String, val state: StepState, val reason: String = "") {
     /** 这一步在界面上的说法:模型自己的话,没有时用工具的说法。 */
     val text: String get() = reason.ifEmpty { title }
@@ -166,6 +172,8 @@ data class Exchange(
     val keptPage: String? = null,
     /** 那一页后来关掉的原因([Turn.keptPageClosed]);还开着或不知道为 null。 */
     val keptPageClosed: String? = null,
+    /** 每一步实际做的动作(按步号):标题是汇总,点开一步时看这里的明细。 */
+    val stepActions: Map<Int, List<StepAction>> = emptyMap(),
 )
 
 /** 在跑时的一行进展:等你时说等什么;模型请求在途时只给中性状态;否则是这一步的话,没有就是最近做的事。 */
@@ -445,7 +453,10 @@ class ChatViewModel(
             val exchanges = ui.exchanges.toMutableList()
             if (liveIndex in exchanges.indices) {
                 val ex = exchanges[liveIndex].copy(activities = list)
-                exchanges[liveIndex] = ex.copy(steps = rows(ex, toolLabels::label, appLabel))
+                exchanges[liveIndex] = ex.copy(
+                    steps = rows(ex, toolLabels::label, appLabel),
+                    stepActions = actionsOf(list, appLabel, toolLabels::label),
+                )
             }
             ui.copy(exchanges = exchanges)
         }
@@ -1081,7 +1092,16 @@ class ChatViewModel(
                 this is ExchangeStatus.NeedsConfirmation
 
         internal fun reduce(ex: Exchange, s: TaskState, appLabel: (String) -> String = { it }, toolLabel: (String) -> String = { it }): Exchange =
-            state(ex, s, appLabel).let { it.copy(steps = rows(it, toolLabel, appLabel)) }
+            state(ex, s, appLabel).let {
+                it.copy(steps = rows(it, toolLabel, appLabel), stepActions = actionsOf(it.activities, appLabel, toolLabel))
+            }
+
+        /** 按步号归好的动作明细:点开一步时列出来。 */
+        private fun actionsOf(activities: List<RunEvent.Activity>, appLabel: (String) -> String, toolLabel: (String) -> String) =
+            activities.groupBy { it.step }.mapValues { (_, list) ->
+                // label 是给人看的说法,tool 是记录里原样的工具名:点开时两个都给,才看得出具体执行的是哪条指令
+                list.map { a -> StepAction(toolLabel(a.label), a.label, a.target?.let { where(it, appLabel) }, a.effect, a.failed) }
+            }
 
         private fun state(ex: Exchange, s: TaskState, appLabel: (String) -> String): Exchange = when (s) {
             TaskState.Idle -> ex
