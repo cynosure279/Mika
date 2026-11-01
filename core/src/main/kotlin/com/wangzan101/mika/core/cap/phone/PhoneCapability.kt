@@ -121,8 +121,7 @@ internal class PhoneCapability(
 
         /** 后台虚拟屏(默认):用户同时在主屏上用手机。和从前一字不差。 */
         private const val HOST_VIRTUAL =
-            "Your actions run on a dedicated virtual display; the user keeps using the
-phone on the main screen at the same time."
+            "Your actions run on a dedicated virtual display; the user keeps using the\nphone on the main screen at the same time."
 
         /**
          * 用户的主屏:动作就在用户眼前发生,这段时间手机归 Mika 用。要求模型改得少、交代得清楚,
