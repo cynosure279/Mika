@@ -49,6 +49,11 @@
     <string name="model_manual_on">Enter a model name yourself</string>
     <string name="model_manual_off">Don’t enter a model name</string>
     <string name="model_manual_note">With a model name filled in, “Test and save” tries only that model: it works even if this provider has no model list, the list lacks it, or listing fails. It’s saved only if the test call works.</string>
+    <string name="model_save_untested">Don’t test, save anyway</string>
+    <string name="model_save_untested_title">Save without testing?</string>
+    <string name="model_save_untested_body">Mika will save this provider with the address and key you entered, without listing models or making a test call. Mika needs a model that can call tools to get things done, and an untested one may not connect or may not call tools. You can test it later from the provider’s page.</string>
+    <string name="model_save_untested_confirm">Save anyway</string>
+    <string name="model_saved_untested">%1$s was saved without a test. It’s marked as not tested; pick a model to check it, or test it again from the provider’s page.</string>
     <string name="cap_typed">Typed in</string>
     <string name="model_example_gemini">e.g. gemini-flash-latest</string>
     <string name="model_example_anthropic">e.g. claude-sonnet-4-5</string>

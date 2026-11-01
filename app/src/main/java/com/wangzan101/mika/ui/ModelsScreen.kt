@@ -344,10 +344,17 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
             }
             FooterNote(ModelsCopy.MODELS_NOTE)
         }
+        // 跳过测试直接存下的:说清它还没测过,别说成「这家不提供模型列表」——那个说法对它不成立
+        val untested = ui.untested(p)
         val unverified = ui.unverified(p)
+        if (untested) {
+            FooterNote(ModelsCopy.UNTESTED_NOTE, Modifier.testTag("provider-untested"), color = c.warn)
+        } else if (unverified.isNotEmpty()) {
+            FooterNote(ModelsCopy.unverifiedNote(unverified), Modifier.testTag("provider-unverified"), color = c.warn)
+        }
+        // 有模型在用时可以就地重测一次;没有的在用的,先刷新列表或去选一个
         if (unverified.isNotEmpty()) {
             val retest = ui.retest[p.id]
-            FooterNote(ModelsCopy.unverifiedNote(unverified), Modifier.testTag("provider-unverified"), color = c.warn)
             MikaButton(
                 if (retest == ListState.Running) ModelSetupCopy.TESTING else ModelsCopy.RETEST, actions.retest,
                 Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("provider-retest"),
@@ -356,7 +363,8 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
             (retest as? ListState.Failed)?.let { FooterNote(it.message, Modifier.testTag("provider-retest-failed"), color = c.bad) }
         }
         when {
-            p.models?.isEmpty() == true -> FooterNote(ModelsCopy.NO_LIST_NOTE)
+            // 跳过测试存下的那次没列过模型,不能拿它当「这家不提供列表」的证据
+            p.models?.isEmpty() == true && !untested -> FooterNote(ModelsCopy.NO_LIST_NOTE)
             p.models == null && list.isEmpty() && state != ListState.Running -> FooterNote(ModelsCopy.NOT_LISTED)
         }
 
@@ -615,6 +623,7 @@ object ModelsCopy {
     val MODELS: String get() = tr(R.string.models_models)
     val MODELS_NOTE: String get() = tr(R.string.models_models_note)
     val NO_LIST_NOTE: String get() = tr(R.string.models_no_list_note)
+    val UNTESTED_NOTE: String get() = tr(R.string.models_untested_note)
     val UNVERIFIED: String get() = tr(R.string.models_unverified)
     val RETEST: String get() = tr(R.string.models_retest)
 

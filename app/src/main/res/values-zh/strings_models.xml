@@ -34,6 +34,7 @@
     <string name="models_models">模型</string>
     <string name="models_models_note">点一个模型，可以把它用作主模型、看图或轻量模型。</string>
     <string name="models_no_list_note">这家不提供模型列表。要用它的模型，在「用途」里照文档填模型名。</string>
+    <string name="models_untested_note">这家是跳过测试存下的，还不知道能不能用。选一个模型时会先试调用，也可以点右上角刷新列出它的模型。</string>
     <string name="models_not_listed">还没列出这家的模型。</string>
     <string name="refresh">刷新</string>
     <string name="models_in_use">正在用这个</string>

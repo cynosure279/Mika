@@ -25,6 +25,7 @@ import com.wangzan101.mika.settings.RoleChoice
 import com.wangzan101.mika.settings.RoleChoices
 import com.wangzan101.mika.ui.theme.MikaTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -43,6 +44,7 @@ class ModelSetupScreenTest {
 
     private val actions = ModelSetupActions(
         selectPreset = { calls += "preset $it" }, testAndSave = { calls += "test" }, openForm = { calls += "open form" },
+        saveUntested = { calls += "save untested" },
         openProvider = { calls += "provider $it" }, pickRole = { calls += "role $it" }, next = { calls += "next" },
         openSignIn = { calls += "signin $it" },
     )
@@ -76,6 +78,21 @@ class ModelSetupScreenTest {
         compose.onNodeWithTag("setup-test").performScrollTo().assertIsEnabled().performClick()
         compose.onNodeWithTag("preset-Kimi").performScrollTo().performClick()
         assertEquals(listOf("test", "preset Kimi"), calls)
+    }
+
+    /** 「不测试,直接保存」先问一次:说清后果,取消了就什么都不做,确认了才存。 */
+    @Test fun saveWithoutTestAsksBeforeSaving() {
+        show(ModelSetupUi(form))
+        compose.onNodeWithTag("setup-save-untested").performScrollTo().performClick()
+        compose.onNodeWithText(ModelSetupCopy.SAVE_UNTESTED_TITLE).assertIsDisplayed()
+        compose.onNodeWithText(ModelSetupCopy.SAVE_UNTESTED_BODY).assertIsDisplayed()
+        // 取消:什么都没存
+        compose.onNodeWithText("取消").performClick()
+        assertTrue(calls.isEmpty())
+        // 确认:存
+        compose.onNodeWithTag("setup-save-untested").performScrollTo().performClick()
+        compose.onNodeWithText(ModelSetupCopy.SAVE_UNTESTED_CONFIRM).performClick()
+        assertEquals(listOf("save untested"), calls)
     }
 
     @Test fun connectedProvidersAreListedAndNextEnables() {

@@ -270,6 +270,48 @@ class ProviderStoreTest {
         assertEquals(emptyList<ListedModel>(), store().providers.value.single().models)
     }
 
+    // ---------- 跳过测试直接存下 ----------
+
+    /** 跳过测试存下的那家带标记;重新读文件也在(旧版本的文件没有这一项,按测过算)。 */
+    @Test
+    fun untestedProviderPersistsItsFlag() {
+        val s = store()
+        val p = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k", emptyList(), untested = true)
+        assertTrue(p.savedUntested)
+        assertTrue("重新读入还在", store().provider(p.id)!!.savedUntested)
+        // 不是跳过测试存下的那些没有这个标记
+        val other = s.connect("Y", ProviderConfig.Kind.OpenAiCompat, "https://y.test/v1", "k", emptyList())
+        assertFalse(other.savedUntested)
+        assertFalse(store().provider(other.id)!!.savedUntested)
+    }
+
+    /** 列过一次模型、或试通过一个模型,「没测过」就不再成立。 */
+    @Test
+    fun listingOrVerifyingClearsTheUntestedFlag() {
+        val s = store()
+        val listed = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k", emptyList(), untested = true)
+        s.rememberModels(listed.id, listOf(ListedModel("m1")))
+        assertFalse("列出来了就算测过", store().provider(listed.id)!!.savedUntested)
+
+        val verified = s.connect("Z", ProviderConfig.Kind.OpenAiCompat, "https://z.test/v1", "k", emptyList(), untested = true)
+        assertTrue(s.provider(verified.id)!!.savedUntested)
+        s.markVerified(verified.id, "m1")
+        assertFalse("核实过就算测过", s.provider(verified.id)!!.savedUntested)
+        assertEquals(setOf("m1"), s.provider(verified.id)!!.verifiedModels)
+    }
+
+    /** 跳过测试再存一次已经列过模型的那家:已有的列表留着,不要被空表盖掉,也仍然是「测过」。 */
+    @Test
+    fun savingUntestedAgainKeepsAnExistingModelList() {
+        val s = store()
+        val p = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k", listOf(ListedModel("m1")))
+        val again = s.connect("X", ProviderConfig.Kind.OpenAiCompat, "https://x.test/v1", "k2", emptyList(), untested = true)
+        assertEquals(p.id, again.id)
+        assertEquals(listOf("m1"), again.models!!.map { it.id })
+        assertFalse("已经列过列表的不算没测过", again.savedUntested)
+        assertEquals("k2", s.providerKey(p.id))
+    }
+
     @Test
     fun modelsOfOneProviderShareOneKey() {
         val s = store()

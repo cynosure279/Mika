@@ -107,6 +107,9 @@ data class ProviderConfig(
  * [verifiedModels] 是在这家试调用(见 [ProviderStore.probe])得到过回复的模型名:不提供列表的服务商,模型名是手填的,
  * 没在这里的就没核实过(旧版本存下的都没有,那时不提供列表的服务商不试调用)。
  * [typedModels] 是用户手填、试调用通过后加进来的模型名(列表里没有、或这家列不出模型):刷新列表不丢,选模型时标「手填」。
+ * [savedUntested] 是用户跳过测试直接存下的一家(见 [ProviderStore.connect]):既没列过模型、也没试调用过,
+ * 所以 [models] 是空列表、[verifiedModels] 是空的,但那些「这家不提供列表」的说法对它不成立。
+ * 之后成功列过一次模型或试通过一次就清掉(见 [ProviderStore.rememberModels]、[ProviderStore.markVerified])。
  */
 data class Provider(
     val id: String,
@@ -122,6 +125,7 @@ data class Provider(
      * 标了的服务商详情里是账号登录的样子(退出登录、到对方页面删 Key),不是「更换 Key」。
      */
     val signIn: String? = null,
+    val savedUntested: Boolean = false,
 ) {
     val key: String get() = ProviderConnection.keyOf(kind, baseUrl, name)
 }
@@ -316,6 +320,8 @@ class ProviderStore(
      * [typed] 是其中用户手填的,记进 [Provider.typedModels]。
      * [signIn] 是 Key 的来历(见 [Provider.signIn]):用户自己填 Key 的为 null,授权来的为那一家的标记。
      * 两种来历各是各的服务商(地址、名字一样也不合并):授权不会顶掉用户自己填的 Key,退出登录也只删授权来的那把。
+     * [untested] 为真是用户跳过测试直接存下的(见 [Provider.savedUntested]):一个模型都没列、也没试调用。
+     * 已经有这一家、而且它列过模型或核实过时,不会因为这个参数被重新标成没测过。
      */
     @Synchronized
     fun connect(
@@ -324,11 +330,16 @@ class ProviderStore(
         verified: Set<String> = emptySet(),
         signIn: String? = null,
         typed: Set<String> = emptySet(),
+        untested: Boolean = false,
     ): Provider {
         val found = findOrAddProvider(name, kind, baseUrl, signIn)
+        // 跳过测试时没有列表可存:这家之前列过的留着,不要用空表把已有的列表盖掉
+        val listed = if (untested && models.isEmpty()) found.models ?: models else models
         val p = found.copy(
-            models = models, sessionHeader = sessionHeader,
+            models = listed, sessionHeader = sessionHeader,
             verifiedModels = found.verifiedModels + verified, typedModels = found.typedModels + typed,
+            // 这次没测、这家也没有核实过的模型、也没列过列表,才是「没测过」;别的情况一律按测过
+            savedUntested = untested && verified.isEmpty() && found.verifiedModels.isEmpty() && listed.isEmpty(),
         )
         _providers.value = _providers.value.map { if (it.id == p.id) p else it }
         if (apiKey != null) setKey(p.id, apiKey)
@@ -336,20 +347,28 @@ class ProviderStore(
         return p
     }
 
-    /** 记下服务商最近一次列出的模型。 */
+    /** 记下服务商最近一次列出的模型。列出来了,就说明「没测过」不再成立(跳过测试存下的那家在这里清掉标记)。 */
     @Synchronized
     fun rememberModels(providerId: String, models: List<ListedModel>) {
         if (provider(providerId) == null) return
-        _providers.value = _providers.value.map { if (it.id == providerId) it.copy(models = models) else it }
+        _providers.value = _providers.value.map {
+            if (it.id == providerId) it.copy(models = models, savedUntested = false) else it
+        }
         writeConfig()
     }
 
-    /** 记下 [model] 在这家试调用得到了回复(见 [Provider.verifiedModels])。 */
+    /**
+     * 记下 [model] 在这家试调用得到了回复(见 [Provider.verifiedModels])。
+     * 试通过了就说明「没测过」不再成立,跳过测试存下的那家在这里清掉标记——这个模型本来就在
+     * [Provider.verifiedModels] 里时也要清,不能直接返回。
+     */
     @Synchronized
     fun markVerified(providerId: String, model: String) {
         val p = provider(providerId) ?: return
-        if (model in p.verifiedModels) return
-        _providers.value = _providers.value.map { if (it.id == providerId) it.copy(verifiedModels = it.verifiedModels + model) else it }
+        if (model in p.verifiedModels && !p.savedUntested) return
+        _providers.value = _providers.value.map {
+            if (it.id == providerId) it.copy(verifiedModels = it.verifiedModels + model, savedUntested = false) else it
+        }
         writeConfig()
     }
 
@@ -807,6 +826,8 @@ class ProviderStore(
         signIn = o["signIn"]?.jsonPrimitive?.content,
         verifiedModels = o["verifiedModels"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty(),
         typedModels = o["typedModels"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty(),
+        // 旧版本存下的没有这一项:那时每一家都走过「测试并保存」,按测过算
+        savedUntested = o["untested"]?.jsonPrimitive?.booleanOrNull ?: false,
         models = o["models"]?.jsonArray?.map { e ->
             val m = e.jsonObject
             ListedModel(
@@ -877,6 +898,7 @@ class ProviderStore(
                         put("id", p.id); put("name", p.name); put("kind", p.kind.name); put("baseUrl", p.baseUrl)
                         p.sessionHeader?.let { put("sessionHeader", it) }
                         p.signIn?.let { put("signIn", it) }
+                        if (p.savedUntested) put("untested", true)
                         if (p.verifiedModels.isNotEmpty()) putJsonArray("verifiedModels") { p.verifiedModels.forEach { add(it) } }
                         if (p.typedModels.isNotEmpty()) putJsonArray("typedModels") { p.typedModels.forEach { add(it) } }
                         p.models?.let { models ->

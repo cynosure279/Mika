@@ -49,6 +49,11 @@
     <string name="model_manual_on">手動填寫模型名</string>
     <string name="model_manual_off">不填模型名</string>
     <string name="model_manual_note">填了模型名，「測試並儲存」就只用它試呼叫：這家不提供模型列表、列表裡沒有它、列模型出錯都不影響，試呼叫通了才儲存。</string>
+    <string name="model_save_untested">不測試，直接儲存</string>
+    <string name="model_save_untested_title">不測試就儲存？</string>
+    <string name="model_save_untested_body">Mika 會按你填的位址和 Key 存下這家服務商，不列模型、也不試呼叫。Mika 做事需要會呼叫工具的模型，沒測過的這一家可能連不通，也可能不會呼叫工具。存下之後可以在服務商頁「重新測試」。</string>
+    <string name="model_save_untested_confirm">仍然儲存</string>
+    <string name="model_saved_untested">已存下 %1$s，沒有測試過。它標著「沒測試過」；選一個模型時會先試呼叫，也可以在服務商頁「重新測試」。</string>
     <string name="cap_typed">手填</string>
     <string name="model_example_gemini">例如 gemini-flash-latest</string>
     <string name="model_example_anthropic">例如 claude-sonnet-4-5</string>

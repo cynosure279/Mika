@@ -150,6 +150,9 @@ data class AddForm(
     val canTest: Boolean get() =
         urlProblem == null && (!keyRequired || apiKey.isNotBlank()) && test != ListState.Running && (!noList || model.isNotBlank())
 
+    /** 不测试也能存:地址格式对、该有 Key 的有 Key。和 [canTest] 不同,不看测试进度,也不要求填模型名。 */
+    val canSaveUntested: Boolean get() = urlProblem == null && (!keyRequired || apiKey.isNotBlank()) && test != ListState.Running
+
     /** 自定义填的是某家服务商的官方地址(主机名对得上,见 [ProviderPresets.forHost]):建议改用那个预设。 */
     val suggestedPreset: ProviderPreset? get() = if (isCustom && urlProblem == null) ProviderPresets.forHost(baseUrl) else null
 
@@ -211,12 +214,14 @@ data class ModelSetupUi(
     /** 刚用账号登录成功的服务商 id:界面打开它的详情页(看账号和模型、设主模型),打开后清掉。 */
     val signedInProvider: String? = null,
     /**
-     * 刚存下服务商时试调用的说明(见 [ModelSetupViewModel.testAndSave]):先试的模型没通过、主模型用了哪个,
-     * 或一个都没通过、要用户自己选;再测试、选了主模型时清掉。
+     * 刚存下服务商时的说明:试调用先试的模型没通过、主模型用了哪个,或一个都没通过、要用户自己选
+     * (见 [ModelSetupViewModel.testAndSave]);或这家是跳过测试存下的(见 [ModelSetupViewModel.saveWithoutTest])。
+     * 再测试、选了主模型时清掉。
      */
     val probeNote: String? = null,
     /**
-     * 刚存下、试调用的模型一个都没通过的服务商 id:在它里面选主模型时先试调用(见 [probeBeforePick]);选好了清掉。
+     * 刚存下、还没有哪个模型试通过过的服务商 id:在它里面选主模型时先试调用(见 [probeBeforePick]);选好了清掉。
+     * 两个来源:试调用的模型一个都没通过,或用户跳过测试直接存下。
      */
     val pickToProbe: String? = null,
     /** 选择页里手填模型名后试调用的进度(按服务商 id)。 */
@@ -264,6 +269,13 @@ data class ModelSetupUi(
         if (p.kind == ProviderConfig.Kind.ChatGpt || p.kind == ProviderConfig.Kind.Xai || p.models?.isEmpty() != true) emptyList()
         else roles.referenced.mapNotNull { id -> configs.firstOrNull { it.id == id && it.providerId == p.id }?.model }
             .distinct().filter { it !in p.verifiedModels }
+
+    /**
+     * 这家是跳过测试直接存下的(见 [ModelSetupViewModel.saveWithoutTest]):既没列过模型、也没有一个模型试通过过。
+     * 服务商页据此说「还没测过」,而不是笼统的「不提供模型列表」——后者对它是错的。
+     * 之后列过一次模型、或试通过一次就不算(见 [ProviderStore.rememberModels]、[ProviderStore.markVerified])。
+     */
+    fun untested(p: Provider): Boolean = p.savedUntested
 
     /** 用账号登录的这一家已经退出了登录(ChatGPT、xAI 的令牌清了,OpenRouter 的 Key 删了)。 */
     fun signedOut(p: Provider): Boolean = when {
@@ -506,6 +518,49 @@ class ModelSetupViewModel(
                 snapshot(it.copy(
                     form = AddForm.of(ProviderPresets.all.first()), formOpen = false,
                     probeNote = probeNote(probed), pickToProbe = saved.id.takeIf { noneUsable },
+                ))
+            }
+        }
+    }
+
+    /**
+     * 不测试,直接保存:只按填的接口类型、地址和 Key 存下这家服务商,不列模型、不试调用(见 [AddForm.canSaveUntested])。
+     * 存下的这家带着 [Provider.savedUntested]:服务商页会说清它还没测过,并留着「重新测试」;
+     * 没有定主模型时还设 [ModelSetupUi.pickToProbe],之后从列表里选主模型会先试调用一次(见 [ModelSetupUi.probeBeforePick])。
+     *
+     * 手填了模型名([AddForm.typedModel])时,把它记为手填——列表里没有它、或这家列不出模型,刷新列表也不会丢——
+     * 并且还没有主模型就用它当主模型。**但这个模型同样没试调用过**,所以服务商页照样标「没测试过」,不是「已验证」。
+     *
+     * 列表参数给的是空列表(「列过但一个也没有」)而不是 null:这样「没列出模型」这件事和 [Provider.savedUntested]
+     * 一起把两种情形分清楚了——真的没有列表,还是这次没去列。旧的 [testAndSave] 一行都不动。
+     */
+    fun saveWithoutTest() {
+        val f = _state.value.form
+        if (!f.canSaveUntested) return
+        testJob?.cancel()
+        _state.update { it.copy(form = it.form.copy(test = ListState.Running), probeNote = null, pickToProbe = null) }
+        testJob = scope.launch {
+            val key = f.apiKey.trim()
+            val baseUrl = f.baseUrl.trim()
+            val typed = f.typedModel
+            val saved = withContext(io) {
+                val p = store.connect(
+                    f.providerName, f.kind, baseUrl, key.ifEmpty { null }, emptyList(), f.sessionHeader, untested = true,
+                )
+                if (typed.isEmpty()) return@withContext p
+                store.markTyped(p.id, typed)
+                // markTyped 换了一个新的 Provider 实例,重读之后再挂配置
+                store.provider(p.id)?.let { fresh ->
+                    if (store.roles.value.main == null) use(ModelRole.Main, fresh, typed, ModelOptions.ofProvider(fresh, store.list()))
+                    fresh
+                } ?: p
+            }
+            _state.update {
+                snapshot(it.copy(
+                    form = AddForm.of(ProviderPresets.all.first()), formOpen = false,
+                    probeNote = tr(R.string.model_saved_untested, f.providerName),
+                    // 没有主模型(没手填,或手填了但已经有主模型不算)时,选它会先试调用
+                    pickToProbe = saved.id.takeIf { store.roles.value.main == null },
                 ))
             }
         }

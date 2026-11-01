@@ -34,6 +34,7 @@
     <string name="models_models">Models</string>
     <string name="models_models_note">Tap a model to use it as the main, vision or light model.</string>
     <string name="models_no_list_note">This provider has no model list. To use one of its models, enter the name from its docs under “Roles”.</string>
+    <string name="models_untested_note">This provider was saved without a test, so nothing is known about whether it works. Pick a model to test it, or tap Refresh to list its models.</string>
     <string name="models_not_listed">This provider’s models haven’t been listed yet.</string>
     <string name="refresh">Refresh</string>
     <string name="models_in_use">In use</string>

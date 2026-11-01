@@ -776,4 +776,86 @@ class ModelSetupViewModelTest {
         vm.pickManual(ModelRole.Main, p.id, "deepseek-chat"); runCurrent()
         assertEquals(setOf("deepseek-v9"), store.provider(p.id)?.typedModels)
     }
+
+    // ---------- 不测试,直接保存 ----------
+
+    /** 一次网络都不打:不列模型、不试调用,只存下地址、Key 和「没测过」这件事。 */
+    @Test fun saveWithoutTestStoresProviderWithoutListingOrProbe() = runTest {
+        val store = store()
+        val vm = vm(store)
+        vm.setApiKey("sk-1"); vm.saveWithoutTest(); runCurrent()
+        assertTrue("一次列模型都没调", listCalls.isEmpty())
+        assertTrue("一次试调用都没有", built.isEmpty())
+        val p = store.providers.value.single()
+        assertEquals("DeepSeek", p.name)
+        assertEquals("sk-1", store.providerKey(p.id))
+        assertEquals(emptyList<ListedModel>(), p.models)
+        assertEquals(emptySet<String>(), p.verifiedModels)
+        assertTrue("标成没测过", p.savedUntested)
+        // 存进文件也在
+        assertTrue(store().provider(p.id)!!.savedUntested)
+        // 没有主模型:留给用户去选(选的时候先试调用)
+        assertNull(store.roles.value.main)
+        val s = vm.state.value
+        assertEquals(p.id, s.pickToProbe)
+        assertFalse("保存后表单收起", s.showForm)
+        assertEquals("", s.form.apiKey)
+        assertEquals(ListState.Idle, s.form.test)
+        assertTrue("存好后说清它没测过", s.probeNote?.contains(p.name) == true)
+    }
+
+    /** 手填了模型名:记为手填、当主模型,但仍然是一次试调用都没打。 */
+    @Test fun saveWithoutTestWithTypedModelUsesItAsMainWithoutProbing() = runTest {
+        val store = store()
+        val vm = vm(store)
+        vm.setApiKey("sk"); vm.setManual(true); vm.setModel("deepseek-v9")
+        vm.saveWithoutTest(); runCurrent()
+        assertTrue(built.isEmpty())
+        assertTrue(listCalls.isEmpty())
+        val p = store.providers.value.single()
+        assertEquals(setOf("deepseek-v9"), p.typedModels)
+        assertEquals(emptySet<String>(), p.verifiedModels)
+        assertTrue(p.savedUntested)
+        assertEquals("deepseek-v9", store.configFor(ModelRole.Main)?.model)
+        assertEquals(listOf("deepseek-v9"), store.list().map { it.model })
+        // 已经有主模型了,不用再去选
+        assertNull(vm.state.value.pickToProbe)
+    }
+
+    /** 地址格式不对、或该填 Key 的没填,什么都不存。 */
+    @Test fun saveWithoutTestRefusesAnInvalidForm() = runTest {
+        val store = store()
+        val vm = vm(store)
+        assertFalse("还没填 Key", vm.state.value.form.canSaveUntested)
+        vm.saveWithoutTest(); runCurrent()
+        assertTrue(store.providers.value.isEmpty())
+        vm.selectPreset(ProviderPresets.custom.label)
+        vm.setBaseUrl("api.deepseek.com")
+        vm.setApiKey("sk")
+        assertFalse("地址没写协议", vm.state.value.form.canSaveUntested)
+        vm.saveWithoutTest(); runCurrent()
+        assertTrue(store.providers.value.isEmpty())
+        // 自己跑的服务不要 Key,可以存
+        vm.setBaseUrl("http://127.0.0.1:11434/v1")
+        vm.setApiKey("")
+        assertTrue(vm.state.value.form.canSaveUntested)
+    }
+
+    /** 已经测过的那家再跳过测试存一次:服务商不重复,Key 换成新的,已核实过的模型留着。 */
+    @Test fun saveWithoutTestKeepsExistingProviderAndItsVerifiedModels() = runTest {
+        listing[deepseekUrl] = deepseek
+        val store = store()
+        val vm = vm(store)
+        vm.setApiKey("sk-1"); vm.testAndSave(); runCurrent()
+        val p = store.providers.value.single()
+        assertEquals(setOf("deepseek-chat"), p.verifiedModels)
+        assertFalse(p.savedUntested)
+        vm.openForm(); vm.setApiKey("sk-2"); vm.saveWithoutTest(); runCurrent()
+        assertEquals("不重复添加", 1, store.providers.value.size)
+        val after = store.provider(p.id)!!
+        assertEquals("sk-2", store.providerKey(p.id))
+        assertEquals("列过的列表留着", listOf("deepseek-chat", "deepseek-reasoner", "deepseek-coder"), after.models!!.map { it.id })
+        assertEquals(setOf("deepseek-chat"), after.verifiedModels)
+        assertFalse("核实过的模型让这家不算没测过", after.savedUntested)
+    }
 }
