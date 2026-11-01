@@ -165,7 +165,7 @@ private fun ScreenCard(row: ScreenRow, frames: StateFlow<Bitmap?>?, onOpenConver
 private fun LiveFrame(source: StateFlow<Bitmap?>) {
     val frames = remember(source) { source.filterNotNull().previewFrames(same = ::sameFrame) }
     val frame by frames.collectAsState(initial = null)
-    val bmp: Bitmap? = frame ?: return
+    val bmp = frame ?: return
     Image(
         bmp.asImageBitmap(), stringResource(R.string.screens_preview),
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp)
