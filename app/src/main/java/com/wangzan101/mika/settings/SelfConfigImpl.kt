@@ -1,6 +1,5 @@
 package com.wangzan101.mika.settings
 
-import com.wangzan101.mika.cap.sandbox.SandboxState
 import com.wangzan101.mika.core.cap.phone.OperatingPace
 import com.wangzan101.mika.core.settings.SelfConfig
 
@@ -8,11 +7,11 @@ import com.wangzan101.mika.core.settings.SelfConfig
  * 模型能改的那几项设置。[FeatureFlags] 是存储,这里只挑可逆的偏好交给模型:
  *
  * **不给的**:模型与 Key(换掉自己的脑子、花用户的钱)、任何删除数据(清工作区、重置运行环境、删对话)——不可逆。
+ * **也不给**:容器的联网与代理——打开后数据可能离开手机,这道线要用户自己在设置里决定。
  * 给的都能随手改回去。
  */
 class SelfConfigImpl(
     private val flags: FeatureFlags,
-    private val sandbox: () -> SandboxState? = { null },
 ) : SelfConfig {
     override fun options(): List<SelfConfig.Option> = listOf(
         SelfConfig.Option(KEY_PACE, "操作节奏", flags.operatingPace().name.lowercase(), listOf("fast", "standard", "human")),
@@ -20,7 +19,6 @@ class SelfConfigImpl(
         SelfConfig.Option(KEY_THEME, "外观", flags.themeMode().name.lowercase(), listOf("system", "light", "dark")),
         SelfConfig.Option(KEY_CAPSULE, "悬浮胶囊", flags.capsuleMode().name.lowercase(), listOf("off", "duringtasks", "always")),
         SelfConfig.Option(KEY_KEEP_ON, "干活时屏幕常亮", onOff(flags.keepScreenOn()), ON_OFF),
-        SelfConfig.Option(KEY_NETWORK, "容器的脚本可以联网", onOff(sandbox()?.networkAllowed == true), ON_OFF),
     )
 
     override fun set(key: String, value: String): String? {
@@ -56,10 +54,6 @@ class SelfConfigImpl(
                 null
             }
             KEY_KEEP_ON -> bool { flags.setKeepScreenOn(it) }
-            KEY_NETWORK -> {
-                val s = sandbox() ?: return "the container is not available on this device"
-                bool { s.networkAllowed = it }
-            }
             else -> "there is no such setting"
         }
     }
@@ -74,6 +68,5 @@ class SelfConfigImpl(
         const val KEY_THEME = "appearance"
         const val KEY_CAPSULE = "capsule"
         const val KEY_KEEP_ON = "keep_screen_on"
-        const val KEY_NETWORK = "container_network"
     }
 }

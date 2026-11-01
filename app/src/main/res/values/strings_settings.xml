@@ -92,5 +92,5 @@
     <string name="appearance_light">Always light</string>
     <string name="appearance_dark">Always dark</string>
     <string name="settings_self_config">Let Mika change its own settings</string>
-    <string name="settings_self_config_sub">When on, tasks get one tool to read and change these preferences (pace, mute, capsule, appearance, screen-on, container network). Models, API keys and anything that deletes data are never included</string>
+    <string name="settings_self_config_sub">When on, tasks get one tool to read and change these preferences (pace, mute, capsule, appearance, screen-on). Models, API keys, container network and anything that deletes data are never included</string>
 </resources>

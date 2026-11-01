@@ -14,12 +14,14 @@ class SelfConfigImplTest {
 
     @Test fun offersOnlyPreferencesAvailableToday() {
         val keys = SelfConfigImpl(flags()).options().map { it.key }.toSet()
-        assertEquals(setOf("operating_pace", "mute_apps", "appearance", "capsule", "keep_screen_on", "container_network"), keys)
+        assertEquals(setOf("operating_pace", "mute_apps", "appearance", "capsule", "keep_screen_on"), keys)
     }
 
     @Test fun modelsKeysAndAnythingThatDeletesDataAreNotOffered() {
         val keys = SelfConfigImpl(flags()).options().map { it.key }
         assertTrue(keys.none { k -> listOf("model", "key", "delete", "reset", "clear").any { it in k } })
+        // 容器的联网与代理会让数据离开手机,也要用户自己在设置里决定
+        assertTrue("container_network" !in keys)
     }
 
     @Test fun changingAPreferenceTakesEffect() {
@@ -43,6 +45,6 @@ class SelfConfigImplTest {
         assertNotNull(s.set("appearance", "sepia"))
         assertNotNull(s.set("mute_apps", "maybe"))
         assertEquals("there is no such setting", s.set("api_key", "sk-123"))
-        assertEquals("the container is not available on this device", s.set("container_network", "off"))
+        assertEquals("there is no such setting", s.set("container_network", "on"))
     }
 }

@@ -85,5 +85,5 @@
     <string name="appearance_light">一直浅色</string>
     <string name="appearance_dark">一直深色</string>
     <string name="settings_self_config">允许 Mika 改自己的设置</string>
-    <string name="settings_self_config_sub">打开后，任务里会多一件工具，能看和改这些偏好（操作节奏、静音、胶囊、外观、屏幕常亮、容器联网）。模型和 Key、任何删数据的操作都不在其中</string>
+    <string name="settings_self_config_sub">打开后，任务里会多一件工具，能看和改这些偏好（操作节奏、静音、胶囊、外观、屏幕常亮）。模型和 Key、容器联网、任何删数据的操作都不在其中</string>
 </resources>
