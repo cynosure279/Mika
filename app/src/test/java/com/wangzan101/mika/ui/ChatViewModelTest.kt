@@ -80,6 +80,12 @@ class ChatViewModelTest {
         ChatViewModel(backgroundScope, state, stage, actions, store, appLabel = { if (it == "com.chat") "聊天" else it },
             activities = acts, steers = steerFlow).also { runCurrent() }
 
+    /** 和 [vm] 一样,但能指定「小画面开不开」和这块屏开没开。 */
+    private fun TestScope.vmWithPip(open: MutableStateFlow<Boolean>, allowed: Boolean) =
+        ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()),
+            appLabel = { if (it == "com.chat") "聊天" else it }, activities = acts, steers = steerFlow,
+            screenOpen = open, pipAllowed = { allowed }).also { runCurrent() }
+
     private fun TestScope.emit(s: TaskState) {
         state.value = s
         runCurrent()
@@ -1746,5 +1752,27 @@ class ChatViewModelTest {
         assertEquals(listOf(joined) to listOf(received, pending), steersAroundDraft(listOf(joined, received, pending)))
         assertEquals(listOf(joined) to emptyList<SteerNote>(), steersAroundDraft(listOf(joined)))
         assertEquals(emptyList<SteerNote>() to listOf(received), steersAroundDraft(listOf(received)))
+    }
+    /** 设置 › 干活时 ›「用小画面显示虚拟屏」关掉之后:屏开了也不浮出来,任务照常在跑。 */
+    @Test fun smallWindowCanBeTurnedOff() = runTest {
+        val open = MutableStateFlow(false)
+        val vm = vmWithPip(open, allowed = false)
+        vm.send("打开设置看电量", ok)
+        emit(TaskState.Running(0, "正在准备"))
+        open.value = true
+        runCurrent()
+        assertFalse("关掉之后不显示小画面", vm.ui.value.pip.visible)
+        assertEquals(ExchangeStatus.Working, vm.ui.value.exchanges.single().status)
+    }
+
+    /** 默认开着:屏一开就浮出来,和从前一样。 */
+    @Test fun smallWindowShowsByDefault() = runTest {
+        val open = MutableStateFlow(false)
+        val vm = vmWithPip(open, allowed = true)
+        vm.send("打开设置看电量", ok)
+        emit(TaskState.Running(0, "正在准备"))
+        open.value = true
+        runCurrent()
+        assertTrue(vm.ui.value.pip.visible)
     }
 }

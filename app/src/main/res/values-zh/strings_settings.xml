@@ -79,4 +79,6 @@
     <string name="routes_clear_title">清除全部已记住的操作路线?</string>
     <string name="routes_clear_body">清除后,做过的事下次会重新一步步来做,不影响别的设置。</string>
     <string name="clear">清除</string>
+    <string name="settings_pip">用小画面显示虚拟屏</string>
+    <string name="settings_pip_sub">开：任务进行时那块屏以小画面浮在对话上。关：不浮出来，想看就从侧栏进「虚拟屏」</string>
 </resources>

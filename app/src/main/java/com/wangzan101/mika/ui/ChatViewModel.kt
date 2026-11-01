@@ -290,6 +290,8 @@ class ChatViewModel(
     private val endedRunIds: StateFlow<Map<String, String?>>? = null,
     /** 开关 parallelTasks:打开时不同对话的任务可以同时跑,界面只跟着屏上这个对话的任务。界面没在跟任务时重读。 */
     private val parallelFlag: () -> Boolean = { false },
+    /** 对话页上要不要显示「小画面」(画中画)。关掉之后屏还在,只是不浮在对话上。 */
+    private val pipAllowed: () -> Boolean = { true },
     /** 服务显示中的任务:(对话, 状态),两者一起写;并行时用它代替 [taskState],别的对话的状态不进来。 */
     private val shownTask: StateFlow<Pair<String, TaskState>?> = MutableStateFlow(null),
     /** 正在跑或排队的任务所在的对话。 */
@@ -582,12 +584,16 @@ class ChatViewModel(
         screenSeen = true
         _ui.update { ui ->
             val live = ui.exchanges.getOrNull(liveIndex)
-            if (live != null && live.status.active()) ui.copy(pip = ui.pip.copy(visible = true)) else ui
+            if (live != null && live.status.active()) ui.copy(pip = gated(ui.pip.copy(visible = true))) else ui
         }
     }
 
-    /** 没开过屏时画中画不显示(其余字段照算,开屏那一刻直接用)。 */
-    private fun gated(p: PipUi) = if (screenSeen) p else p.copy(visible = false, expanded = false)
+    /**
+     * 小画面什么时候给:屏得开过,而且设置 › 干活时 ›「用小画面显示虚拟屏」开着。
+     * 关掉时其余字段照算,只是不浮出来——屏本身还在,去侧栏 ›「虚拟屏」看。
+     */
+    private fun gated(p: PipUi) =
+        if (screenSeen && pipAllowed()) p else p.copy(visible = false, expanded = false)
 
 
     /** 长按消息选了「引用」:引的内容放到输入框上方,随下一句话发出去(新任务、插话、回答都带)。空的不引。 */

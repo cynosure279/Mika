@@ -86,4 +86,6 @@
     <string name="routes_clear_title">Clear all saved routes?</string>
     <string name="routes_clear_body">After clearing, Mika works things out step by step again next time. Other settings aren’t affected.</string>
     <string name="clear">Clear</string>
+    <string name="settings_pip">Show the screen as a small floating window</string>
+    <string name="settings_pip_sub">On: while a task runs, its screen floats over the chat. Off: nothing floats; open “Virtual screens” from the side menu to watch</string>
 </resources>

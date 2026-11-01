@@ -189,6 +189,8 @@ fun DuringWorkScreen(
     muteTarget: Boolean, onMuteTarget: (Boolean) -> Unit,
     parallel: ParallelSetting?, onParallelMax: (Int) -> Unit, onBack: () -> Unit,
     operatingPace: OperatingPace = OperatingPace.DEFAULT, onOperatingPace: (OperatingPace) -> Unit = {},
+    /** 对话页上那个显示虚拟屏的小画面(画中画);关掉之后看屏走侧栏 ›「虚拟屏」。 */
+    pip: Boolean = true, onPip: (Boolean) -> Unit = {},
 ) {
     PageScaffold(stringResource(R.string.settings_during_work), onBack) {
         GroupCard {
@@ -197,6 +199,9 @@ fun DuringWorkScreen(
             }
             ListRow(MikaIcons.Mute, stringResource(R.string.settings_mute), stringResource(R.string.settings_mute_sub), onClick = { onMuteTarget(!muteTarget) }) {
                 MikaSwitch(muteTarget, onMuteTarget, Modifier.testTag("work-mute-target"))
+            }
+            ListRow(MikaIcons.Eye, stringResource(R.string.settings_pip), stringResource(R.string.settings_pip_sub), onClick = { onPip(!pip) }) {
+                MikaSwitch(pip, onPip, Modifier.testTag("work-pip"))
             }
             parallel?.let { ParallelRow(it, onParallelMax) }
         }

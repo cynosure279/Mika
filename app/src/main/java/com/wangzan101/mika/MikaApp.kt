@@ -253,6 +253,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             endedRunId = taskState.endedRunId,
             endedRunIds = taskState.endedRunIds,
             parallelFlag = { FeatureFlags.get(app).speedFlags().parallelTasks },
+            pipAllowed = { FeatureFlags.get(app).pipOn() },
             shownTask = taskState.shownTask,
             activeConversations = taskState.activeConversations,
             runGoal = { taskState.run(it)?.goal },
