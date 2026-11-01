@@ -179,7 +179,8 @@ class TaskService : Service() {
         val run = if (intent?.hasExtra(EXTRA_RUN) == true) intent.getStringExtra(EXTRA_RUN)?.let(center::byKey) else taskState.shownRun
         when (intent?.action) {
             ACTION_START -> begin(intent.getStringExtra(EXTRA_GOAL).orEmpty(), intent.getStringExtra(EXTRA_CONVERSATION),
-                allowQueue = intent.getBooleanExtra(EXTRA_QUEUE, false), messageId = intent.getStringExtra(EXTRA_MESSAGE_ID))
+                allowQueue = intent.getBooleanExtra(EXTRA_QUEUE, false), messageId = intent.getStringExtra(EXTRA_MESSAGE_ID),
+                onMainScreen = intent.getBooleanExtra(EXTRA_ON_MAIN_SCREEN, false))
             ACTION_START_TRIGGER -> begin(intent.getStringExtra(EXTRA_GOAL).orEmpty(), intent.getStringExtra(EXTRA_CONVERSATION),
                 allowQueue = true, provenance = RunProvenance(RunOrigin.Trigger, Attendance.Unattended),
                 triggerKey = intent.getStringExtra(EXTRA_TRIGGER_KEY),
@@ -215,7 +216,8 @@ class TaskService : Service() {
 
     private fun begin(newGoal: String, requestedConversation: String?, allowQueue: Boolean = false,
         provenance: RunProvenance = RunProvenance(), triggerKey: String? = null,
-        triggerActionGoal: String? = null, triggerThreadId: String? = null, mcpExternalId: String? = null, messageId: String? = null) {
+        triggerActionGoal: String? = null, triggerThreadId: String? = null, mcpExternalId: String? = null, messageId: String? = null,
+        onMainScreen: Boolean = false) {
         parallel = FeatureFlags.get(this).speedFlags().parallelTasks
         // 同一对话里正在执行或排队的任务收到新原话时，交给它的 Inbox。
         requestedConversation?.let(center::byConversation)?.let { existing ->
@@ -257,6 +259,7 @@ class TaskService : Service() {
                     center.store.save(it.copy(triggerWindowKey = triggerKey))
                 }
                 r.run.mcpExternalId = mcpExternalId
+                r.run.onMainScreen = onMainScreen
                 taskState._busy.value = true
                 taskState._conversationId.value = conversationId
                 // 先登记再显示:界面收到它的状态时,任务列表里已经有它(对话、原话)
@@ -280,6 +283,7 @@ class TaskService : Service() {
                     center.store.save(it.copy(triggerWindowKey = triggerKey))
                 }
                 run.mcpExternalId = mcpExternalId
+                run.onMainScreen = onMainScreen
                 // 先登记再显示:界面收到它的状态时,任务列表里已经有它(对话、原话)
                 publishRuns()
                 run.show()
@@ -826,6 +830,8 @@ class TaskService : Service() {
         private const val EXTRA_ANSWER = "answer"
         /** 通知按钮所属任务的编号([TaskRun.key])。 */
         const val EXTRA_RUN = "com.wangzan101.mika.task.RUN"
+        /** 这次任务直接在用户的主屏上做(不建虚拟屏);只有用户在对话里勾了才带上。 */
+        private const val EXTRA_ON_MAIN_SCREEN = "on_main_screen"
         /** 等用户回答确认最多这么久,到时按不同意(不在手机旁时任务不会一直挂着,也绝不自动同意)。 */
         const val CONFIRM_TIMEOUT_MS = 15 * 60_000L
         private const val KEY_REPLY = "reply"
@@ -862,12 +868,16 @@ class TaskService : Service() {
 
         /** 开始一个任务;已有任务在跑时忽略。[conversationId] 为空表示新开一个对话(编号见 [conversationId])。 */
         /** [messageId] 给了时这是任务进行中插的话,界面按它跟这句话的去向;[queue] 为 true 时别的任务在跑也排上(留下的话)。 */
-        fun start(context: Context, goal: String, conversationId: String? = null, messageId: String? = null, queue: Boolean = false) {
+        fun start(
+            context: Context, goal: String, conversationId: String? = null, messageId: String? = null, queue: Boolean = false,
+            onMainScreen: Boolean = false,
+        ) {
             context.startForegroundService(
                 Intent(context, TaskService::class.java).setAction(ACTION_START).putExtra(EXTRA_GOAL, goal)
                     .apply { if (conversationId != null) putExtra(EXTRA_CONVERSATION, conversationId) }
                     .apply { if (messageId != null) putExtra(EXTRA_MESSAGE_ID, messageId) }
-                    .apply { if (queue) putExtra(EXTRA_QUEUE, true) },
+                    .apply { if (queue) putExtra(EXTRA_QUEUE, true) }
+                    .apply { if (onMainScreen) putExtra(EXTRA_ON_MAIN_SCREEN, true) },
             )
         }
 

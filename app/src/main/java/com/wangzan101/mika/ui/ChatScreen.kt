@@ -359,6 +359,8 @@ fun ChatScreen(
             steerTarget = last?.goal?.let(ChatCopy::plainTitle),
             onVoiceHolding = { voiceHolding = it },
             editRequest = editRequest,
+            onMainScreen = ui.onMainScreen,
+            onMainScreenChange = vm::setOnMainScreen,
         )
 
         AgentPip(
@@ -1061,6 +1063,9 @@ internal fun Composer(
     steerTarget: String? = null,
     /** 按着说话时为 true:对话内容跟着虚化。 */
     onVoiceHolding: (Boolean) -> Unit = {},
+    /** 这一句要不要让 Mika 直接在用户的主屏上做(只在新任务时有意义)。 */
+    onMainScreen: Boolean = false,
+    onMainScreenChange: (Boolean) -> Unit = {},
 ) {
     val c = MikaTheme.colors
     val vh = rememberVoiceHold(voice, onVoiceText)
@@ -1137,6 +1142,15 @@ internal fun Composer(
     ) {
         Column(Modifier.fillMaxWidth()) {
             quote?.let { QuoteChip(it, onRemoveQuote, Modifier.padding(bottom = 6.dp)) }
+            // 只在新任务时可切:任务在跑时发出去的是插话,跟着那个任务的屏走
+            if (!busy && mode != ComposerMode.Answer) {
+                Text(
+                    if (onMainScreen) stringResource(R.string.chat_screen_main) else stringResource(R.string.chat_screen_background),
+                    Modifier.padding(start = 4.dp, bottom = 6.dp)
+                        .clickable { onMainScreenChange(!onMainScreen) }.testTag("composer-main-screen"),
+                    style = MikaType.Caption, color = if (onMainScreen) c.warn else c.ink3,
+                )
+            }
             if (attachments.isNotEmpty()) PendingTray(attachments, onRemove, Modifier.padding(bottom = 2.dp))
             if (importing || rejected.isNotEmpty() || overLimit > 0) {
                 Column(Modifier.fillMaxWidth().padding(start = 4.dp, bottom = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

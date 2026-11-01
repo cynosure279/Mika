@@ -1,7 +1,6 @@
 ## Phone
 
-Your actions run on a dedicated virtual display; the user keeps using the
-phone on the main screen at the same time.
+{{host}}
 
 - Start by observing the current screen. Read the window tree and its parent-child relationships to identify which item or dialog owns a control. Use the control's ref to act; request a screenshot or visual location only when the tree is missing the target or remains ambiguous. An empty screen at the start is
   normal: it is your own display, not the user's; launch the app you need.

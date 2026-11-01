@@ -112,6 +112,22 @@ interface IMikaShell {
     // 返回 AppsAfterTask.KEY_* :kept=留下的键,closed=关掉的「键:原因」,note=挪不了时的一句原因(可为空)。不是 Mika 的屏为 null
     Bundle finishDisplay(int displayId, in String[] keep, in String[] close) = 48;
 
+    // ---- 在用户的主屏(Display.DEFAULT_DISPLAY)上操作:每个方法多一个 allowMain ----
+    // 这些是「故意在用户自己的屏上动」的入口,只有拿着主屏任务的内置助手调用方才会传 true。
+    // 上面那些不带 allowMain 的老方法语义不变:传主屏的屏号一律拒绝,调用方传错屏号也不会打扰用户。
+    // allowMain 为 true 时:inUseOnMainScreen 一类的避让检查不再做(那块屏就是我们要用的),
+    // 但屏号仍必须是主屏(别的屏照旧只认自己建的)。AIDL 不能改已有方法的签名:老助手进程可能还活着。
+    int startAppOn(int displayId, String packageName, boolean allowMain) = 49;
+    int restartAppOn(int displayId, String packageName, boolean allowMain) = 50;
+    int startViewOn(int displayId, String action, String uri, String packageName, boolean allowMain) = 51;
+    int startShareOn(int displayId, String packageName, String text, boolean allowMain) = 52;
+    int startSystemActionOn(int displayId, in Intent intent, in PendingIntent asMika, boolean allowMain) = 53;
+    boolean injectCtrlKeyOn(int displayId, int keyCode, boolean allowMain) = 54;
+    boolean injectStrokeOn(int displayId, in int[] xs, in int[] ys, in long[] times, boolean allowMain) = 55;
+    Bundle runSystemCommandOn(int displayId, String command, boolean allowMain) = 56;
+    String topActivityOn(int displayId, boolean allowMain) = 57;
+    int startAppInUserOn(int displayId, String packageName, int userId, boolean cold, boolean allowMain) = 58;
+
     // 沿用早先定下的销毁事务号;AIDL 要求要么全部方法编号要么都不编号
     void destroy() = 16777114;
 }

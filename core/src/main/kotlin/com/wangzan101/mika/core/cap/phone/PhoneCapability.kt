@@ -12,6 +12,7 @@ import com.wangzan101.mika.core.capability.PromptEnv
 import com.wangzan101.mika.core.uistate.Surface
 import com.wangzan101.mika.core.observation.Look
 import com.wangzan101.mika.core.prompt.Prompts
+import com.wangzan101.mika.core.uistate.ScreenHost
 import com.wangzan101.mika.core.uistate.ScreenPort
 import com.wangzan101.mika.core.tool.AgentTool
 import com.wangzan101.mika.core.tool.ArgError
@@ -37,6 +38,8 @@ internal class PhoneCapability(
     pacing: AppPacing = AppPacing.Off,
     appPace: (String) -> PlacePace = { PlacePace.NORMAL },
     idle: IdleScroll? = null,
+    /** 这次任务在哪块屏上操作:虚拟屏还是用户的主屏。只影响提示词那一段怎么写。 */
+    private val host: ScreenHost = ScreenHost.Virtual,
 ) : Capability {
     val dwell = AppDwell(pacing, appPace, idle)
 
@@ -59,7 +62,7 @@ internal class PhoneCapability(
     /** 手机一段跟着打开、列出 App 的工具走;手机那一组收着时不给。 */
     override fun sections(env: PromptEnv): List<String> {
         if (!env.isOpen(id) || tools.none { it.verb in SECTION_VERBS && it.name in env.offered }) return emptyList()
-        return listOf(env.gate(Prompts.capability(PHONE)))
+        return listOf(env.gate(Prompts.capability(PHONE).replace(HOST_PLACEHOLDER, hostNote(host))))
     }
 
     override fun onTaskStart(ctx: ToolContext) {
@@ -112,6 +115,25 @@ internal class PhoneCapability(
     companion object {
         val KEY = CapabilityKey<PhoneCapability>(PHONE)
         private val SECTION_VERBS = setOf(Verb.LaunchApp, Verb.ListApps)
+
+        /** 手机那一段开头那句「这次在哪块屏上做」的占位符。 */
+        private const val HOST_PLACEHOLDER = "{{host}}"
+
+        /** 后台虚拟屏(默认):用户同时在主屏上用手机。和从前一字不差。 */
+        private const val HOST_VIRTUAL =
+            "Your actions run on a dedicated virtual display; the user keeps using the
+phone on the main screen at the same time."
+
+        /**
+         * 用户的主屏:动作就在用户眼前发生,这段时间手机归 Mika 用。要求模型改得少、交代得清楚,
+         * 结束后把屏留在能看到结果的地方(不能像后台屏那样「反正用户看不见」)。
+         */
+        private const val HOST_MAIN =
+            "Your actions run on the phone's own screen, the one the user is looking at. The user cannot use the phone while " +
+                "this runs, so keep it short: open only what the task needs, change nothing else, and leave the screen showing " +
+                "what the task produced. Anything you do is visible to the user as it happens."
+
+        private fun hostNote(host: ScreenHost): String = if (host == ScreenHost.Main) HOST_MAIN else HOST_VIRTUAL
 
         /** 在 App 里换屏的动作:受限制浏览快慢的 App 的屏数上限拦。 */
         private val BROWSES = setOf(Verb.Tap, Verb.Swipe, Verb.Back, Verb.PressKey, Verb.PhoneGesture)

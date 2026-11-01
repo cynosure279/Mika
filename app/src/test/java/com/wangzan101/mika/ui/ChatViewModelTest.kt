@@ -51,7 +51,7 @@ class ChatViewModelTest {
     private val steerIds = mutableListOf<String>()
     private var canWithdraw = true
     private val actions = object : TaskActions {
-        override fun start(goal: String, conversationId: String) { calls += "start:$goal" }
+        override fun start(goal: String, conversationId: String, onMainScreen: Boolean) { calls += if (onMainScreen) "start@main:$goal" else "start:$goal" }
         override fun steer(conversationId: String, messageId: String, text: String) { calls += "steer:$text"; steerIds += messageId }
         override fun withdrawSteer(conversationId: String, messageId: String): Boolean {
             calls += "withdraw:$messageId"
@@ -104,6 +104,19 @@ class ChatViewModelTest {
         assertTrue(vm.send("查天气", Prerequisites.check(ready.copy(notificationsAllowed = false), hasMainModel = true)))
         assertNull(vm.ui.value.blocked)
         assertEquals(listOf("start:查天气"), calls)
+    }
+
+    /** 「在你的屏幕上做」是这一次发送的选择:带进任务,发完复位,下一句还是默认在后台屏上做。 */
+    @Test fun mainScreenChoiceIsPerSendAndResets() = runTest {
+        val vm = vm()
+        vm.setOnMainScreen(true)
+        assertTrue(vm.ui.value.onMainScreen)
+        assertTrue(vm.send("打开设置看电量", ok))
+        assertEquals(listOf("start@main:打开设置看电量"), calls)
+        assertFalse("发完就复位", vm.ui.value.onMainScreen)
+        // 任务在跑时不能改(这时发出去的是插话,跟着那个任务走)
+        vm.setOnMainScreen(true)
+        assertFalse(vm.ui.value.onMainScreen)
     }
 
     @Test fun showsStepsFromState() = runTest {

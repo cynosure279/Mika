@@ -4,6 +4,7 @@ import com.wangzan101.mika.core.agent.CoreSections
 import com.wangzan101.mika.core.agent.DO_STEPS_TOOL
 import com.wangzan101.mika.core.cap.phone.AppPacing
 import com.wangzan101.mika.core.cap.phone.PHONE
+import com.wangzan101.mika.core.uistate.ScreenHost
 import com.wangzan101.mika.core.cap.phone.PhoneCapability
 import com.wangzan101.mika.core.cap.sandbox.SandboxCapability
 import com.wangzan101.mika.core.cap.sandbox.SANDBOX
@@ -107,6 +108,8 @@ fun toolDispatcher(
     childHost: ChildRunHost? = null,
     /** 这个对话里用户发来的屏幕;给了而这次的话或之前几轮里带着屏幕时提供 view_user_screen。 */
     userScreens: UserScreenSource? = null,
+    /** 这次任务在哪块屏上操作(虚拟屏 / 用户的主屏):只影响手机那一段提示词怎么写。 */
+    screenHost: ScreenHost = ScreenHost.Virtual,
     /** 用户的个人技能;和 [skills]、[utterances] 都给了才提供 skill_save(用户要求时写下或改一份个人技能)。 */
     personalSkills: PersonalSkills? = null,
 ): ToolDispatcher {
@@ -115,7 +118,7 @@ fun toolDispatcher(
     val providers: List<CapabilityProvider> = listOf(
         object : CapabilityProvider {
             override val id = PHONE
-            override fun open(spec: RunSpec) = PhoneCapability(screen, deepLinks, appPacing(), appPace, appIdleScroll())
+            override fun open(spec: RunSpec) = PhoneCapability(screen, deepLinks, appPacing(), appPace, appIdleScroll(), screenHost)
         },
         object : CapabilityProvider {
             override val id = WEB

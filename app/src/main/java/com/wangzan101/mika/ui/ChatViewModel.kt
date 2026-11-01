@@ -51,7 +51,8 @@ import com.wangzan101.mika.core.userscreen.UserScreenMessage
 
 /** 界面对任务服务能做的事;真机上由 TaskService 实现,测试里换成记录调用。 */
 interface TaskActions {
-    fun start(goal: String, conversationId: String)
+    /** [onMainScreen] 为真时这次任务直接在用户的主屏上做(见 [TaskService.start])。 */
+    fun start(goal: String, conversationId: String, onMainScreen: Boolean = false)
     /** 任务进行中在它的对话里插的话;[messageId] 用来跟这句话的去向。 */
     fun steer(conversationId: String, messageId: String, text: String) = start(text, conversationId)
     fun withdrawSteer(conversationId: String, messageId: String): Boolean = false
@@ -255,6 +256,8 @@ data class ChatUi(
     val overLimit: Int = 0,
     /** 输入框上方要随下一句话发出去的引用(长按消息选「引用」);没有为 null。换对话时清掉。 */
     val quote: QuoteMessage.Quote? = null,
+    /** 这一句要不要让 Mika 直接在用户的主屏上做(每次发完就复位)。 */
+    val onMainScreen: Boolean = false,
 ) {
     /** 任务此刻正在后台的虚拟屏上操作(输入框上方那行提示):开过屏、在干活,不在等你或等解锁。 */
     val operatingPhone: Boolean
@@ -599,6 +602,12 @@ class ChatViewModel(
     fun clearQuote() = _ui.update { it.copy(quote = null) }
 
     /** 发送输入框里的话;有引用时引用写在话的前面(见 [QuoteMessage]),发出去后清掉。返回 false 表示没发出去(条件不满足,或任务在跑)。 */
+    /** 这一句要不要在主屏上做。只在新任务时有意义:任务在跑时发的是插话,跟着那个任务走。 */
+    fun setOnMainScreen(on: Boolean) {
+        if (_ui.value.composer != ComposerMode.Idle) return
+        _ui.update { it.copy(onMainScreen = on) }
+    }
+
     fun send(text: String, check: Prerequisites.Check): Boolean {
         refreshParallel()
         val ui = _ui.value
@@ -626,7 +635,7 @@ class ChatViewModel(
             _ui.update { it.copy(blocked = check.blockers) }
             return false
         }
-        begin(goal, ui.conversationId ?: store.newConversation())
+        begin(goal, ui.conversationId ?: store.newConversation(), ui.onMainScreen)
         return true
     }
 
@@ -641,6 +650,7 @@ class ChatViewModel(
             return false
         }
         val id = _ui.value.conversationId ?: store.newConversation()
+        val onMain = _ui.value.onMainScreen
         _ui.update { it.copy(conversationId = id, importing = true, rejectedAttachments = emptyList(), overLimit = 0) }
         scope.launch {
             val r = try { importAttachments(id, items.map { it.uri }) } catch (e: CancellationException) { throw e } catch (e: Exception) { ImportResult(emptyList(), items.map { it.name }) }
@@ -648,13 +658,13 @@ class ChatViewModel(
             _ui.update { it.copy(importing = false, attachments = emptyList(), rejectedAttachments = r.rejected) }
             val now = _ui.value
             if (goal.isEmpty() || now.conversationId != id || now.composer != ComposerMode.Idle) return@launch
-            begin(goal, id)
+            begin(goal, id, onMain)
         }
         return true
     }
 
     /** 在对话 [id] 里开始新任务 [goal]:界面上加一问一答,交给服务(并行关着、服务还忙时排在它收尾后面)。 */
-    private fun begin(goal: String, id: String) {
+    private fun begin(goal: String, id: String, onMainScreen: Boolean = false) {
         lingerJob?.cancel()
         // 上一个任务收尾时先撤屏再报结束,这里读到的就是新任务开始前的样子;
         // 并行时那是别的对话的任务的屏,新任务还没有屏
@@ -669,6 +679,8 @@ class ChatViewModel(
                 attachments = emptyList(),
                 pip = gated(PipUi(visible = true)),
                 composer = ComposerMode.Busy,
+                // 一次一句:发出去就复位,下一句还是默认在后台屏上做
+                onMainScreen = false,
             )
         }
         // 并行时服务忙着(别的对话的任务在跑)也直接交给它
@@ -676,12 +688,12 @@ class ChatViewModel(
             pendingStart = scope.launch {
                 serviceBusy.first { !it }
                 pendingStart = null
-                actions.start(goal, id)
+                actions.start(goal, id, onMainScreen)
                 // 等着期间插的话:原话的任务先开始,再交给它
                 held.toList().also { held.clear() }.forEach { n -> actions.steer(id, n.id, n.text) }
             }
         } else {
-            actions.start(goal, id)
+            actions.start(goal, id, onMainScreen)
         }
     }
 

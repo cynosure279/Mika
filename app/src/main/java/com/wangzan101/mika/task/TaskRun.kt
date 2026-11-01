@@ -63,6 +63,7 @@ import com.wangzan101.mika.core.assembly.knownTools
 import com.wangzan101.mika.ui.ToolLabels
 import com.wangzan101.mika.core.agent.RunOutcome
 import com.wangzan101.mika.core.agent.TaskState
+import com.wangzan101.mika.core.uistate.ScreenHost
 import com.wangzan101.mika.core.agent.Turn
 import com.wangzan101.mika.core.run.RunId
 import com.wangzan101.mika.core.run.RunSpec
@@ -83,6 +84,9 @@ import com.wangzan101.mika.core.tool.ToolDispatcher
 import com.wangzan101.mika.core.vision.VisionService
 import com.wangzan101.mika.cap.phone.display.AgentDisplay
 import com.wangzan101.mika.cap.phone.display.LazyAgentDisplay
+import com.wangzan101.mika.cap.phone.display.MainScreenTarget
+import com.wangzan101.mika.cap.phone.display.ScreenTarget
+import com.wangzan101.mika.cap.phone.display.VirtualScreenTarget
 import com.wangzan101.mika.record.RunHandle
 import com.wangzan101.mika.record.RunStore
 import com.wangzan101.mika.settings.FeatureFlags
@@ -156,6 +160,11 @@ class TaskRun(
     internal var mcpExternalId: String? = null
     internal val conditionCheck get() = triggerActionGoal != null
     @Volatile private var children: ChildAgentRunner? = null
+    /**
+     * 这次任务直接在用户的主屏上做(见 [TaskService.EXTRA_ON_MAIN_SCREEN]):不建虚拟屏、不静音、
+     * 不把开到主屏上的 App 挪回来、结束时也不动那些 App。默认关,由 [TaskService] 开跑时填。
+     */
+    @Volatile var onMainScreen: Boolean = false
     /** 自己的一份;显示中时同步写到服务对外的那份。[show] 时整份抄过去。 */
     /** App 给的模型来源、评测钩子、屏幕画面的开关。 */
     private val env = TaskEnvironment.of(service)
@@ -501,7 +510,8 @@ class TaskRun(
                 }.also { shell.asBinder().linkToDeath(it, 0) }
                 shellBinder = shell.asBinder()
                 side.launch { conn.shell.map { it != null }.collect { shellUp.value = it } }
-                val agentDisplay = LazyAgentDisplay(metrics.widthPixels, metrics.heightPixels) {
+                // 在主屏上做时不建屏:直接对着用户那块屏([MainScreenTarget]),画中画也就没有画面
+                val agentDisplay: LazyAgentDisplay? = if (onMainScreen) null else LazyAgentDisplay(metrics.widthPixels, metrics.heightPixels) {
                     suspend fun create() = resources.acquire(Dispatchers.IO, AgentDisplay::release) { AgentDisplay(shell, metrics.widthPixels, metrics.heightPixels, metrics.densityDpi) }
                     try {
                         create()
@@ -518,10 +528,12 @@ class TaskRun(
                         side.launch { d.frames.collect { if (dispatcher?.surface != WEB) _frames.value = it } }
                     }
                 }
+                val target: ScreenTarget = agentDisplay?.let(::VirtualScreenTarget)
+                    ?: MainScreenTarget(a11y, metrics.widthPixels, metrics.heightPixels).also { _displayId.value = it.currentId }
                 val audio = recovery.audioMute(shell, key).also { mute = it }
                 val muter = appMuter(shell, audio)
                 val screen = AndroidScreen(
-                    a11y, shell, agentDisplay, { recovery.markClipHeld(it) },
+                    a11y, shell, target, { recovery.markClipHeld(it) },
                     clipLock = service.clipLock, checkOtherTasks = parallel,
                     reserve = { pkg -> service.reservePackage(pkg, key) { runCatching { shell.displayOfPackage(pkg) }.getOrDefault(-1) >= 0 } },
                     // 另一份用户里的那份单独占:和本来那份互不挡
@@ -536,7 +548,7 @@ class TaskRun(
                     beforeOpen = muter::beforeOpen,
                     notOpened = muter::notOpened,
                 )
-                val side0 = PhoneSide(shell, a11y, screen, agentDisplay, muter)
+                val side0 = PhoneSide(shell, a11y, screen, target, muter)
                 phone = side0
                 watchTarget(side0, states)
                 return screen
@@ -554,12 +566,12 @@ class TaskRun(
             suspend fun moveTask(taskId: Int, to: Int): Boolean {
                 val p = phone ?: return false
                 val moved = withContext(Dispatchers.IO) { runCatching { p.shell.moveTask(taskId, to) }.getOrDefault(false) }
-                if (moved && to == p.display.current?.displayId) p.screen.awaitContent()
+                if (moved && to == p.target.currentId) p.screen.awaitContent()
                 return moved
             }
             // 挪回去的 App 原本就在虚拟屏上,屏一定已经建好;没有屏就没有可挪回的
             suspend fun moveBackToAgent(taskId: Int): Boolean {
-                val id = phone?.display?.current?.displayId ?: return false
+                val id = phone?.target?.currentId?.takeIf { it >= 0 } ?: return false
                 return moveTask(taskId, id)
             }
             val taskGate = TaskGate(states.locked, shellUp) {
@@ -664,7 +676,9 @@ class TaskRun(
                 store = (service.application as MikaApp).childRuns,
                 ownerAlive = { job?.isActive == true },
             ).also { children = it } else null
+            val screenHost = if (onMainScreen) ScreenHost.Main else ScreenHost.Virtual
             val tools = toolDispatcher(phoneScreen, model.capabilities.vision, catalog, recordFrames = true, vision = vision?.let { VisionService(it, BitmapImageOps) },
+                screenHost = screenHost,
                 stableRefs = speed.inlineScreen, inlineScreen = speed.inlineScreen,
                 adaptiveVision = speed.adaptiveVision,
                 deepLinks = speed.deepLinks, memory = memory, profile = if (memory != null) memoryRuntime.profile() else null,
@@ -746,7 +760,9 @@ class TaskRun(
             var counter: HandoverActivityCounter? = null
             var counting: Job? = null
             val handover = Takeover(object : TakeoverPort {
-                override suspend fun agentTopTask() = phone?.let { p -> p.display.current?.let { d -> io(-1) { p.shell.topTaskId(d.displayId) } } } ?: -1
+                override suspend fun agentTopTask() = phone?.let { p ->
+                    p.target.currentId.takeIf { it >= 0 }?.let { id -> io(-1) { p.shell.topTaskId(id) } }
+                } ?: -1
                 override suspend fun targetTask() = phone?.screen?.target?.value?.taskId ?: -1
                 override fun targetPackage() = phone?.screen?.target?.value?.packageName
                 override suspend fun packageOf(taskId: Int) = phone?.let { p -> io(null) { p.shell.packageOfTask(taskId) } }
@@ -857,8 +873,9 @@ class TaskRun(
                 // 前面哪步抛错,屏和网页显示也照放(按建的反序)
                 try {
                     // 先定 Mika 屏上 App 的去留(留下的挪到主屏后面、正在出声的关掉)并释放屏,再还原静音:留下的不会突然出声
-                    val apps = phone?.takeIf { !shellDied }?.let { p ->
-                        p.display.current?.let { d -> AppsAfterTaskEnd.finish(p.shell, d.displayId, afterTask) }
+                    // 主屏上做的不收尾:那些 App 本来就是用户自己的,不能挪到「主屏最后面」也不能关掉
+                    val apps = phone?.takeIf { !shellDied && !onMainScreen }?.let { p ->
+                        p.target.currentId.takeIf { it >= 0 }?.let { id -> AppsAfterTaskEnd.finish(p.shell, id, afterTask) }
                     }
                     record?.let { r ->
                         apps?.let { r.event(RunEvent.State(System.currentTimeMillis(), "apps_after_task", it.detail)) }
@@ -882,7 +899,7 @@ class TaskRun(
     /** 手机一侧:用过手机的任务才有。 */
     private class PhoneSide(
         val shell: com.wangzan101.mika.shell.IMikaShell, val a11y: ScreenAccessibility, val screen: AndroidScreen,
-        val display: LazyAgentDisplay, val audio: AppMuter,
+        val target: ScreenTarget, val audio: AppMuter,
     )
 
     /**
@@ -897,7 +914,8 @@ class TaskRun(
         }.getOrElse { runCatching { shell.isSystemPackage(pkg) }.getOrDefault(false) }
         return AppMuter(
             audio,
-            enabled = { FeatureFlags.get(service).muteTarget() },
+            // 主屏上做的时候用户看得见这个 App,不该静音;而且此时 visibleOnMainScreen 恒真,再静会误报「可能会出声」
+            enabled = { FeatureFlags.get(service).muteTarget() && !onMainScreen },
             mutable = { pkg -> pkg != own && (runCatching { pm.getLaunchIntentForPackage(pkg) }.getOrNull() != null || !system(pkg)) },
             onMainScreen = { pkg, user -> runCatching { shell.visibleOnMainScreen(pkg, user ?: AppCopyReader.myUser) }.getOrDefault(true) },
             failed = { pkg ->
@@ -943,7 +961,7 @@ class TaskRun(
             p.screen.target.filterNotNull().collectLatest { t ->
                 if (handoverRef?.handedOver != true) p.audio.opened(t.packageName, copyUser(t.userId))
                 // 有目标 App 就说明 launch_app 已经建好了屏
-                val displayId = p.display.current?.displayId
+                val displayId = p.target.currentId.takeIf { it >= 0 && !onMainScreen }
                 if (t.taskId >= 0 && displayId != null) {
                     states.taskMovedAway(displayId, t.taskId).collect {
                         // 用户点「我来处理」后 App 本来就该在主屏

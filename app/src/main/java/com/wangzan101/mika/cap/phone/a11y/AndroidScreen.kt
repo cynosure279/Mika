@@ -49,6 +49,8 @@ import com.wangzan101.mika.core.uistate.relocate
 import com.wangzan101.mika.core.uistate.RELOCATE_MAX_SHIFT
 import com.wangzan101.mika.cap.phone.display.FrameMath
 import com.wangzan101.mika.cap.phone.display.LazyAgentDisplay
+import com.wangzan101.mika.cap.phone.display.ScreenTarget
+import com.wangzan101.mika.cap.phone.display.VirtualScreenTarget
 import com.wangzan101.mika.shell.IMikaShell
 import com.wangzan101.mika.cap.phone.shell.MainScreenWatch
 import com.wangzan101.mika.cap.phone.shell.ShellService
@@ -90,7 +92,7 @@ import kotlin.math.roundToInt
 class AndroidScreen(
     private val a11y: ScreenAccessibility,
     private val shell: IMikaShell,
-    private val display: LazyAgentDisplay,
+    private val screen: ScreenTarget,
     /** 剪贴板暂时换成 Mika 的文字时为 true,还原后为 false;任务服务据此记下,进程意外结束后下次启动还原。 */
     private val clipHeld: (Boolean) -> Unit = {},
     /** 剪贴板是全局的:几个任务同时跑时粘贴兜底共用一把锁。 */
@@ -114,9 +116,71 @@ class AndroidScreen(
     /** 启动被拒、没开出来:撤回 [beforeOpen] 提前做的。 */
     private val notOpened: (packageName: String, user: Int?) -> Unit = { _, _ -> },
 ) : ScreenPort {
+    /**
+     * 虚拟屏那条路的写法:直接给一块懒建的屏。内部只认 [ScreenTarget],这里把它包成 [VirtualScreenTarget]。
+     * 测试和自检还用这个入口,行为与从前一致。
+     */
+    constructor(
+        a11y: ScreenAccessibility,
+        shell: IMikaShell,
+        display: LazyAgentDisplay,
+        clipHeld: (Boolean) -> Unit = {},
+        clipLock: Lock = ReentrantLock(),
+        checkOtherTasks: Boolean = false,
+        reserve: (String) -> Boolean = { true },
+        reserveCopy: (String, Int) -> Boolean = { _, _ -> true },
+        clipSaved: (original: String, ours: String) -> Unit = { _, _ -> },
+        handedOver: () -> Boolean = { false },
+        pacing: GesturePacing = GesturePacing.human(),
+        typing: (String?) -> TypingPacing = { TypingPacing.Instant },
+        beforeOpen: (packageName: String, user: Int?) -> Unit = { _, _ -> },
+        notOpened: (packageName: String, user: Int?) -> Unit = { _, _ -> },
+    ) : this(
+        a11y, shell, VirtualScreenTarget(display), clipHeld, clipLock, checkOtherTasks, reserve, reserveCopy,
+        clipSaved, handedOver, pacing, typing, beforeOpen, notOpened,
+    )
+
     /** 屏还没建时为 -1;只在确认屏已建好之后用。 */
-    private val displayId get() = display.current?.displayId ?: -1
-    private val opened get() = display.current != null
+    private val displayId get() = screen.currentId
+    private val opened get() = screen.currentId >= 0
+
+    // ---- 内置助手的那几个「会不会打扰用户」的方法:在主屏上操作时走带 allowMain 的那一份 ----
+    // 老方法一字不变(传主屏一律拒绝);这里只在 screen.isMain 时换成 *On 版本,含义看 IMikaShell.aidl。
+
+    private fun startApp(displayId: Int, packageName: String): Int =
+        if (screen.isMain) shell.startAppOn(displayId, packageName, true) else shell.startApp(displayId, packageName)
+
+    private fun restartApp(displayId: Int, packageName: String): Int =
+        if (screen.isMain) shell.restartAppOn(displayId, packageName, true) else shell.restartApp(displayId, packageName)
+
+    private fun startAppInUser(displayId: Int, packageName: String, user: Int, cold: Boolean): Int =
+        if (screen.isMain) shell.startAppInUserOn(displayId, packageName, user, cold, true)
+        else shell.startAppInUser(displayId, packageName, user, cold)
+
+    private fun startView(displayId: Int, action: String?, uri: String?, packageName: String?): Int =
+        if (screen.isMain) shell.startViewOn(displayId, action, uri, packageName, true)
+        else shell.startView(displayId, action, uri, packageName)
+
+    private fun startShare(displayId: Int, packageName: String, text: String): Int =
+        if (screen.isMain) shell.startShareOn(displayId, packageName, text, true)
+        else shell.startShare(displayId, packageName, text)
+
+    private fun startSystemAction(displayId: Int, intent: Intent, asMika: android.app.PendingIntent?): Int =
+        if (screen.isMain) shell.startSystemActionOn(displayId, intent, asMika, true)
+        else shell.startSystemAction(displayId, intent, asMika)
+
+    private fun injectCtrlKey(displayId: Int, keyCode: Int): Boolean =
+        if (screen.isMain) shell.injectCtrlKeyOn(displayId, keyCode, true) else shell.injectCtrlKey(displayId, keyCode)
+
+    private fun injectStroke(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
+        if (screen.isMain) shell.injectStrokeOn(displayId, xs, ys, times, true)
+        else shell.injectStroke(displayId, xs, ys, times)
+
+    private fun runSystemCommand(displayId: Int, command: String): android.os.Bundle =
+        if (screen.isMain) shell.runSystemCommandOn(displayId, command, true) else shell.runSystemCommand(displayId, command)
+
+    private fun topActivity(displayId: Int): String? =
+        if (screen.isMain) shell.topActivityOn(displayId, true) else shell.topActivity(displayId)
     private val ids = NodeIds()
 
     /** 最近一次 launch_app 成功打开的包,用于判断是否被切走。 */
@@ -140,11 +204,11 @@ class AndroidScreen(
     private val settingsPackage: String? by lazy { SystemPickers.settingsPackage(a11y.packageManager) }
 
     private fun windows() = a11y.windowsOn(displayId)
-    private fun read() = ScreenReader.read(windows(), display.width, display.height)
+    private fun read() = ScreenReader.read(windows(), screen.width, screen.height)
     private fun treeHash() = ScreenReader.hash(windows())
 
     /** 显式使用系统命令或事件工具时按需建屏；普通任务等到第一次打开 App 才建。 */
-    suspend fun ensureDisplay() { display.get() }
+    suspend fun ensureDisplay() { screen.acquire() }
 
     // ---------- 读屏 ----------
 
@@ -154,7 +218,7 @@ class AndroidScreen(
     override suspend fun peek(): ScreenSnapshot = capture(register = false)
 
     private suspend fun capture(register: Boolean): ScreenSnapshot = withContext(Dispatchers.IO) {
-        if (!opened) return@withContext ScreenSnapshot(snapshotId(), null, emptyList(), display.width, display.height, hasWindow = false)
+        if (!opened) return@withContext ScreenSnapshot(snapshotId(), null, emptyList(), screen.width, screen.height, hasWindow = false)
         // 上一个动作过了一会儿才开到用户主屏上的:先挪回来再读(只在模型要读的这一屏上做,不在判效果的那一眼里做)
         val late = if (register) lateSpill() else null
         val r = read()
@@ -165,8 +229,8 @@ class AndroidScreen(
             snapshotId = snap.id,
             packageName = r.topPackage,
             elements = r.entries.map { it.element },
-            width = display.width,
-            height = display.height,
+            width = screen.width,
+            height = screen.height,
             changedDuringRead = after != r.hash,
             protected = r.hasAppWindow && frameBlack() == true,
             hasWindow = r.anyAppWindow,
@@ -203,7 +267,7 @@ class AndroidScreen(
         TargetApp(pkg, task, userOf(task))
     }.distinctUntilChanged { a, b -> a.packageName == b.packageName && a.userId == b.userId }
 
-    override suspend fun screenshotPng(): ByteArray? = withContext(Dispatchers.IO) { display.current?.latestFramePng() }
+    override suspend fun screenshotPng(): ByteArray? = withContext(Dispatchers.IO) { screen.latestFramePng() }
 
     /**
      * 认屏上文字。自绘界面几乎没有无障碍事件,事件安静了画面可能还在过渡:先等画面停稳再认;认的过程中换了整页就按新的一页再认
@@ -212,12 +276,12 @@ class AndroidScreen(
     override suspend fun readVisibleText(): List<VisibleTextLine>? = withContext(Dispatchers.IO) {
         if (!opened || frameBlack() == true) return@withContext null
         StillFrameRead.read(SystemClock::uptimeMillis, { delay(it) }, ::frameSignature) {
-            display.current?.latestFrameBitmap()?.let { PhoneOcr.read(it) }
+            screen.latestFrameBitmap()?.let { PhoneOcr.read(it) }
         }
     }
 
     override suspend fun frameGrid(): FrameGrid? = withContext(Dispatchers.IO) {
-        val bmp = display.current?.frames?.value ?: return@withContext null
+        val bmp = screen.frames.value ?: return@withContext null
         runCatching { FrameGrid.sample(bmp.width, bmp.height, bmp::getPixel) }.getOrNull()
     }
 
@@ -280,7 +344,7 @@ class AndroidScreen(
             }
             try {
                 fun matched(): Boolean = when (condition) {
-                    "activity" -> runCatching { shell.topActivity(displayId)?.contains(value, true) == true }.getOrDefault(false)
+                    "activity" -> runCatching { topActivity(displayId)?.contains(value, true) == true }.getOrDefault(false)
                     else -> {
                         val r = read()
                         val exists = r.windows.any { w ->
@@ -344,7 +408,7 @@ class AndroidScreen(
 
     override suspend fun systemCommand(command: String): SystemCommandResult? = withContext(Dispatchers.IO) {
         if (!opened) return@withContext null
-        val result = shell.runSystemCommand(displayId, command)
+        val result = runSystemCommand(displayId, command)
         SystemCommandResult(result.getInt("exitCode", -1), result.getString("output").orEmpty())
     }
 
@@ -410,8 +474,8 @@ class AndroidScreen(
         val node = start?.let { ancestorOrSelf(it) { n -> n.isScrollable } }
         if (node == null) {
             // 没有可滚动的控件时用屏幕中部的滑动代替
-            val cx = display.width / 2
-            val (from, to) = if (down) display.height * 3 / 4 to display.height / 4 else display.height / 4 to display.height * 3 / 4
+            val cx = screen.width / 2
+            val (from, to) = if (down) screen.height * 3 / 4 to screen.height / 4 else screen.height / 4 to screen.height * 3 / 4
             val r = swipe(cx, from, cx, to)
             return@withContext if (r is ActionResult.Ok && relocatedTo != null) r.copy(relocated = true, relocatedTo = relocatedTo) else r
         }
@@ -429,8 +493,8 @@ class AndroidScreen(
         val area = read().entries.filter { it.element.scrollable }
             .map { e -> android.graphics.Rect().also { e.node.getBoundsInScreen(it) } }
             .maxByOrNull { it.width().toLong() * it.height() } ?: return@withContext false
-        if (area.width().toLong() * area.height() < display.width.toLong() * display.height * IDLE_MIN_AREA) return@withContext false
-        val dist = (display.height * kotlin.math.abs(fraction)).roundToInt().coerceAtMost(area.height() / 2)
+        if (area.width().toLong() * area.height() < screen.width.toLong() * screen.height * IDLE_MIN_AREA) return@withContext false
+        val dist = (screen.height * kotlin.math.abs(fraction)).roundToInt().coerceAtMost(area.height() / 2)
         if (dist < IDLE_MIN_PX) return@withContext false
         val cx = area.centerX()
         val mid = area.centerY()
@@ -612,14 +676,14 @@ class AndroidScreen(
         return UnseenField.cleared(r, keyboardUp, atPoint)
     }
 
-    private fun ctrlKey(keyCode: Int): Boolean = runCatching { shell.injectCtrlKey(displayId, keyCode) }.getOrDefault(false)
+    private fun ctrlKey(keyCode: Int): Boolean = runCatching { injectCtrlKey(displayId, keyCode) }.getOrDefault(false)
 
     /** 这块屏上输入法窗口的范围(0–999 的 [l,t,r,b]);没弹输入法为 null。弹着时它上面的字不算屏上的字。 */
     private fun imeBox(): List<Int>? {
         val w = windows().firstOrNull { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD } ?: return null
         val r = android.graphics.Rect().also(w::getBoundsInScreen)
         if (r.isEmpty) return null
-        return listOf(normalize(r.left, display.width), normalize(r.top, display.height), normalize(r.right, display.width), normalize(r.bottom, display.height))
+        return listOf(normalize(r.left, screen.width), normalize(r.top, screen.height), normalize(r.right, screen.width), normalize(r.bottom, screen.height))
     }
 
     /**
@@ -637,20 +701,22 @@ class AndroidScreen(
 
     /** [openApp] / [openAppCopy] 的共同部分;[user] 为空是本来那份。 */
     private suspend fun open(packageName: String, user: Int?, cold: Boolean): ActionResult = withContext(Dispatchers.IO) {
+        // 主屏上不从头开:那要先结束进程,而用户可能正看着它。普通打开照常
+        if (cold && screen.isMain) return@withContext ActionResult.Failed(COLD_ON_MAIN, COLD_ON_MAIN_HINT)
         // 同一个 App 不能同时在两块屏上:系统会把整个任务挪过来,等于从另一个任务手里抢走它。装了两份的,两份各算各的
         if (checkOtherTasks) {
             val other = runCatching { if (user == null) shell.displayOfPackage(packageName) else shell.displayOfPackageInUser(packageName, user) }.getOrDefault(-1)
-            if (other >= 0 && other != display.current?.displayId) return@withContext IN_USE_BY_OTHER
+            if (other >= 0 && other != screen.currentId.takeIf { it >= 0 }) return@withContext IN_USE_BY_OTHER
             if (!(if (user == null) reserve(packageName) else reserveCopy(packageName, user))) return@withContext IN_USE_BY_OTHER
         }
         // 打开前最上面的窗口:之后冒出来的才可能是这次打开引起的选择框(上次没选、又打开一次时还是同一个选择框)
         val before = if (opened) topWindowPackage().takeIf { it != chooserPackage } else null
-        val id = display.get().displayId
+        val id = screen.acquire()
         beforeOpen(packageName, user)
         fun launch() = when {
-            user != null -> shell.startAppInUser(id, packageName, user, cold)
-            cold -> shell.restartApp(id, packageName)
-            else -> shell.startApp(id, packageName)
+            user != null -> startAppInUser(id, packageName, user, cold)
+            cold -> restartApp(id, packageName)
+            else -> startApp(id, packageName)
         }
         var code = launch()
         val retryUntil = SystemClock.uptimeMillis() + IN_USE_RETRY_MS
@@ -677,13 +743,13 @@ class AndroidScreen(
     override suspend fun shareText(packageName: String, text: String): ActionResult = withContext(Dispatchers.IO) {
         if (checkOtherTasks) {
             val other = runCatching { shell.displayOfPackage(packageName) }.getOrDefault(-1)
-            if (other >= 0 && other != display.current?.displayId) return@withContext IN_USE_BY_OTHER
+            if (other >= 0 && other != screen.currentId.takeIf { it >= 0 }) return@withContext IN_USE_BY_OTHER
             if (!reserve(packageName)) return@withContext IN_USE_BY_OTHER
         }
         val before = if (opened) topWindowPackage().takeIf { it != chooserPackage } else null
-        val id = display.get().displayId
+        val id = screen.acquire()
         beforeOpen(packageName, null)
-        val code = runCatching { shell.startShare(id, packageName, text) }.getOrDefault(ShellService.START_ERROR)
+        val code = runCatching { startShare(id, packageName, text) }.getOrDefault(ShellService.START_ERROR)
         if (code != ShellService.START_OK) notOpened(packageName, null)
         when (code) {
             ShellService.START_OK -> Unit
@@ -702,8 +768,8 @@ class AndroidScreen(
      */
     suspend fun openOwnPage(intent: Intent): ActionResult = withContext(Dispatchers.IO) {
         val before = if (opened) topWindowPackage().takeIf { it != chooserPackage } else null
-        val id = display.get().displayId
-        when (runCatching { shell.startSystemAction(id, intent, null) }.getOrDefault(ShellService.START_ERROR)) {
+        val id = screen.acquire()
+        when (runCatching { startSystemAction(id, intent, null) }.getOrDefault(ShellService.START_ERROR)) {
             ShellService.START_OK -> Unit
             ShellService.START_INVALID_LINK -> return@withContext ActionResult.Failed("own_page_not_allowed")
             else -> return@withContext ActionResult.Failed("launch_failed")
@@ -793,7 +859,7 @@ class AndroidScreen(
             runCatching { shell.injectKey(displayId, KeyEvent.KEYCODE_BACK) }
             waitStable(SETTLE_CAP_MS)
             if (tried >= targets.size) break
-            if (runCatching { shell.startAppInUser(displayId, packageName, user, false) }.getOrDefault(ShellService.START_ERROR) != ShellService.START_OK) break
+            if (runCatching { startAppInUser(displayId, packageName, user, false) }.getOrDefault(ShellService.START_ERROR) != ShellService.START_OK) break
             val until = SystemClock.uptimeMillis() + LAUNCH_WAIT_MS
             while (chooserTargets(packageName, before) == null && SystemClock.uptimeMillis() < until) {
                 // 这一次直接开出了要的那份
@@ -820,7 +886,7 @@ class AndroidScreen(
         val pkg = w.root?.packageName?.toString() ?: return null
         if (pkg == packageName || pkg == before || !isSystemPackage(pkg)) return null
         val label = appLabel(packageName) ?: return null
-        val entries = ScreenReader.read(listOf(w), display.width, display.height).entries
+        val entries = ScreenReader.read(listOf(w), screen.width, screen.height).entries
         val picked = LaunchChooser.optionIndices(label, entries.map { it.element }) ?: return null
         return picked.map { i -> android.graphics.Rect().also(entries[i].node::getBoundsInScreen).let { it.centerX() to it.centerY() } }
     }
@@ -830,7 +896,7 @@ class AndroidScreen(
      * 设置页预期落在系统设置所在的包,指定了 App 的落在那个 App;落到别处(系统选择器、跳转页)照样成功,带提示。
      */
     override suspend fun openLink(action: String?, uri: String?, packageName: String?): ActionResult = withContext(Dispatchers.IO) {
-        val id = display.get().displayId
+        val id = screen.acquire()
         val expected = packageName ?: settingsPackage.takeIf { action != null }
         if (checkOtherTasks && expected != null && !reserve(expected)) return@withContext IN_USE_BY_OTHER
         val before = ScreenReader.topPackage(windows())
@@ -838,7 +904,7 @@ class AndroidScreen(
         // 事先知道由谁打开的(指定了 App、设置页、只有一个 App 接的链接):启动前先静上
         val early = expected ?: linkHandler(action, uri)
         early?.let { beforeOpen(it, null) }
-        val code = shell.startView(id, action, uri, packageName)
+        val code = startView(id, action, uri, packageName)
         if (code != ShellService.START_OK) early?.let { notOpened(it, null) }
         when (code) {
             ShellService.START_OK -> Unit
@@ -916,14 +982,14 @@ class AndroidScreen(
         if (checkOtherTasks && !action.silent && !reserve(pkg)) return@withContext SystemActionResult(IN_USE_BY_OTHER, pkg)
         val alarms = a11y.getSystemService(AlarmManager::class.java)
         val alarmBefore = runCatching { alarms?.nextAlarmClock?.triggerTime }
-        val id = display.get().displayId
+        val id = screen.acquire()
         val topBefore = ScreenReader.topPackage(windows())
         val w = armSpillWatch()
         // 接手的页面要求的权限(设闹钟)shell 可能没有:备一个以 Mika 身份启动的
         val asMika = PendingIntent.getActivity(a11y, SYSTEM_ACTION_REQUEST, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         // 悄悄设好的(闹钟、计时器)不开界面,不去静它:时钟到点要响
         if (!action.silent) beforeOpen(pkg, null)
-        val code = runCatching { shell.startSystemAction(id, intent, asMika) }.getOrDefault(ShellService.START_ERROR)
+        val code = runCatching { startSystemAction(id, intent, asMika) }.getOrDefault(ShellService.START_ERROR)
         if (code != ShellService.START_OK && !action.silent) notOpened(pkg, null)
         when (code) {
             ShellService.START_OK -> Unit
@@ -972,7 +1038,7 @@ class AndroidScreen(
         if (!opened) return@withContext WheelOutcome(false, null, null, 0, "none", error = "no_app_open")
         val (node, _) = resolve(ref, snapshotId) ?: return@withContext WheelOutcome(false, null, null, 0, "none", error = "ref_expired")
         val driver = WheelDriver(
-            display.width, display.height,
+            screen.width, screen.height,
             quiet = { q, cap -> withEventClock { it.awaitQuiet(q, cap) } },
             // 慢拖:按节奏走时末尾减速到停、松手不甩,免得转过头;慢拖拖不动时换成快快划一下
             drag = { points, slow -> drag(points, if (slow) WHEEL_DRAG_MS else WHEEL_SWIPE_MS, bow = false) },
@@ -998,7 +1064,7 @@ class AndroidScreen(
         val pkg = w.root?.packageName?.toString() ?: return null
         if (pkg == packageName || pkg == before || !isSystemPackage(pkg)) return null
         val label = appLabel(packageName) ?: return null
-        val elements = ScreenReader.read(listOf(w), display.width, display.height).entries.map { it.element }
+        val elements = ScreenReader.read(listOf(w), screen.width, screen.height).entries.map { it.element }
         val options = LaunchChooser.options(label, elements, profiles?.get(packageName).orEmpty()) ?: return null
         return LaunchChoice(pkg, options)
     }
@@ -1121,9 +1187,12 @@ class AndroidScreen(
             .toSet() + a11y.packageName
     }
 
-    /** 动作之前:请内置助手盯着主屏,记下此刻两块屏最上面的任务;没有屏、接管中或助手不支持时为 null(不盯)。 */
+    /**
+     * 动作之前:请内置助手盯着主屏,记下此刻两块屏最上面的任务;没有屏、接管中或助手不支持时为 null(不盯)。
+     * 在主屏上操作时不盯:这套机制的目的就是把「开到主屏上的 App」挪回虚拟屏,而主屏就是这次的工作区。
+     */
     private fun armSpillWatch(): Watch? {
-        if (!opened || handedOver()) return null
+        if (!opened || handedOver() || screen.isMain) return null
         val since = SystemClock.uptimeMillis()
         watchUserTaps(since + SPILL_WINDOW_MS)
         val top = runCatching { shell.watchMainScreen(SPILL_WINDOW_MS.toInt()) }.getOrNull() ?: return null
@@ -1286,7 +1355,7 @@ class AndroidScreen(
      */
     private suspend fun mainChooser(pkg: String): LaunchChoice? {
         val w = ScreenReader.contentWindows(a11y.windowsOn(Display.DEFAULT_DISPLAY)).firstOrNull { it.root?.packageName?.toString() == pkg } ?: return null
-        val elements = ScreenReader.read(listOf(w), display.width, display.height).entries.map { it.element }
+        val elements = ScreenReader.read(listOf(w), screen.width, screen.height).entries.map { it.element }
         for ((app, names) in otherProfiles()) {
             val label = appLabel(app) ?: continue
             LaunchChooser.options(label, elements, names)?.let { return LaunchChoice(pkg, it) }
@@ -1357,7 +1426,7 @@ class AndroidScreen(
         val deadline = SystemClock.uptimeMillis() + PICK_READ_MS
         while (true) {
             val mine = ScreenReader.contentWindows(a11y.windowsOn(Display.DEFAULT_DISPLAY)).filter { it.root?.packageName?.toString() == pkg }
-            val r = mine.takeIf { it.isNotEmpty() }?.let { ScreenReader.read(it, display.width, display.height) }
+            val r = mine.takeIf { it.isNotEmpty() }?.let { ScreenReader.read(it, screen.width, screen.height) }
             val readable = r?.entries?.any { it.element.meaningful } == true
             if (r?.passwordField == true || readable) return MainScreenSpill.needsUser(r?.passwordField == true, readable, secureWindow = false)
             if (SystemClock.uptimeMillis() >= deadline) {
@@ -1521,7 +1590,7 @@ class AndroidScreen(
             is NodeIds.Lookup.Old -> l.entry to l.snapshot
         }
         val now = read()
-        return when (val r = relocate(entry.locator, snapshot.locators, now.entries.map { it.locator }, min(display.width, display.height))) {
+        return when (val r = relocate(entry.locator, snapshot.locators, now.entries.map { it.locator }, min(screen.width, screen.height))) {
             is Relocation.Found -> now.entries[r.index].let { it.node to it.element.name }
             else -> null
         }
@@ -1531,7 +1600,7 @@ class AndroidScreen(
     private fun unchanged(entry: NodeEntry): Boolean {
         val n = entry.node
         if (!n.refresh()) return false
-        val now = ScreenReader.locatorOf(n, display.width, display.height) ?: return false
+        val now = ScreenReader.locatorOf(n, screen.width, screen.height) ?: return false
         return now == entry.locator.copy(context = null)
     }
 
@@ -1575,7 +1644,7 @@ class AndroidScreen(
         val b = FieldShape.of(n)
         if (a.cls != b.cls || a.rid != b.rid) return false
         // 大小要几乎一样;位置允许整页挪动一点(输入时页面常会上移),和编号找回用同一个上限
-        val short = min(display.width, display.height)
+        val short = min(screen.width, screen.height)
         val sizeTol = short * SAME_FIELD_SIZE
         val moveTol = short * RELOCATE_MAX_SHIFT
         return kotlin.math.abs(a.rect.width() - b.rect.width()) <= sizeTol && kotlin.math.abs(a.rect.height() - b.rect.height()) <= sizeTol &&
@@ -1638,13 +1707,13 @@ class AndroidScreen(
     private suspend fun drag(points: List<Pair<Int, Int>>, durationMs: Long, bow: Boolean): Boolean {
         if (!pacing.paced) return a11y.gesture(displayId, pathOf(points), durationMs)
         delay(pacing.approach())
-        val stroke = pacing.stroke(points.map { it.first.toDouble() to it.second.toDouble() }, durationMs, bow, display.width to display.height)
+        val stroke = pacing.stroke(points.map { it.first.toDouble() to it.second.toDouble() }, durationMs, bow, screen.width to screen.height)
         if (injectStroke(stroke.points)) return true
         return a11y.gesture(displayId, pathOf(stroke.points.map { it.x.roundToInt() to it.y.roundToInt() }), stroke.durationMs)
     }
 
     private fun injectStroke(points: List<GesturePacing.Point>): Boolean = runCatching {
-        shell.injectStroke(
+        injectStroke(
             displayId,
             IntArray(points.size) { points[it].x.roundToInt() },
             IntArray(points.size) { points[it].y.roundToInt() },
@@ -1734,13 +1803,13 @@ class AndroidScreen(
 
     /** 预览帧的粗粒度亮度格子;没有画面时为 null。 */
     private fun frameSignature(): IntArray? {
-        val bmp = display.current?.frames?.value ?: return null
+        val bmp = screen.frames.value ?: return null
         return runCatching { FrameMath.lumaGrid(bmp.width, bmp.height, bmp::getPixel) }.getOrNull()
     }
 
     /** 画面是否全黑(防截屏窗口在虚拟屏上画成黑色);没有画面时为 null。 */
     private fun frameBlack(): Boolean? {
-        val bmp = display.current?.frames?.value ?: return null
+        val bmp = screen.frames.value ?: return null
         return runCatching { FrameMath.isBlack(bmp.width, bmp.height, bmp::getPixel) }.getOrNull()
     }
 
@@ -1780,6 +1849,10 @@ class AndroidScreen(
 
     private companion object {
         const val TAG = "MikaScreen"
+        /** 主屏上不做「从头开」:那要先结束进程,用户可能正看着那个 App。 */
+        const val COLD_ON_MAIN = "cold_not_supported_on_main_screen"
+        const val COLD_ON_MAIN_HINT = "Restarting an app from its initial screen is not available when Mika works on your own screen. " +
+            "Open it normally instead, or ask the user to start it over." 
         /** 动作开始后多久之内主屏冒出来的任务算这个动作开出来的。 */
         const val SPILL_WINDOW_MS = 6_000L
         /**

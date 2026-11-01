@@ -142,4 +142,6 @@
     <string name="chat_quoting_you">Quoting you: %1$s</string>
     <string name="chat_edit_message">Edit message</string>
     <string name="chat_withdraw_message">Withdraw message</string>
+    <string name="chat_screen_background">Do it on Mika’s background screen</string>
+    <string name="chat_screen_main">Do it on your screen — you can’t use the phone meanwhile</string>
 </resources>

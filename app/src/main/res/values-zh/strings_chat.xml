@@ -137,4 +137,6 @@
     <string name="chat_quoting_you">引用你的话:%1$s</string>
     <string name="chat_edit_message">编辑消息</string>
     <string name="chat_withdraw_message">撤回消息</string>
+    <string name="chat_screen_background">在 Mika 的后台屏上做</string>
+    <string name="chat_screen_main">在你的屏幕上做（这段时间你用不了手机）</string>
 </resources>

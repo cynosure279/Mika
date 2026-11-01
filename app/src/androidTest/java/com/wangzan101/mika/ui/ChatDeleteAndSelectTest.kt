@@ -57,7 +57,7 @@ class ChatDeleteAndSelectTest {
     private val started = mutableListOf<String>()
 
     private val actions = object : TaskActions {
-        override fun start(goal: String, conversationId: String) { started += goal }
+        override fun start(goal: String, conversationId: String, onMainScreen: Boolean) { started += goal }
         override fun cancel() {}
         override fun resume() {}
         override fun takeOver() {}

@@ -117,6 +117,14 @@ class ShellService(
     /** 只往这个服务自己建的虚拟屏上启动,调用方传错屏号(比如主屏)也不会打扰用户。 */
     private fun ownDisplay(displayId: Int): Boolean = synchronized(displays) { displayId in displays }
 
+    /**
+     * 这次调用能不能动这块屏:自己建的虚拟屏,**或者** [allowMain] 为真时的用户主屏(`Display.DEFAULT_DISPLAY`)。
+     * 不带 allowMain 的老入口语义一字不变:传错屏号(比如主屏)一律拒绝,不会打扰用户。
+     * 只有「这个任务就是要在主屏上做」的调用方才传 true(见 AIDL 里那几个 `*On` 方法)。
+     */
+    private fun ownDisplay(displayId: Int, allowMain: Boolean): Boolean =
+        ownDisplay(displayId) || (allowMain && displayId == Display.DEFAULT_DISPLAY)
+
     override fun releaseDisplay(displayId: Int) {
         synchronized(displays) { displays.remove(displayId) }?.release()
     }
@@ -130,15 +138,20 @@ class ShellService(
      */
     override fun startApp(displayId: Int, packageName: String): Int = start(displayId, packageName, myUser)
 
+    /** 在用户的主屏上打开:避让用户的检查不做(那块屏就是这次要用的),其余和 [startApp] 一样。 */
+    override fun startAppOn(displayId: Int, packageName: String, allowMain: Boolean): Int =
+        start(displayId, packageName, myUser, allowMain)
+
     /**
      * 在 [userId] 那份用户里启动 [packageName](见 [startApp]);占用只看这一份(包名 + 用户)。
      * [userId] 是 Mika 自己的用户时按原来的方式启动(USER_CURRENT、包管理器给的入口);别的用户先在那份用户里查启动入口,
      * 再以那份用户启动,接口不可用时退回 `am start --user`。
      */
-    private fun start(displayId: Int, packageName: String, userId: Int): Int = synchronized(launchLock) {
-        if (!ownDisplay(displayId)) return START_ERROR
+    private fun start(displayId: Int, packageName: String, userId: Int, allowMain: Boolean = false): Int = synchronized(launchLock) {
+        if (!ownDisplay(displayId, allowMain)) return START_ERROR
         try {
-            if (inUseOnMainScreen(packageName, userId)) return START_IN_USE_ON_MAIN
+            // 在主屏上操作时这块屏就是我们要用的,不用再避让用户
+            if (!allowMain && inUseOnMainScreen(packageName, userId)) return START_IN_USE_ON_MAIN
             if (onOtherOwnDisplay(listOf(packageName), displayId, userId)) return START_IN_USE_BY_OTHER
         } catch (t: Throwable) {
             // 看不清主屏状态时宁可不启动,也不冒险打扰用户
@@ -239,6 +252,13 @@ class ShellService(
      */
     override fun restartApp(displayId: Int, packageName: String): Int = restart(displayId, packageName, myUser)
 
+    /**
+     * 主屏上不支持冷启(从头开):[ColdStart.decide] 在主屏模式下会把「任务本来就在主屏」判成可以结束进程,
+     * 一次 `force-stop` 就把用户正在看的 App 杀掉了。这里直接拒绝,让调用方如实告诉模型做不到。
+     */
+    override fun restartAppOn(displayId: Int, packageName: String, allowMain: Boolean): Int =
+        if (allowMain) START_ERROR else restart(displayId, packageName, myUser)
+
     /** [restartApp] 作用在 [userId] 那份用户里的那份:只看这一份的任务、只结束这份用户里的进程,装在别的用户里的另一份不动。 */
     private fun restart(displayId: Int, packageName: String, userId: Int): Int = synchronized(launchLock) {
         // 不是自己建的屏(含主屏)一律不动,更不能先结束进程
@@ -268,9 +288,17 @@ class ShellService(
     }
 
     /** 在另一份用户里打开:只认 [appCopyUsers] 判为能用的那几份(私密空间、别人的用户一律不碰),规则见 [AppCopies]。 */
-    override fun startAppInUser(displayId: Int, packageName: String, userId: Int, cold: Boolean): Int {
-        if (userId == myUser) return if (cold) restartApp(displayId, packageName) else startApp(displayId, packageName)
-        if (!ownDisplay(displayId)) return START_ERROR
+    override fun startAppInUser(displayId: Int, packageName: String, userId: Int, cold: Boolean): Int =
+        startAppInUser(displayId, packageName, userId, cold, allowMain = false)
+
+    override fun startAppInUserOn(displayId: Int, packageName: String, userId: Int, cold: Boolean, allowMain: Boolean): Int =
+        startAppInUser(displayId, packageName, userId, cold, allowMain)
+
+    private fun startAppInUser(displayId: Int, packageName: String, userId: Int, cold: Boolean, allowMain: Boolean): Int {
+        if (userId == myUser) {
+            return if (cold) restartAppOn(displayId, packageName, allowMain) else startAppOn(displayId, packageName, allowMain)
+        }
+        if (!ownDisplay(displayId, allowMain)) return START_ERROR
         val usable = try {
             users()?.let { AppCopies.usable(myUser, it) }
         } catch (t: Throwable) {
@@ -345,8 +373,14 @@ class ShellService(
      * 能打开它的 App 在主屏有任务就不启动:带 NEW_TASK 的链接可能落进那个任务,出现在用户眼前。
      * 只有一个 App 能打开时直接指定到那个页面,免得系统另选。
      */
-    override fun startView(displayId: Int, action: String?, uri: String?, packageName: String?): Int = synchronized(launchLock) {
-        if (!ownDisplay(displayId)) return START_ERROR
+    override fun startView(displayId: Int, action: String?, uri: String?, packageName: String?): Int =
+        startView(displayId, action, uri, packageName, allowMain = false)
+
+    override fun startViewOn(displayId: Int, action: String?, uri: String?, packageName: String?, allowMain: Boolean): Int =
+        startView(displayId, action, uri, packageName, allowMain)
+
+    private fun startView(displayId: Int, action: String?, uri: String?, packageName: String?, allowMain: Boolean): Int = synchronized(launchLock) {
+        if (!ownDisplay(displayId, allowMain)) return START_ERROR
         ShellLinks.refuse(action, uri, packageName)?.let { return it }
         val intent = Intent(action ?: Intent.ACTION_VIEW).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         uri?.let { intent.data = Uri.parse(it) }
@@ -356,8 +390,10 @@ class ShellService(
         val candidates = activitiesFor(intent, null) ?: return START_ERROR
         if (candidates.isEmpty()) return START_UNRESOLVED
         try {
-            val onMain = tasksOn(Display.DEFAULT_DISPLAY).flatMap(::packagesOf).toSet()
-            if (ShellLinks.inUse(candidates.map { it.first }.distinct(), onMain)) return START_IN_USE_ON_MAIN
+            if (!allowMain) {
+                val onMain = tasksOn(Display.DEFAULT_DISPLAY).flatMap(::packagesOf).toSet()
+                if (ShellLinks.inUse(candidates.map { it.first }.distinct(), onMain)) return START_IN_USE_ON_MAIN
+            }
             if (onOtherOwnDisplay(candidates.map { it.first }.distinct(), displayId)) return START_IN_USE_BY_OTHER
         } catch (t: Throwable) {
             Log.e(TAG, "cannot inspect main-screen tasks", t)
@@ -387,13 +423,19 @@ class ShellService(
      * 把文字分享给 [packageName]:ACTION_SEND text/plain 带 EXTRA_TEXT,只交给这个包。它没有收文字分享的页面返回 [START_UNRESOLVED];
      * 和 [startApp] 一样,用户在主屏用着它时不启动。只有一个收分享的页面时直接指定,有几个时由系统问用哪一个。
      */
-    override fun startShare(displayId: Int, packageName: String, text: String): Int = synchronized(launchLock) {
-        if (!ownDisplay(displayId)) return START_ERROR
+    override fun startShare(displayId: Int, packageName: String, text: String): Int =
+        startShare(displayId, packageName, text, allowMain = false)
+
+    override fun startShareOn(displayId: Int, packageName: String, text: String, allowMain: Boolean): Int =
+        startShare(displayId, packageName, text, allowMain)
+
+    private fun startShare(displayId: Int, packageName: String, text: String, allowMain: Boolean): Int = synchronized(launchLock) {
+        if (!ownDisplay(displayId, allowMain)) return START_ERROR
         val intent = ShareIntent.of(packageName, text)
         val candidates = activitiesFor(intent, ShareIntent.TYPE) ?: return START_ERROR
         if (candidates.isEmpty()) return START_UNRESOLVED
         try {
-            if (inUseOnMainScreen(packageName)) return START_IN_USE_ON_MAIN
+            if (!allowMain && inUseOnMainScreen(packageName)) return START_IN_USE_ON_MAIN
             if (onOtherOwnDisplay(listOf(packageName), displayId)) return START_IN_USE_BY_OTHER
         } catch (t: Throwable) {
             Log.e(TAG, "cannot inspect main-screen tasks", t)
@@ -421,8 +463,14 @@ class ShellService(
      * 接手的 App 在主屏有任务就不启动。先以 shell 身份启动;不成(接手的页面要求 shell 没有的权限,如设闹钟)时发出 Mika 做好的
      * [asMika]:以 Mika 的身份启动(权限按 Mika 查),屏和后台启动按发出的这一方(shell)查,仍落在这块屏上。
      */
-    override fun startSystemAction(displayId: Int, intent: Intent, asMika: android.app.PendingIntent?): Int = synchronized(launchLock) {
-        if (!ownDisplay(displayId)) return START_ERROR
+    override fun startSystemAction(displayId: Int, intent: Intent, asMika: android.app.PendingIntent?): Int =
+        startSystemAction(displayId, intent, asMika, allowMain = false)
+
+    override fun startSystemActionOn(displayId: Int, intent: Intent, asMika: android.app.PendingIntent?, allowMain: Boolean): Int =
+        startSystemAction(displayId, intent, asMika, allowMain)
+
+    private fun startSystemAction(displayId: Int, intent: Intent, asMika: android.app.PendingIntent?, allowMain: Boolean): Int = synchronized(launchLock) {
+        if (!ownDisplay(displayId, allowMain)) return START_ERROR
         // Mika 自己的兼容性自检页:以 shell 身份直接开到这块屏
         if (intent.component?.className == SystemIntents.OWN_PAGE_CLASS) return startOwnPage(displayId, intent)
         if (!SystemIntents.allowed(intent.action, intent.dataString)) return START_INVALID_LINK
@@ -430,8 +478,10 @@ class ShellService(
         val candidates = activitiesFor(intent, intent.type) ?: return START_ERROR
         if (candidates.isEmpty()) return START_UNRESOLVED
         try {
-            val onMain = tasksOn(Display.DEFAULT_DISPLAY).flatMap(::packagesOf).toSet()
-            if (ShellLinks.inUse(candidates.map { it.first }.distinct(), onMain)) return START_IN_USE_ON_MAIN
+            if (!allowMain) {
+                val onMain = tasksOn(Display.DEFAULT_DISPLAY).flatMap(::packagesOf).toSet()
+                if (ShellLinks.inUse(candidates.map { it.first }.distinct(), onMain)) return START_IN_USE_ON_MAIN
+            }
             if (onOtherOwnDisplay(candidates.map { it.first }.distinct(), displayId)) return START_IN_USE_BY_OTHER
         } catch (t: Throwable) {
             Log.e(TAG, "cannot inspect main-screen tasks", t)
@@ -592,8 +642,12 @@ class ShellService(
         -1
     }
 
-    override fun topActivity(displayId: Int): String? = try {
-        if (!ownDisplay(displayId)) null else tasksOn(displayId).firstOrNull()?.let {
+    override fun topActivity(displayId: Int): String? = topActivity(displayId, allowMain = false)
+
+    override fun topActivityOn(displayId: Int, allowMain: Boolean): String? = topActivity(displayId, allowMain)
+
+    private fun topActivity(displayId: Int, allowMain: Boolean): String? = try {
+        if (!ownDisplay(displayId, allowMain)) null else tasksOn(displayId).firstOrNull()?.let {
             (TASK_INFO.getField("topActivity").get(it) as? ComponentName)?.className
         }
     } catch (t: Throwable) {
@@ -896,8 +950,13 @@ class ShellService(
     }
 
     /** Ctrl+A / Ctrl+V:修饰键写在按键事件的 metaState 里(App 按它认组合键),只放行这两个,只发到 Mika 自己的屏(粘贴不能落到用户的屏上)。 */
-    override fun injectCtrlKey(displayId: Int, keyCode: Int): Boolean {
-        if (!ownDisplay(displayId)) return false
+    override fun injectCtrlKey(displayId: Int, keyCode: Int): Boolean = injectCtrlKey(displayId, keyCode, allowMain = false)
+
+    override fun injectCtrlKeyOn(displayId: Int, keyCode: Int, allowMain: Boolean): Boolean =
+        injectCtrlKey(displayId, keyCode, allowMain)
+
+    private fun injectCtrlKey(displayId: Int, keyCode: Int, allowMain: Boolean): Boolean {
+        if (!ownDisplay(displayId, allowMain)) return false
         if (keyCode != KeyEvent.KEYCODE_A && keyCode != KeyEvent.KEYCODE_V) {
             Log.w(TAG, "refused ctrl key $keyCode")
             return false
@@ -940,8 +999,14 @@ class ShellService(
      * App 看到的速度就是 Mika 排好的快慢。只发到 Mika 自己的屏。按下没注入成功返回 false(调用方改走别的路);
      * 按下之后中途哪个点没注入成功也照样往下走,最后一定补发抬起,不让手指一直按着。
      */
-    override fun injectStroke(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean {
-        if (!ownDisplay(displayId)) return false
+    override fun injectStroke(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
+        injectStroke(displayId, xs, ys, times, allowMain = false)
+
+    override fun injectStrokeOn(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray, allowMain: Boolean): Boolean =
+        injectStroke(displayId, xs, ys, times, allowMain)
+
+    private fun injectStroke(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray, allowMain: Boolean): Boolean {
+        if (!ownDisplay(displayId, allowMain)) return false
         val n = times.size
         if (n < 2 || n > STROKE_MAX_POINTS || xs.size != n || ys.size != n || times[0] != 0L ||
             times.last() > STROKE_MAX_MS || (1 until n).any { times[it] < times[it - 1] }
@@ -1185,8 +1250,14 @@ class ShellService(
 
     override fun identity(): IntArray = intArrayOf(Process.myUid(), Process.myPid())
 
-    override fun runSystemCommand(displayId: Int, command: String): Bundle {
-        if (!ownDisplay(displayId)) return commandResult(-1, "No task display is active.")
+    override fun runSystemCommand(displayId: Int, command: String): Bundle =
+        runSystemCommand(displayId, command, allowMain = false)
+
+    override fun runSystemCommandOn(displayId: Int, command: String, allowMain: Boolean): Bundle =
+        runSystemCommand(displayId, command, allowMain)
+
+    private fun runSystemCommand(displayId: Int, command: String, allowMain: Boolean): Bundle {
+        if (!ownDisplay(displayId, allowMain)) return commandResult(-1, "No task display is active.")
         return exec(command, displayId)
     }
 
