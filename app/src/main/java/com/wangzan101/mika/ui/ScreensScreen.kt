@@ -149,13 +149,14 @@ private fun ScreenCard(row: ScreenRow, frames: StateFlow<Bitmap?>?, onOpenConver
         ListRow(null, ScreensCopy.SIZE) { RowValue(displaySize(LocalContext.current, row.displayId)) }
         if (row.displayId >= 0) {
             ListRow(null, ScreensCopy.FOREGROUND) { RowValue(row.foreground ?: ScreensCopy.UNKNOWN_APP) }
-            Text(
+            // 主屏上没有常驻画面流(截图一秒一张):不给一个展开发白的入口
+            if (row.displayId != Display.DEFAULT_DISPLAY) Text(
                 if (open) ScreensCopy.HIDE_PREVIEW else ScreensCopy.PREVIEW,
                 Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
                     .clickable { open = !open }.testTag("screens-preview-${row.key}"),
                 fontSize = 13.sp, color = c.accent,
             )
-            if (open && frames != null) LiveFrame(frames)
+            if (open && frames != null && row.displayId != Display.DEFAULT_DISPLAY) LiveFrame(frames)
         }
     }
 }
@@ -217,7 +218,12 @@ object ScreensCopy {
     val PREVIEW: String get() = tr(R.string.screens_preview)
     val HIDE_PREVIEW: String get() = tr(R.string.screens_hide_preview)
 
-    fun screen(displayId: Int) = if (displayId < 0) tr(R.string.screens_no_display) else tr(R.string.screens_display, displayId)
+    fun screen(displayId: Int) = when {
+        displayId < 0 -> tr(R.string.screens_no_display)
+        // 主屏不是 Mika 建的屏:说成「屏幕 0」会让人以为是自己那块虚拟屏
+        displayId == Display.DEFAULT_DISPLAY -> tr(R.string.screens_your_screen)
+        else -> tr(R.string.screens_display, displayId)
+    }
     fun size(width: Int, height: Int, dpi: Int) = tr(R.string.screens_size_value, width, height, dpi)
 
     fun state(state: TaskState): String = when (state) {
