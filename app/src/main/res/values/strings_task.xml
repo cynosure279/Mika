@@ -76,4 +76,5 @@
     <string name="screens_hide_preview">Hide the live screen</string>
     <string name="screens_waiting">Waiting</string>
     <string name="screens_needs_you">Needs you</string>
+    <string name="screens_zoom">Enlarge this screen</string>
 </resources>
