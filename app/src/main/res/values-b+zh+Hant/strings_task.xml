@@ -57,4 +57,20 @@
     <string name="task_stopped_body">你停止了這個任務</string>
     <string name="gate_user_on_page">你在操作，Mika 已暫停</string>
     <string name="task_no_phone_helper_usb">手機助手已停止(多半是手機重啟過):開啟 Mika,再執行一次 USB 啟動指令,指令在「設定手機操作」裡可以複製。網頁和檔案類的事不受影響。</string>
+    <string name="drawer_screens">虛擬螢幕</string>
+    <string name="screens_title">正在運行的虛擬螢幕</string>
+    <string name="screens_group">正在跑</string>
+    <string name="screens_empty">現在沒有任務在跑。</string>
+    <string name="screens_note">每個在跑的任務各用一塊螢幕。這一頁只看不改：停任務、回到對話，在下面的列裡點。</string>
+    <string name="screens_display">螢幕 %1$d</string>
+    <string name="screens_no_display">還沒建螢幕</string>
+    <string name="screens_size">尺寸</string>
+    <string name="screens_size_value">%1$d × %2$d，%3$d dpi</string>
+    <string name="screens_no_size">未知</string>
+    <string name="screens_foreground">上面的 App</string>
+    <string name="screens_unknown_app">未知（手機操作沒連著）</string>
+    <string name="screens_preview">看畫面</string>
+    <string name="screens_hide_preview">收起畫面</string>
+    <string name="screens_waiting">等待中</string>
+    <string name="screens_needs_you">等你處理</string>
 </resources>

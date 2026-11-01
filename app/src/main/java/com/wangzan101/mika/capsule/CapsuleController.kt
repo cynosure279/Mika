@@ -747,10 +747,6 @@ class CapsuleController(
         }
     }
 
-    /** 新的一帧和上一张一样(同一张图,或尺寸相同、像素都相同)就不推:网页画面每次给的是新拷贝。 */
-    private fun sameFrame(a: Bitmap, b: Bitmap): Boolean =
-        a === b || !a.isRecycled && !b.isRecycled && a.width == b.width && a.height == b.height && a.sameAs(b)
-
     // ---------- 位置与拖动 ----------
 
     /** 能摆的范围;[ime] 为 true 时让开输入法。 */

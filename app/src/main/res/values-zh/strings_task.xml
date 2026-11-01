@@ -57,4 +57,20 @@
     <string name="task_stopped_body">你停止了这个任务</string>
     <string name="gate_user_on_page">你在操作，Mika 已暂停</string>
     <string name="task_no_phone_helper_usb">手机助手已停止(多半是手机重启过):打开 Mika,再运行一次 USB 启动命令,命令在「设置手机操作」里可以复制。网页和文件类的事不受影响。</string>
+    <string name="drawer_screens">虚拟屏</string>
+    <string name="screens_title">正在运行的虚拟屏</string>
+    <string name="screens_group">正在跑</string>
+    <string name="screens_empty">现在没有任务在跑。</string>
+    <string name="screens_note">每个在跑的任务各用一块屏。这一页只看不改：停任务、回到对话，在下面的行里点。</string>
+    <string name="screens_display">屏幕 %1$d</string>
+    <string name="screens_no_display">还没建屏</string>
+    <string name="screens_size">尺寸</string>
+    <string name="screens_size_value">%1$d × %2$d，%3$d dpi</string>
+    <string name="screens_no_size">未知</string>
+    <string name="screens_foreground">上面的 App</string>
+    <string name="screens_unknown_app">未知（手机操作没连着）</string>
+    <string name="screens_preview">看画面</string>
+    <string name="screens_hide_preview">收起画面</string>
+    <string name="screens_waiting">等待中</string>
+    <string name="screens_needs_you">等你处理</string>
 </resources>

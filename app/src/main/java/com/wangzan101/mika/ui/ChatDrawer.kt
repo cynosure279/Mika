@@ -205,6 +205,7 @@ fun ChatDrawer(
     onPlans: () -> Unit,
     onMemory: () -> Unit,
     onBrowser: () -> Unit,
+    onScreens: () -> Unit = {},
     onSettings: () -> Unit,
     onOpen: (DrawerConversation) -> Unit,
     onAbout: () -> Unit = {},
@@ -240,6 +241,7 @@ fun ChatDrawer(
             NavEntry(MikaIcons.Clock, stringResource(R.string.drawer_plans), onClick = onPlans)
             NavEntry(MikaIcons.Heart, stringResource(R.string.memory_and_skills), onClick = onMemory)
             NavEntry(MikaIcons.Globe, stringResource(R.string.drawer_browser), onClick = onBrowser)
+            NavEntry(MikaIcons.Screens, stringResource(R.string.drawer_screens), onClick = onScreens)
         }
         // 侧栏关着时列表只剩末尾那一项;打开时对话插在它前面,列表会按原来那一项停在最底下。最上面一项变了就回到顶上
         val list = rememberLazyListState()
@@ -461,6 +463,7 @@ fun ChatWithDrawer(
     onPlans: () -> Unit,
     onMemory: () -> Unit,
     onBrowser: () -> Unit,
+    onScreens: () -> Unit = {},
     onSettings: () -> Unit,
     onAbout: () -> Unit = {},
     /** 有新版本:侧栏「关于 Mika」带小红点。 */
@@ -558,6 +561,7 @@ fun ChatWithDrawer(
                     onMemory = { leave(onMemory) },
                     onSettings = { leave(onSettings) },
                     onBrowser = { leave(onBrowser) },
+                    onScreens = { leave(onScreens) },
                     onAbout = { leave(onAbout) },
                     aboutDot = updateAvailable,
                     onActions = { item, bounds -> if (item.id != null) acting = item to bounds },

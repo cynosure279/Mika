@@ -60,4 +60,20 @@
     <string name="task_stopped_body">You stopped this task</string>
     <string name="gate_user_on_page">You’re using the page, so Mika paused</string>
     <string name="task_no_phone_helper_usb">The phone helper has stopped (usually after a phone restart). Open Mika and run the USB start command again; you can copy it in “Set up phone control”. Web and file tasks aren’t affected.</string>
+    <string name="drawer_screens">Virtual screens</string>
+    <string name="screens_title">Virtual screens</string>
+    <string name="screens_group">Running now</string>
+    <string name="screens_empty">No task is running right now.</string>
+    <string name="screens_note">Each running task works on its own screen. This list is read-only; stop a task or open its chat from the rows here.</string>
+    <string name="screens_display">Screen %1$d</string>
+    <string name="screens_no_display">No screen yet</string>
+    <string name="screens_size">Size</string>
+    <string name="screens_size_value">%1$d × %2$d, %3$d dpi</string>
+    <string name="screens_no_size">Unknown</string>
+    <string name="screens_foreground">Open app</string>
+    <string name="screens_unknown_app">Unknown (phone control not connected)</string>
+    <string name="screens_preview">Show the live screen</string>
+    <string name="screens_hide_preview">Hide the live screen</string>
+    <string name="screens_waiting">Waiting</string>
+    <string name="screens_needs_you">Needs you</string>
 </resources>

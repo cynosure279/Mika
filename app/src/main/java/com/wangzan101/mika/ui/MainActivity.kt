@@ -304,6 +304,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
                 onMemory = { nav.pushFromDrawer(Route.Memory) },
                 onSettings = { nav.pushFromDrawer(Route.Settings) },
                 onBrowser = { nav.pushFromDrawer(Route.Browser) },
+                onScreens = { nav.pushFromDrawer(Route.Screens) },
                 onAbout = { nav.pushFromDrawer(Route.About) },
                 updateAvailable = AboutCopy.drawerDot(updateState),
                 reopen = nav.reopenDrawer,
@@ -405,6 +406,10 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
             SourceScreen(vm, back)
         }
         Route.Plans -> PlansScreen(context, onBack = back, onOpenConversation = {
+            app.chat.openConversation(it)
+            nav.reset()
+        })
+        Route.Screens -> ScreensScreen(app.taskState, onBack = back, onOpenConversation = {
             app.chat.openConversation(it)
             nav.reset()
         })
