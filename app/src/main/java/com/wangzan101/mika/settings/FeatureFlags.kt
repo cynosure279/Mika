@@ -53,6 +53,16 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putBoolean(MUTE_TARGET, on).commit()
     }
 
+    /**
+     * 另一个任务正占着同一个 App 时,这次任务停下来等它用完(自动接着做),而不是当场报「这个 App 被别的任务用着」。
+     * 默认关:等多久说不准,有的人宁可直接失败、换个做法。
+     */
+    fun waitForBusyApp(): Boolean = prefs.getBoolean(WAIT_BUSY_APP, false)
+
+    fun setWaitForBusyApp(on: Boolean) {
+        prefs.edit().putBoolean(WAIT_BUSY_APP, on).commit()
+    }
+
     /** 在 App 里操作的节奏:快、标准(默认)、像人(见 [OperatingPace])。 */
     fun operatingPace(): OperatingPace = OperatingPace.parse(prefs.getString(OPERATING_PACE, null)) ?: OperatingPace.DEFAULT
 
@@ -112,6 +122,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val PARALLEL_MAX = "parallel_max"
         private const val KEEP_SCREEN_ON = "keep_screen_on"
         private const val MUTE_TARGET = "mute_target"
+        private const val WAIT_BUSY_APP = "wait_busy_app"
         private const val OPERATING_PACE = "operating_pace"
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_SIDE = "capsule_side"

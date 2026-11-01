@@ -104,6 +104,9 @@ class TaskGate(
         /** 等用户在手机上动一下手(比如在系统的选择框里选一个),动完自动继续(运行记录里记成 waiting_user)。 */
         fun userStep(why: String) = GateReason("waiting_user", why, needsYou = true)
 
+        /** 另一个任务正占着 [app]:停下来等它放开,自动接着做(不用用户点)。 */
+        fun busyApp(app: String) = GateReason("waiting_app", tr(R.string.gate_busy_app, app))
+
         /** 系统在用户屏上问打开 [app] 的哪一个时请用户选的那句;名字读不到时不说名字。 */
         fun pickCopy(app: String?) = app?.let { tr(R.string.gate_pick_app, it) } ?: tr(R.string.gate_pick_system)
 

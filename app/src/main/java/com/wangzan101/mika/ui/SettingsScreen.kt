@@ -104,6 +104,7 @@ fun SettingsScreen(
     var keepScreenOn by remember { mutableStateOf(flags.keepScreenOn()) }
     var muteTarget by remember { mutableStateOf(flags.muteTarget()) }
     var operatingPace by remember { mutableStateOf(flags.operatingPace()) }
+    var waitBusyApp by remember { mutableStateOf(flags.waitForBusyApp()) }
     var capsuleMode by remember { mutableStateOf(flags.capsuleMode()) }
     // 换语言时界面会重建,这里每次进来读一次即可
     val language = remember { AppLanguage.current(context) }
@@ -182,6 +183,7 @@ fun SettingsScreen(
             muteTarget, onMuteTarget = { flags.setMuteTarget(it); muteTarget = it },
             parallel, onParallelMax = { flags.setParallelMax(it); parallelMax = it }, onBack = toHome,
             operatingPace = operatingPace, onOperatingPace = { flags.setOperatingPace(it); operatingPace = it },
+            waitBusyApp = waitBusyApp, onWaitBusyApp = { flags.setWaitForBusyApp(it); waitBusyApp = it },
         )
         SettingsPage.Language -> LanguageScreen(language, onLanguage = { AppLanguage.set(context, it) }, onBack = toHome)
         SettingsPage.Capsule -> CapsuleScreen(capsuleMode, onMode = { flags.setCapsuleMode(it); capsuleMode = it }, onBack = toHome)

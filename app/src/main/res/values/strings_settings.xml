@@ -86,4 +86,6 @@
     <string name="routes_clear_title">Clear all saved routes?</string>
     <string name="routes_clear_body">After clearing, Mika works things out step by step again next time. Other settings aren’t affected.</string>
     <string name="clear">Clear</string>
+    <string name="settings_wait_busy_app">Wait when another task uses the same app</string>
+    <string name="settings_wait_busy_app_sub">Off: the task reports the app as in use and moves on. On: it waits (up to 10 minutes) and continues once the other task lets go</string>
 </resources>

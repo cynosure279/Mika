@@ -57,4 +57,5 @@
     <string name="task_stopped_body">你停止了这个任务</string>
     <string name="gate_user_on_page">你在操作，Mika 已暂停</string>
     <string name="task_no_phone_helper_usb">手机助手已停止(多半是手机重启过):打开 Mika,再运行一次 USB 启动命令,命令在「设置手机操作」里可以复制。网页和文件类的事不受影响。</string>
+    <string name="gate_busy_app">等另一个任务用完 %1$s</string>
 </resources>

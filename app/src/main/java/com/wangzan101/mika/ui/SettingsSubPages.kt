@@ -189,6 +189,8 @@ fun DuringWorkScreen(
     muteTarget: Boolean, onMuteTarget: (Boolean) -> Unit,
     parallel: ParallelSetting?, onParallelMax: (Int) -> Unit, onBack: () -> Unit,
     operatingPace: OperatingPace = OperatingPace.DEFAULT, onOperatingPace: (OperatingPace) -> Unit = {},
+    /** 另一个任务正占着同一个 App 时,这次任务停下来等它放开(见 [FeatureFlags.waitForBusyApp])。 */
+    waitBusyApp: Boolean = false, onWaitBusyApp: (Boolean) -> Unit = {},
 ) {
     PageScaffold(stringResource(R.string.settings_during_work), onBack) {
         GroupCard {
@@ -197,6 +199,12 @@ fun DuringWorkScreen(
             }
             ListRow(MikaIcons.Mute, stringResource(R.string.settings_mute), stringResource(R.string.settings_mute_sub), onClick = { onMuteTarget(!muteTarget) }) {
                 MikaSwitch(muteTarget, onMuteTarget, Modifier.testTag("work-mute-target"))
+            }
+            ListRow(
+                MikaIcons.Clock, stringResource(R.string.settings_wait_busy_app), stringResource(R.string.settings_wait_busy_app_sub),
+                onClick = { onWaitBusyApp(!waitBusyApp) },
+            ) {
+                MikaSwitch(waitBusyApp, onWaitBusyApp, Modifier.testTag("work-wait-busy-app"))
             }
             parallel?.let { ParallelRow(it, onParallelMax) }
         }

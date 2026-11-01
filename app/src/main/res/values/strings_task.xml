@@ -60,4 +60,5 @@
     <string name="task_stopped_body">You stopped this task</string>
     <string name="gate_user_on_page">You’re using the page, so Mika paused</string>
     <string name="task_no_phone_helper_usb">The phone helper has stopped (usually after a phone restart). Open Mika and run the USB start command again; you can copy it in “Set up phone control”. Web and file tasks aren’t affected.</string>
+    <string name="gate_busy_app">Waiting for the other task to finish with %1$s</string>
 </resources>

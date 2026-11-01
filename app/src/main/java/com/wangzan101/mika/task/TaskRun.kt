@@ -520,6 +520,8 @@ class TaskRun(
                 }
                 val audio = recovery.audioMute(shell, key).also { mute = it }
                 val muter = appMuter(shell, audio)
+                // 另一个任务正占着这个 App 时,界面标成「等待中」;它放开之后把状态放回去
+                var waitedFrom: TaskState? = null
                 val screen = AndroidScreen(
                     a11y, shell, agentDisplay, { recovery.markClipHeld(it) },
                     clipLock = service.clipLock, checkOtherTasks = parallel,
@@ -535,6 +537,19 @@ class TaskRun(
                     // 启动前就静上,开头几秒也没声;启动被拒就还原
                     beforeOpen = muter::beforeOpen,
                     notOpened = muter::notOpened,
+                    // 设置 › 干活时 ›「另一个任务在用同一个 App 时等着」
+                    waitingFor = { pkg ->
+                        if (!FeatureFlags.get(service).waitForBusyApp()) false
+                        else {
+                            waitedFrom = _state.value
+                            publish(TaskState.Held(TaskGate.busyApp(ConfirmationNotifier.appLabel(service, pkg))))
+                            true
+                        }
+                    },
+                    waitedFor = {
+                        waitedFrom?.let { publish(it) }
+                        waitedFrom = null
+                    },
                 )
                 val side0 = PhoneSide(shell, a11y, screen, agentDisplay, muter)
                 phone = side0

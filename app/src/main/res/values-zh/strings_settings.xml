@@ -79,4 +79,6 @@
     <string name="routes_clear_title">清除全部已记住的操作路线?</string>
     <string name="routes_clear_body">清除后,做过的事下次会重新一步步来做,不影响别的设置。</string>
     <string name="clear">清除</string>
+    <string name="settings_wait_busy_app">另一个任务在用同一个 App 时等着</string>
+    <string name="settings_wait_busy_app_sub">关：当场说「这个 App 被别的任务用着」，换个做法。开：停下来等（最多 10 分钟），那个任务放开就接着做</string>
 </resources>

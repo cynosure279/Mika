@@ -113,6 +113,13 @@ class AndroidScreen(
     private val beforeOpen: (packageName: String, user: Int?) -> Unit = { _, _ -> },
     /** 启动被拒、没开出来:撤回 [beforeOpen] 提前做的。 */
     private val notOpened: (packageName: String, user: Int?) -> Unit = { _, _ -> },
+    /**
+     * 这个 App 正被别的任务占着:要不要等它放开。返回 true 表示「等」(调用方已在界面上标出在等),
+     * 这时候 [open] 会一直轮询到占用的任务放手;返回 false 就照旧当场报 in_use_by_other。
+     */
+    private val waitingFor: (packageName: String) -> Boolean = { false },
+    /** 等到了(或被占用的任务没了):把界面上的「在等」撤掉。 */
+    private val waitedFor: () -> Unit = {},
 ) : ScreenPort {
     /** 屏还没建时为 -1;只在确认屏已建好之后用。 */
     private val displayId get() = display.current?.displayId ?: -1
@@ -639,9 +646,27 @@ class AndroidScreen(
     private suspend fun open(packageName: String, user: Int?, cold: Boolean): ActionResult = withContext(Dispatchers.IO) {
         // 同一个 App 不能同时在两块屏上:系统会把整个任务挪过来,等于从另一个任务手里抢走它。装了两份的,两份各算各的
         if (checkOtherTasks) {
-            val other = runCatching { if (user == null) shell.displayOfPackage(packageName) else shell.displayOfPackageInUser(packageName, user) }.getOrDefault(-1)
-            if (other >= 0 && other != display.current?.displayId) return@withContext IN_USE_BY_OTHER
-            if (!(if (user == null) reserve(packageName) else reserveCopy(packageName, user))) return@withContext IN_USE_BY_OTHER
+            // 占下它:别的任务正在用的,先别抢
+            fun claim(): Boolean {
+                val other = runCatching {
+                    if (user == null) shell.displayOfPackage(packageName) else shell.displayOfPackageInUser(packageName, user)
+                }.getOrDefault(-1)
+                if (other >= 0 && other != display.current?.displayId) return false
+                return if (user == null) reserve(packageName) else reserveCopy(packageName, user)
+            }
+            if (!claim()) {
+                // 设置里允许等:停下来等那个任务放开,等到了接着开;不然照旧报「被别的任务用着」
+                if (!waitingFor(packageName)) return@withContext IN_USE_BY_OTHER
+                val deadline = SystemClock.uptimeMillis() + WAIT_BUSY_MAX_MS
+                while (!claim()) {
+                    if (SystemClock.uptimeMillis() >= deadline) {
+                        waitedFor()
+                        return@withContext IN_USE_BY_OTHER
+                    }
+                    delay(WAIT_BUSY_POLL_MS)
+                }
+                waitedFor()
+            }
         }
         // 打开前最上面的窗口:之后冒出来的才可能是这次打开引起的选择框(上次没选、又打开一次时还是同一个选择框)
         val before = if (opened) topWindowPackage().takeIf { it != chooserPackage } else null
@@ -1790,6 +1815,9 @@ class AndroidScreen(
         /** 刚冒出来的窗口可能还在开场动画里:等这么久再看一次,确认它是不是一直不是整屏。 */
         const val POPUP_SETTLE_MS = 300L
         const val MAX_USER_TAPS = 32
+        /** 等另一个任务放开同一个 App 时多久看一眼、最多等多久(等不到就如实报「被占着」)。 */
+        const val WAIT_BUSY_POLL_MS = 500L
+        const val WAIT_BUSY_MAX_MS = 10 * 60_000L
         /** 用户在主屏的选择框里选了之后,等选中的 App 上来最多多久;等着用户选时多久看一次。 */
         const val PICK_WAIT_MS = 3_000L
         const val PICK_POLL_MS = 300L
