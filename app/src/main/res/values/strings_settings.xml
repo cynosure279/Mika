@@ -86,4 +86,6 @@
     <string name="routes_clear_title">Clear all saved routes?</string>
     <string name="routes_clear_body">After clearing, Mika works things out step by step again next time. Other settings aren’t affected.</string>
     <string name="clear">Clear</string>
+    <string name="settings_live_process">Show the process while a task runs</string>
+    <string name="settings_live_process_sub">Off: “View process” appears only after the task ends. On: you can open it during the task and watch each step arrive</string>
 </resources>

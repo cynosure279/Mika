@@ -58,6 +58,8 @@ data class TimelineHeader(
     val goal: String,
     val criteria: List<String>,
     val outcome: String,
+    /** 这次运行还没结束:结局、核查、统计都还没写齐,页面按秒接着读(见 [RunTimelineScreen])。 */
+    val running: Boolean = false,
     val verdict: String,
     val duration: String?,
     val modelCalls: Int,
@@ -97,6 +99,8 @@ class RunTimelineViewModel(
                 ?: events.filterIsInstance<RunEvent.Criteria>().lastOrNull()?.criteria.orEmpty(),
             outcome = outcomeLabel(summary?.outcome ?: ended?.outcome,
                 summary?.judged ?: events.filterIsInstance<RunEvent.OutcomeJudged>().lastOrNull()?.outcome),
+            // 结束事件或结束时间只要有一个,就算跑完了:界面据此停止按秒重读
+            running = ended == null && summary?.endedAtMs == null,
             verdict = verdictLabel(summary?.verdict ?: events.filterIsInstance<RunEvent.Verifier>().lastOrNull()?.verdict),
             duration = endMs?.let { duration(it - startMs) },
             modelCalls = events.count { it is RunEvent.ModelReply },

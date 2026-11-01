@@ -189,6 +189,8 @@ fun DuringWorkScreen(
     muteTarget: Boolean, onMuteTarget: (Boolean) -> Unit,
     parallel: ParallelSetting?, onParallelMax: (Int) -> Unit, onBack: () -> Unit,
     operatingPace: OperatingPace = OperatingPace.DEFAULT, onOperatingPace: (OperatingPace) -> Unit = {},
+    /** 任务没结束时也能打开「运行过程」看每一步(见 [com.wangzan101.mika.settings.FeatureFlags.liveTimeline])。 */
+    liveTimeline: Boolean = false, onLiveTimeline: (Boolean) -> Unit = {},
 ) {
     PageScaffold(stringResource(R.string.settings_during_work), onBack) {
         GroupCard {
@@ -199,6 +201,12 @@ fun DuringWorkScreen(
                 MikaSwitch(muteTarget, onMuteTarget, Modifier.testTag("work-mute-target"))
             }
             parallel?.let { ParallelRow(it, onParallelMax) }
+            ListRow(
+                MikaIcons.Eye, stringResource(R.string.settings_live_process), stringResource(R.string.settings_live_process_sub),
+                onClick = { onLiveTimeline(!liveTimeline) },
+            ) {
+                MikaSwitch(liveTimeline, onLiveTimeline, Modifier.testTag("work-live-timeline"))
+            }
         }
         GroupLabel(stringResource(R.string.settings_pace))
         GroupCard {

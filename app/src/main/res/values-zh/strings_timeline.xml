@@ -79,4 +79,5 @@
     <string name="timeline_hide_screen">收起画面</string>
     <string name="timeline_show_screen">看当时的画面</string>
     <string name="timeline_step_screen">第 %1$d 步的画面</string>
+    <string name="timeline_running">进行中</string>
 </resources>

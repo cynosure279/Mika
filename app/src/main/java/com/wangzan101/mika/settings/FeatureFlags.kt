@@ -53,6 +53,16 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putBoolean(MUTE_TARGET, on).commit()
     }
 
+    /**
+     * 任务还没结束也能打开「运行过程」看每一步:入口在跑的时候就挂上,页面按记录的新事件往下长。
+     * 默认关:开着的页会每秒读一次这次的记录文件,任务短的时候没必要。
+     */
+    fun liveTimeline(): Boolean = prefs.getBoolean(LIVE_TIMELINE, false)
+
+    fun setLiveTimeline(on: Boolean) {
+        prefs.edit().putBoolean(LIVE_TIMELINE, on).commit()
+    }
+
     /** 在 App 里操作的节奏:快、标准(默认)、像人(见 [OperatingPace])。 */
     fun operatingPace(): OperatingPace = OperatingPace.parse(prefs.getString(OPERATING_PACE, null)) ?: OperatingPace.DEFAULT
 
@@ -112,6 +122,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val PARALLEL_MAX = "parallel_max"
         private const val KEEP_SCREEN_ON = "keep_screen_on"
         private const val MUTE_TARGET = "mute_target"
+        private const val LIVE_TIMELINE = "live_timeline"
         private const val OPERATING_PACE = "operating_pace"
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_SIDE = "capsule_side"

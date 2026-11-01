@@ -56,16 +56,28 @@ import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
  * 一次运行的时间线(只读):顶部是目标、标准、一行小结(点开看时间去向)和结局(模型调用次数这类细节收在「更多详情」里),
  * 下面是竖线步骤,每步一行,点有画面的步骤看当时的画面。
  */
+/** 任务还在跑时,运行记录多久重读一次。 */
+private const val LIVE_REFRESH_MS = 1_000L
+
 @Composable
 fun RunTimelineScreen(vm: RunTimelineViewModel, onBack: () -> Unit) {
     BackHandler(onBack = onBack)
-    val ui by produceState<TimelineUi>(TimelineUi.Loading, vm) { value = withContext(Dispatchers.IO) { vm.load() } }
+    // 还在跑就每秒再读一次运行记录(不自动滚到底:用户翻到哪就停在哪)
+    val ui by produceState<TimelineUi>(TimelineUi.Loading, vm) {
+        while (true) {
+            val next = withContext(Dispatchers.IO) { vm.load() }
+            value = next
+            if ((next as? TimelineUi.Ready)?.header?.running != true) break
+            delay(LIVE_REFRESH_MS)
+        }
+    }
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     PageBackground {
@@ -115,7 +127,14 @@ private fun HeaderGroup(h: TimelineHeader) {
             }
         }
         h.metrics?.let { RunMetricsSummary(it) }
-        ListRow(null, stringResource(R.string.timeline_outcome)) { RowValue(h.outcome, if (h.outcome == stringResource(R.string.outcome_succeeded)) ValueTone.Ok else ValueTone.Plain) }
+        // 还没跑完:这里说「进行中」,下面这些小结(核查、结局)等结束了才有
+        if (h.running) {
+            ListRow(null, stringResource(R.string.timeline_outcome)) { RowValue(stringResource(R.string.timeline_running), ValueTone.Plain) }
+        } else {
+            ListRow(null, stringResource(R.string.timeline_outcome)) {
+                RowValue(h.outcome, if (h.outcome == stringResource(R.string.outcome_succeeded)) ValueTone.Ok else ValueTone.Plain)
+            }
+        }
         if (h.verdict != stringResource(R.string.verify_none)) ListRow(null, stringResource(R.string.timeline_check)) { RowValue(h.verdict) }
         // 小结那一行已经写了用时
         if (h.metrics == null) h.duration?.let { d -> ListRow(null, stringResource(R.string.timeline_duration)) { RowValue(d) } }

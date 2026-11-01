@@ -79,4 +79,6 @@
     <string name="routes_clear_title">清除全部已记住的操作路线?</string>
     <string name="routes_clear_body">清除后,做过的事下次会重新一步步来做,不影响别的设置。</string>
     <string name="clear">清除</string>
+    <string name="settings_live_process">干活时也能查看过程</string>
+    <string name="settings_live_process_sub">关着：「运行过程」要等任务结束才出现。打开：任务进行中就能打开，一步步往下看</string>
 </resources>

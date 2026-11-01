@@ -471,7 +471,7 @@ private fun LazyListScope.exchange(
     val active = ex.status.isActive()
     val answering = ex.status == ExchangeStatus.Working && !ex.draft.isNullOrBlank()
     if (active) {
-        if (!answering) item("s$index") { WorkBlock(ex, reduceMotion, backgroundNote) }
+        if (!answering) item("s$index") { WorkBlock(ex, reduceMotion, backgroundNote, openRun) }
     } else if (ex.steps.isNotEmpty() || ex.runId != null) {
         item("s$index") { DoneLine(ex, reduceMotion, openRun) }
     }
@@ -631,7 +631,7 @@ private fun Modifier.answerSurface(): Modifier =
  * 在后台操作手机时最下面一行小字。
  */
 @Composable
-private fun WorkBlock(ex: Exchange, reduceMotion: Boolean, backgroundNote: Boolean) {
+private fun WorkBlock(ex: Exchange, reduceMotion: Boolean, backgroundNote: Boolean, openRun: (String) -> Unit) {
     val c = MikaTheme.colors
     val paused = ChatCopy.paused(ex.status)
     val elapsed = rememberElapsed(ex.startedAt)
@@ -652,6 +652,15 @@ private fun WorkBlock(ex: Exchange, reduceMotion: Boolean, backgroundNote: Boole
             if (elapsed != null) Text(ChatCopy.clock(elapsed), style = ClockText, color = c.ink3)
         }
         if (ex.steps.isNotEmpty()) StepLine(ex.steps, live = true, paused = paused)
+        // 设置 › 干活时 ›「干活时也能查看过程」开着时,跑的时候就有这一项(不然只有结束之后才有)
+        ex.runId?.let { id ->
+            Text(
+                stringResource(R.string.chat_view_process),
+                Modifier.padding(top = 2.dp).clip(MikaShapes.Pill).clickable(role = Role.Button) { openRun(id) }
+                    .padding(horizontal = 4.dp, vertical = 4.dp).testTag("work-view-process"),
+                style = DoneText.copy(fontStyle = FontStyle.Italic, textDecoration = TextDecoration.Underline), color = c.ink3,
+            )
+        }
         if (backgroundNote) {
             Row(
                 Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically,

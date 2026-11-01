@@ -286,6 +286,13 @@ class ChatViewModel(
      * 卡片上就有「查看过程」。之后它再变也不改已结束的那条。
      */
     private val endedRunId: StateFlow<String?> = MutableStateFlow(null),
+    /**
+     * 显示中的任务此刻的运行记录编号(任务一开头就有)。只有 [liveRunTimeline] 打开时才用:
+     * 那样「运行过程」在跑的时候就能打开,而不是等结束。
+     */
+    private val liveRunId: StateFlow<String?> = MutableStateFlow(null),
+    /** 设置 › 干活时 ›「干活时也能查看过程」。关着时行为和从前一样(入口只在结束后出现)。 */
+    private val liveRunTimeline: () -> Boolean = { false },
     /** 每个对话最近结束的任务的运行记录编号;给了就按卡片所在的对话取,不用上面那个(它只跟显示中的任务)。 */
     private val endedRunIds: StateFlow<Map<String, String?>>? = null,
     /** 开关 parallelTasks:打开时不同对话的任务可以同时跑,界面只跟着屏上这个对话的任务。界面没在跟任务时重读。 */
@@ -992,7 +999,11 @@ class ChatViewModel(
         _ui.update { ui ->
             val old = ui.exchanges[liveIndex]
             val ex = reduce(withGoal(old, ui.conversationId), s, appLabel, toolLabels::label).let {
-                if (it.status.active() || !old.status.active()) it
+                if (it.status.active() || !old.status.active()) {
+                    // 开着「干活时也能查看过程」:跑的时候就挂上编号,入口当场可用;结束那一下仍走下面那一支
+                    val live = if (it.status.active() && liveRunTimeline()) liveRunId.value else null
+                    if (live != null && it.runId == null) it.copy(runId = live) else it
+                }
                 // 收尾时还没交到任务手里的插话:服务把它当成这个对话的下一件事
                 else withSummarizing(withNotes(it.copy(runId = endedRunFor(ui.conversationId), elapsedMs = elapsedOf(old),
                     steers = it.steers.map { n -> if (n.state.unconsumed) n.copy(state = SteerState.Next) else n }), runNotes.value))

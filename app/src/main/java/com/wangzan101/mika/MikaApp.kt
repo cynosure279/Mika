@@ -251,6 +251,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             screenOpen = combine(tasks.agentDisplayId, tasks.webScreenOpen) { d, w -> d >= 0 || w }
                 .stateIn(scope, SharingStarted.Eagerly, tasks.agentDisplayId.value >= 0 || tasks.webScreenOpen.value),
             endedRunId = taskState.endedRunId,
+            liveRunId = taskState._runId,
+            liveRunTimeline = { FeatureFlags.get(app).liveTimeline() },
             endedRunIds = taskState.endedRunIds,
             parallelFlag = { FeatureFlags.get(app).speedFlags().parallelTasks },
             shownTask = taskState.shownTask,
