@@ -7,5 +7,6 @@ internal object GeneralGroup {
     val tools: List<AgentTool> = listOf(
         Wait, ViewPastScreens, ViewUserScreen, AskUser, RequestConfirmation, HandToUser, HandleObstacle, EndNotDone,
         KnowledgeSearch, KnowledgeRead, SkillSearch, SkillRead, SkillSave, MemorySearch, MemorySave, ProfileEdit, ScheduleTask, SpawnAgent,
+        com.wangzan101.mika.core.settings.MikaConfigTool,
     )
 }

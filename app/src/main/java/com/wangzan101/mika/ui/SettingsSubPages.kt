@@ -42,6 +42,7 @@ import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 import com.wangzan101.mika.core.cap.phone.OperatingPace
+import com.wangzan101.mika.settings.ThemeMode
 
 // ---------- 手机操作 ----------
 
@@ -296,7 +297,27 @@ fun CapsuleScreen(mode: CapsuleMode, onMode: (CapsuleMode) -> Unit, onBack: () -
 /** 设置 › 语言:跟随系统、简体中文、繁體中文、English;选了马上换,界面跟着重建。 */
 @Composable
 fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onBack: () -> Unit) {
-    PageScaffold(stringResource(R.string.language_title), onBack) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val flags = remember { com.wangzan101.mika.settings.FeatureFlags.get(context) }
+    var themeMode by remember { mutableStateOf(flags.themeMode()) }
+    PageScaffold(stringResource(R.string.appearance_title), onBack) {
+        // 语言和外观放在同一页:都是「界面长什么样」
+        GroupLabel(stringResource(R.string.appearance_title))
+        GroupCard {
+            ThemeMode.entries.forEachIndexed { idx, m ->
+                RadioRow(
+                    appearanceLabel(m), selected = m == themeMode, first = idx == 0,
+                    subtitle = if (m == ThemeMode.System) stringResource(R.string.appearance_system_detail) else null,
+                    onClick = {
+                        if (m != themeMode) {
+                            flags.setThemeMode(m); themeMode = m
+                            // 深浅是整棵界面的颜色,重建一次最稳
+                            (context as? android.app.Activity)?.recreate()
+                        }
+                    },
+                )
+            }
+        }
         GroupCard {
             AppLanguage.entries.forEachIndexed { i, l ->
                 RadioRow(
@@ -376,3 +397,12 @@ fun RecoveryScreen(onBack: () -> Unit, onOpenSelfCheck: () -> Unit = {}) {
         }
     }
 }
+
+/** 外观的当前说法(设置页和这一行都用)。 */
+fun appearanceLabel(mode: ThemeMode): String = tr(
+    when (mode) {
+        ThemeMode.System -> R.string.appearance_system
+        ThemeMode.Light -> R.string.appearance_light
+        ThemeMode.Dark -> R.string.appearance_dark
+    },
+)

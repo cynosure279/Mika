@@ -40,6 +40,8 @@ internal class ToolConfig(
     val userScreens: com.wangzan101.mika.core.userscreen.UserScreenSource? = null,
     /** 用户的个人技能;给了(且有技能目录、用户本次说的话)才提供 skill_save。 */
     val personalSkills: com.wangzan101.mika.core.skills.PersonalSkills? = null,
+    /** 改 Mika 自己设置的白名单入口;为空(用户没允许)时不提供 mika_config。 */
+    val selfConfig: com.wangzan101.mika.core.settings.SelfConfig? = null,
 )
 
 /**

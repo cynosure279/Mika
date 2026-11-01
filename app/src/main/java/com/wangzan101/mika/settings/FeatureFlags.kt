@@ -60,6 +60,23 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putString(OPERATING_PACE, pace.name).commit()
     }
 
+    /** 界面配色:跟随系统、一直浅色、一直深色(见 [ThemeMode])。改了要重建界面才生效。 */
+    fun themeMode(): ThemeMode = ThemeMode.parse(prefs.getString(THEME_MODE, null))
+
+    fun setThemeMode(mode: ThemeMode) {
+        prefs.edit().putString(THEME_MODE, mode.name).commit()
+    }
+
+    /**
+     * 允许 Mika 改自己的设置(见 core 的 SelfConfig):模型与 Key、删数据不在允许之列。
+     * 默认关;开着的时候任务里才有 mika_config 这件工具。
+     */
+    fun selfConfig(): Boolean = prefs.getBoolean(SELF_CONFIG, false)
+
+    fun setSelfConfig(on: Boolean) {
+        prefs.edit().putBoolean(SELF_CONFIG, on).commit()
+    }
+
     /** 悬浮胶囊:关闭、有任务时显示(默认)、一直显示。 */
     fun capsuleMode(): CapsuleMode = CapsuleMode.parse(prefs.getString(CAPSULE_MODE, null))
 
@@ -113,6 +130,8 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val KEEP_SCREEN_ON = "keep_screen_on"
         private const val MUTE_TARGET = "mute_target"
         private const val OPERATING_PACE = "operating_pace"
+        private const val SELF_CONFIG = "self_config"
+        private const val THEME_MODE = "theme_mode"
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_SIDE = "capsule_side"
         private const val CAPSULE_HEIGHT = "capsule_height"

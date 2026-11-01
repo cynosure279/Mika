@@ -86,4 +86,11 @@
     <string name="routes_clear_title">Clear all saved routes?</string>
     <string name="routes_clear_body">After clearing, Mika works things out step by step again next time. Other settings aren’t affected.</string>
     <string name="clear">Clear</string>
+    <string name="appearance_title">Language and appearance</string>
+    <string name="appearance_system">Follow the system</string>
+    <string name="appearance_system_detail">Light or dark, whichever the phone is in</string>
+    <string name="appearance_light">Always light</string>
+    <string name="appearance_dark">Always dark</string>
+    <string name="sandbox_self_config">Let Mika change its own settings</string>
+    <string name="sandbox_self_config_sub">When on, tasks get one tool to read and change these preferences (pace, mute, capsule, appearance, container network). Models, API keys and anything that deletes data are never included</string>
 </resources>

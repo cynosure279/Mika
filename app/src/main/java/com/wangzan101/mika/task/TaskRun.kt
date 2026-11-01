@@ -667,6 +667,10 @@ class TaskRun(
                 ownerAlive = { job?.isActive == true },
             ).also { children = it } else null
             val tools = toolDispatcher(phoneScreen, model.capabilities.vision, catalog, recordFrames = true, vision = vision?.let { VisionService(it, BitmapImageOps) },
+                // 设置里允许 Mika 改自己时,才把 mika_config 发给模型
+                selfConfig = if (FeatureFlags.get(service).selfConfig()) {
+                    com.wangzan101.mika.settings.SelfConfigImpl(FeatureFlags.get(service)) { SandboxState.get(service) }
+                } else null,
                 stableRefs = speed.inlineScreen, inlineScreen = speed.inlineScreen,
                 adaptiveVision = speed.adaptiveVision,
                 deepLinks = speed.deepLinks, memory = memory, profile = if (memory != null) memoryRuntime.profile() else null,

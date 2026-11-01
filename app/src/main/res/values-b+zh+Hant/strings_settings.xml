@@ -79,4 +79,11 @@
     <string name="routes_clear_title">清除全部已記住的操作路線?</string>
     <string name="routes_clear_body">清除後,做過的事下次會重新一步步來做,不影響別的設定。</string>
     <string name="clear">清除</string>
+    <string name="appearance_title">語言與外觀</string>
+    <string name="appearance_system">跟隨系統</string>
+    <string name="appearance_system_detail">手機是淺色就淺色，深色就深色</string>
+    <string name="appearance_light">一直淺色</string>
+    <string name="appearance_dark">一直深色</string>
+    <string name="sandbox_self_config">允許 Mika 改自己的設定</string>
+    <string name="sandbox_self_config_sub">打開後，任務裡會多一件工具，能看和改這些偏好（操作節奏、靜音、膠囊、外觀、容器聯網）。模型和 Key、任何刪資料的操作都不在其中</string>
 </resources>

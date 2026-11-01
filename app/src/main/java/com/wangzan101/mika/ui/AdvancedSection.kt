@@ -24,6 +24,7 @@ import com.wangzan101.mika.cap.sandbox.RootfsInstaller
 import com.wangzan101.mika.cap.sandbox.RuntimePreparer
 import com.wangzan101.mika.cap.sandbox.SandboxState
 import kotlinx.coroutines.launch
+import com.wangzan101.mika.settings.FeatureFlags
 import com.wangzan101.mika.ui.components.GroupCard
 import com.wangzan101.mika.ui.components.ListRow
 import com.wangzan101.mika.ui.theme.MikaTheme
@@ -43,6 +44,8 @@ object SandboxCopy {
     val ISOLATION_UNAVAILABLE: String get() = tr(R.string.sandbox_isolation_unavailable)
     val RESET_TITLE: String get() = tr(R.string.sandbox_reset_title)
     val RESET_BODY: String get() = tr(R.string.sandbox_reset_body)
+    val SELF_CONFIG_TITLE: String get() = tr(R.string.sandbox_self_config)
+    val SELF_CONFIG_SUB: String get() = tr(R.string.sandbox_self_config_sub)
 
     /** 「重置运行环境」下面的一行:平时说明会怎样,准备中或准备失败时如实说。 */
     fun resetSubtitle(s: SandboxStatus): String = when (s) {
@@ -59,10 +62,13 @@ fun AdvancedSettings() {
     val state = remember { SandboxState.get(context) }
     val status by state.status.collectAsState()
     var network by remember { mutableStateOf(state.networkAllowed) }
+    val flags = remember { FeatureFlags.get(context) }
+    var selfConfig by remember { mutableStateOf(flags.selfConfig()) }
     val scope = rememberCoroutineScope()
     AdvancedSection(
         status = status, networkAllowed = network, isolationIssue = state.isolationIssue != null,
         onNetworkChange = { state.networkAllowed = it; network = it },
+        selfConfig = selfConfig, onSelfConfig = { flags.setSelfConfig(it); selfConfig = it },
         onReset = {
             scope.launch {
                 RootfsInstaller.create(context).reset()
@@ -80,6 +86,9 @@ fun AdvancedSection(
     isolationIssue: Boolean,
     onNetworkChange: (Boolean) -> Unit,
     onReset: () -> Unit,
+    /** 允许 Mika 改自己的设置(见 core 的 SelfConfig)。 */
+    selfConfig: Boolean = false,
+    onSelfConfig: (Boolean) -> Unit = {},
 ) {
     if (status is SandboxStatus.Unsupported) return
     var confirming by remember { mutableStateOf(false) }
@@ -89,6 +98,9 @@ fun AdvancedSection(
             MikaSwitch(networkAllowed, onNetworkChange, Modifier.testTag("sandbox-network"))
         }
         Note(SandboxCopy.NETWORK_EXPLAIN, if (networkAllowed) MikaTheme.colors.warn else MikaTheme.colors.ink3)
+        ListRow(MikaIcons.Spark, SandboxCopy.SELF_CONFIG_TITLE, SandboxCopy.SELF_CONFIG_SUB, onClick = { onSelfConfig(!selfConfig) }) {
+            MikaSwitch(selfConfig, onSelfConfig, Modifier.testTag("sandbox-self-config"))
+        }
         if (isolationIssue) Note(SandboxCopy.ISOLATION_UNAVAILABLE, MikaTheme.colors.bad)
         ListRow(MikaIcons.Close, tr(R.string.sandbox_reset), SandboxCopy.resetSubtitle(status), titleColor = MikaTheme.colors.bad, tone = TileTone.Bad,
             onClick = if (status is SandboxStatus.Installing) null else ({ confirming = true }))

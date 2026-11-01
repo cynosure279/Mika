@@ -1,6 +1,8 @@
 package com.wangzan101.mika.core
 
 import com.wangzan101.mika.core.assembly.knownToolNames
+import com.wangzan101.mika.core.mcp.McpDeviceTools
+import com.wangzan101.mika.core.mcp.McpTaskTools
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -65,6 +67,13 @@ class DocsConsistencyTest {
     private val toolNames: Set<String> by lazy { knownToolNames() }
     private val toolPrefixes: Set<String> by lazy { toolNames.map { it.substringBefore('_') }.toSet() }
 
+    /** 电脑端 MCP 服务暴露的工具(见 mcp/McpTaskTools、McpDeviceTools);文档里会提到,它们不是手机上的 AgentTool。 */
+    private val mcpToolNames: Set<String> = setOf(
+        McpTaskTools.RUN, McpTaskTools.STEER, McpTaskTools.STATUS, McpTaskTools.WAIT,
+        McpTaskTools.ANSWER, McpTaskTools.CANCEL, McpTaskTools.LIST,
+        McpDeviceTools.STATE, McpDeviceTools.WAKE, McpDeviceTools.UNLOCK,
+    )
+
     private fun isPath(s: String): Boolean =
         !s.startsWith("/") && !s.startsWith("~") && "://" !in s &&
             ('/' in s || s.substringAfterLast('.', "").let { it in pathExtensions && s.length > it.length + 1 })
@@ -112,7 +121,7 @@ class DocsConsistencyTest {
             if (notIdentifier.containsMatchIn(s)) return@mapNotNull null
             when {
                 isPath(s) -> if (pathExists(s)) null else "$rel: 路径 `$s` 在仓库里找不到"
-                tool.matches(s) -> if (s.substringBefore('_') !in toolPrefixes || s in toolNames) null else "$rel: 工具名 `$s` 不在现有工具里"
+                tool.matches(s) -> if (s in mcpToolNames || s.substringBefore('_') !in toolPrefixes || s in toolNames) null else "$rel: 工具名 `$s` 不在现有工具里"
                 classLike.matches(s) && s.count { it.isUpperCase() } >= 2 && s.any { it.isLowerCase() } ->
                     if (classExists(s) || importedFromOutside(s)) null else "$rel: 类名 `$s` 在 core/app 的源码里找不到"
                 else -> null
