@@ -416,13 +416,11 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
             fontSize = 13.sp, lineHeight = 18.sp, color = c.bad,
         )
     }
-    // 试不成又想先存下的:存下这家,但不假装它通过了测试
-    Text(
-        ModelSetupCopy.SAVE_UNTESTED,
-        Modifier.padding(start = 16.dp, top = 6.dp)
-            .clickable(enabled = f.canSaveUntested) { confirmUntested = true }
-            .padding(vertical = 4.dp).testTag("setup-save-untested"),
-        fontSize = 13.sp, color = if (f.canSaveUntested) c.ink2 else c.ink3,
+    // 试不成又想先存下的:做成按钮,不要藏成一行小字——它是个真实的动作,不是说明
+    MikaButton(
+        ModelSetupCopy.SAVE_UNTESTED, { confirmUntested = true },
+        Modifier.fillMaxWidth().padding(top = 6.dp).testTag("setup-save-untested"),
+        kind = ButtonKind.Tonal, size = ButtonSize.Small, enabled = f.canSaveUntested,
     )
     if (confirmUntested) AlertDialog(
         onDismissRequest = { confirmUntested = false },
