@@ -26,12 +26,18 @@ class PluginBridgeTest {
 
     private class FakeHost : PluginBridgeHost {
         val settings = mutableMapOf<String, String>()
+        val secrets = mutableMapOf<String, String>()
         val calls = mutableListOf<Pair<String, String>>()
         var closed = false
         override suspend fun settingsGet(key: String) = settings[key]
         override suspend fun settingsSet(key: String, value: String?): String? {
             if (value == null) settings.remove(key) else settings[key] = value
             return value
+        }
+        override suspend fun secretSet(key: String) = secrets[key] != null
+        override suspend fun secretWrite(key: String, value: String?): Boolean {
+            if (value == null) secrets.remove(key) else secrets[key] = value
+            return true
         }
         override suspend fun callTool(name: String, args: JsonObject) = PluginToolResult("called $name", isError = false)
         override suspend fun workspaceRead(path: String): String? { calls += "read" to path; return "text:$path" }
@@ -117,6 +123,25 @@ class PluginBridgeTest {
         assertEquals("bad_request", bad.errorCode())
         assertTrue(bridge.handle(request(method = "close")).ok())
         assertTrue(host.closed)
+    }
+
+    @Test fun secretsOnlyExposeWhetherTheyAreSet() = runTest {
+        val withSecret = PluginManifest.parse(
+            """
+            {"schema":1,"id":"com.example.feishu","name":"x","version":"1.0.0",
+             "permissions":["settings.plugin"],
+             "settings":[{"key":"secret","type":"secret"}]}
+            """.trimIndent(),
+        )
+        val host = FakeHost()
+        val bridge = PluginBridge("com.example.feishu", withSecret, host)
+        val set = bridge.handle(request(method = "settings.set", params = buildJsonObject {
+            put("key", "secret"); put("value", "s3cr3t")
+        }))
+        assertTrue(set.ok())
+        val get = bridge.handle(request(method = "settings.get", params = buildJsonObject { put("key", "secret") }))
+        assertEquals("true", get.result().jsonObject["set"]!!.jsonPrimitive.content)
+        assertFalse(get.result().toString().contains("s3cr3t"))
     }
 
     @Test fun unknownMethodIsRejected() = runTest {

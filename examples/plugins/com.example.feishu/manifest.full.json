@@ -63,7 +63,7 @@
     },
     {
       "key": "secret",
-      "type": "string",
+      "type": "secret",
       "label": "签名 secret"
     }
   ]

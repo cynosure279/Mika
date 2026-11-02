@@ -58,7 +58,7 @@ class PluginRegistry(
         val manifest = manifest(record.id) ?: return@mapNotNull null
         if (manifest.tools.isEmpty() || manifest.validate(appVersion).isNotEmpty()) return@mapNotNull null
         McpConnection(
-            endpoint = PluginEndpoint(record, manifest, runner, networkAllowed),
+            endpoint = PluginEndpoint(record, manifest, runner, { record.networkGranted && networkAllowed() }, logFor(record.id)),
             resultStore = PluginResultStore(root),
             maxCostUnits = manifest.maxCostUnits?.toLong(),
             trust = McpTrust.Restricted,
@@ -102,6 +102,7 @@ class PluginRegistry(
                 name = manifest.name,
                 version = manifest.version,
                 enabled = old?.enabled ?: true,
+                networkGranted = old?.networkGranted ?: false,
                 installedAt = old?.installedAt ?: dir.lastModified(),
                 skillNames = manifest.skills.map { it.name },
                 description = manifest.description,
@@ -120,18 +121,35 @@ class PluginRegistry(
         val old = _plugins.value.firstOrNull { it.id == record.id }
         val merged = record.copy(
             enabled = old?.enabled ?: true,
+            networkGranted = old?.networkGranted ?: false,
             installedAt = old?.installedAt ?: record.installedAt,
         )
         val next = (_plugins.value.filter { it.id != merged.id } + merged).sortedBy { it.name.lowercase() }
         _plugins.value = next
         writeRegistry(next)
+        logFor(merged.id).append(if (old == null) "install" else "update", "version ${merged.version}")
     }
 
     fun setEnabled(id: String, enabled: Boolean) = synchronized(lock) {
         val next = _plugins.value.map { if (it.id == id) it.copy(enabled = enabled) else it }
         _plugins.value = next
         writeRegistry(next)
+        logFor(id).append("enabled", enabled.toString())
     }
+
+    /** 用户显式允许/禁止这个插件联网;manifest 里的 network 只是申请。 */
+    fun setNetworkGranted(id: String, granted: Boolean) = synchronized(lock) {
+        val next = _plugins.value.map { if (it.id == id) it.copy(networkGranted = granted) else it }
+        _plugins.value = next
+        writeRegistry(next)
+        logFor(id).append("network", granted.toString())
+    }
+
+    fun clearLogs(id: String) {
+        if (PluginManifest.ID.matches(id)) logFor(id).clear()
+    }
+
+    private fun logFor(id: String): PluginLog = PluginLog(File(File(root, id), "logs"))
 
     /** 删插件目录与注册表项;用户对话/记忆不受影响。 */
     fun uninstall(id: String): Boolean = synchronized(lock) {

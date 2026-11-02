@@ -42,6 +42,15 @@ def main():
     webhook = str(args.get("webhook", "")).strip()
     text = str(args.get("text", ""))
     secret = str(args.get("secret", "")).strip()
+    if not secret:
+        # P3：页面把 secret 存进插件 secret；脚本从宿主给的临时文件读，不经过工具参数/日志
+        secrets_path = os.environ.get("MIKA_PLUGIN_SECRETS", "").strip()
+        if secrets_path:
+            try:
+                with open(secrets_path, encoding="utf-8") as f:
+                    secret = str((json.load(f) or {}).get("secret", "")).strip()
+            except (OSError, ValueError):
+                secret = ""
     if not webhook.startswith(WEBHOOK_PREFIX):
         fail("webhook must be a Feishu custom bot URL")
     if not text.strip():

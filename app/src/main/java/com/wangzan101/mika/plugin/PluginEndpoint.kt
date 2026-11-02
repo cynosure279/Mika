@@ -21,6 +21,7 @@ class PluginEndpoint(
     private val runner: PluginScriptRunner,
     /** 全局联网开关;插件自己的 network 权限还要同时满足。 */
     private val networkAllowed: () -> Boolean = { false },
+    private val log: PluginLog? = null,
 ) : McpEndpoint {
     override val serverId: String = record.id
 
@@ -46,8 +47,13 @@ class PluginEndpoint(
         }
         val script = tool.script ?: return McpResult("invalid_tool: ${tool.name} has no script", isError = true)
         val network = "network" in manifest.permissions && networkAllowed()
+        val started = System.currentTimeMillis()
         return try {
             val result = runner.run(record.id, script, arguments, tool.timeoutSec.coerceIn(1, 600), network)
+            log?.append(
+                "tool",
+                "${tool.name} exit=${result.exitCode} timedOut=${result.timedOut} ms=${System.currentTimeMillis() - started}",
+            )
             McpResult(
                 text = resultText(result.stdout.ifBlank { result.stderr }),
                 isError = result.exitCode != 0 || result.timedOut,
@@ -55,6 +61,7 @@ class PluginEndpoint(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            log?.append("tool", "${tool.name} error=${e.javaClass.simpleName}")
             McpResult("plugin_error: ${e.message ?: e.javaClass.simpleName}", isError = true)
         }
     }

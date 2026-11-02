@@ -60,6 +60,13 @@ class PluginRegistryTest {
             ScriptResult("ok", exitCode = 0)
     }
 
+    @Test fun networkGrantSurvivesRestart() {
+        writeToolPlugin("com.example.a")
+        registry().setNetworkGranted("com.example.a", true)
+        assertTrue(registry().record("com.example.a")!!.networkGranted)
+        assertTrue(registry().record("com.example.a")!!.enabled)
+    }
+
     @Test fun enabledConnectionsExposeOnlyEnabledToolPlugins() {
         writeToolPlugin("com.example.a")
         writeToolPlugin("com.example.b")

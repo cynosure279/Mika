@@ -71,7 +71,7 @@ data class PluginManifest(
         val settingKeys = mutableSetOf<String>()
         for (s in settings) {
             if (!SETTING_KEY.matches(s.key) || !settingKeys.add(s.key)) add(ERR_SETTING)
-            if (s.type !in SETTING_TYPES) add(if (s.type == "secret") ERR_SETTING_SECRET else ERR_SETTING)
+            if (s.type !in SETTING_TYPES) add(ERR_SETTING)
         }
     }
 
@@ -89,10 +89,10 @@ data class PluginManifest(
         /** 包内脚本相对路径;只允许 scripts/ 下,不允许反斜杠、盘符和 ..。 */
         val SCRIPT = Regex("^scripts/[A-Za-z0-9._/-]+$")
 
-        /** P2 认的权限;P3 的 phone.apps 还不能装。 */
+        /** P3 认的权限;phone.apps 仍不能装。 */
         val PERMISSIONS = setOf("sandbox.run", "workspace.own", "settings.plugin", "network", "page")
-        /** P2 只存非密设置;secret 等 P3。 */
-        val SETTING_TYPES = setOf("string", "bool", "number")
+        /** 设置值类型;secret 用 Keystore 加密单独存,页面只能看到是否已设置。 */
+        val SETTING_TYPES = setOf("string", "bool", "number", "secret")
 
         const val ERR_SCHEMA = "schema_unsupported"
         const val ERR_ID = "invalid_id"
@@ -152,6 +152,8 @@ data class PluginRecord(
     val name: String,
     val version: String,
     val enabled: Boolean = true,
+    /** 用户是否显式允许这个插件联网;manifest 里的 network 只是申请。 */
+    val networkGranted: Boolean = false,
     val installedAt: Long = 0,
     val skillNames: List<String> = emptyList(),
     val description: String? = null,

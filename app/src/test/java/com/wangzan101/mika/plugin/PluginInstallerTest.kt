@@ -142,6 +142,19 @@ class PluginInstallerTest {
         assertEquals(PluginErrors.INVALID_MANIFEST, failureCode(installer().installZip(z)))
     }
 
+    @Test fun inspectReadsManifestWithoutInstalling() {
+        val m = installer().inspectZip(pluginZip()).getOrThrow()
+        assertEquals("com.example.feishu", m.id)
+        assertFalse(File(plugins, "com.example.feishu").exists())
+    }
+
+    @Test fun rejectsDowngrade() {
+        installer().installZip(pluginZip(manifest = manifest(version = "2.0.0"), name = "v2.zip")).getOrThrow()
+        val older = pluginZip(manifest = manifest(version = "1.0.0"), name = "v1.zip")
+        assertEquals(PluginErrors.DOWNGRADE, failureCode(installer().installZip(older)))
+        assertEquals("2.0.0", PluginManifest.parse(File(plugins, "com.example.feishu/manifest.json").readText()).version)
+    }
+
     @Test fun installsPagePlugin() {
         val pages = """[{"id":"home","entry":"pages/index.html","title":"飞书"}]"""
         val z = zip(

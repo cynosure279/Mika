@@ -1,8 +1,11 @@
 package com.wangzan101.mika.ui
 
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -49,15 +52,16 @@ fun PluginsScreen(registry: PluginRegistry, onBack: () -> Unit) {
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var installing by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<Throwable?>(null) }
+    var pending by remember { mutableStateOf<PendingInstall?>(null) }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         installing = true
         scope.launch {
             val result = withContext(Dispatchers.IO) {
-                installer.install(uri, context.contentResolver)
+                installer.inspect(uri, context.contentResolver)
             }
-            result.onSuccess { registry.install(it) }.onFailure { failure = it }
+            result.onSuccess { pending = PendingInstall(uri, it) }.onFailure { failure = it }
             installing = false
         }
     }
@@ -112,7 +116,56 @@ fun PluginsScreen(registry: PluginRegistry, onBack: () -> Unit) {
             confirmButton = { TextButton({ failure = null }) { Text(stringResource(R.string.done)) } },
         )
     }
+
+    pending?.let { p ->
+        val m = p.manifest
+        val old = registry.manifest(m.id)
+        val added = m.permissions.filter { it !in (old?.permissions ?: emptyList()) }
+        AlertDialog(
+            onDismissRequest = { pending = null },
+            title = {
+                Text(
+                    if (old == null) stringResource(R.string.plugins_confirm_install, m.name, m.version)
+                    else stringResource(R.string.plugins_confirm_update, m.name, m.version),
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        stringResource(
+                            R.string.plugins_confirm_permissions,
+                            if (m.permissions.isEmpty()) stringResource(R.string.plugins_none)
+                            else m.permissions.map { permissionLabel(it) }.joinToString(),
+                        ),
+                    )
+                    Text(stringResource(R.string.plugins_confirm_tools, m.tools.size))
+                    Text(stringResource(R.string.plugins_confirm_pages, m.pages.size))
+                    if (added.isNotEmpty()) {
+                        Text(stringResource(R.string.plugins_confirm_new_permissions, added.map { permissionLabel(it) }.joinToString()))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton({
+                    pending = null
+                    installing = true
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            installer.install(p.uri, context.contentResolver)
+                        }
+                        result.onSuccess { registry.install(it) }.onFailure { failure = it }
+                        installing = false
+                    }
+                }) {
+                    Text(stringResource(if (old == null) R.string.plugins_install else R.string.plugins_confirm_update_button))
+                }
+            },
+            dismissButton = { TextButton({ pending = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
 }
+
+private data class PendingInstall(val uri: Uri, val manifest: PluginManifest)
 
 @Composable
 private fun PluginDetail(record: PluginRecord, registry: PluginRegistry, onBack: () -> Unit, onRemoved: () -> Unit) {
@@ -134,6 +187,17 @@ private fun PluginDetail(record: PluginRecord, registry: PluginRegistry, onBack:
                 MikaSwitch(record.enabled, { on ->
                     scope.launch(Dispatchers.IO) { registry.setEnabled(record.id, on) }
                 }, Modifier.testTag("plugin-enabled"))
+            }
+            if ("network" in record.permissions) {
+                ListRow(
+                    null,
+                    stringResource(R.string.plugins_permission_network),
+                    subtitle = stringResource(if (record.networkGranted) R.string.plugins_enabled else R.string.plugins_disabled),
+                ) {
+                    MikaSwitch(record.networkGranted, { on ->
+                        scope.launch(Dispatchers.IO) { registry.setNetworkGranted(record.id, on) }
+                    }, Modifier.testTag("plugin-network"))
+                }
             }
             ListRow(
                 null,
@@ -170,6 +234,17 @@ private fun PluginDetail(record: PluginRecord, registry: PluginRegistry, onBack:
                     ListRow(MikaIcons.Doc, name, first = i == 0)
                 }
             }
+        }
+        GroupCard {
+            ListRow(
+                MikaIcons.Lines,
+                stringResource(R.string.plugins_clear_logs),
+                first = true,
+                onClick = {
+                    registry.clearLogs(record.id)
+                    Toast.makeText(context, context.getString(R.string.plugins_logs_cleared), Toast.LENGTH_SHORT).show()
+                },
+            )
         }
         GroupCard {
             ListRow(
@@ -216,6 +291,8 @@ private fun permissionLabel(code: String): String = when (code) {
     "sandbox.run" -> stringResource(R.string.plugins_permission_sandbox_run)
     "workspace.own" -> stringResource(R.string.plugins_permission_workspace_own)
     "network" -> stringResource(R.string.plugins_permission_network)
+    "settings.plugin" -> stringResource(R.string.plugins_permission_settings_plugin)
+    "page" -> stringResource(R.string.plugins_permission_page)
     else -> code
 }
 
@@ -244,6 +321,7 @@ private fun installErrorText(e: Throwable): String {
         com.wangzan101.mika.plugin.PluginScriptErrors.SYNC -> stringResource(R.string.plugins_error_invalid)
         PluginErrors.UNSAFE_PATH, com.wangzan101.mika.plugin.PluginScriptErrors.UNSAFE ->
             stringResource(R.string.plugins_error_unsafe)
+        PluginErrors.DOWNGRADE -> stringResource(R.string.plugins_error_downgrade)
         PluginErrors.TOO_LARGE -> stringResource(R.string.plugins_error_too_large)
         PluginErrors.MISSING_MANIFEST -> stringResource(R.string.plugins_error_missing_manifest)
         PluginErrors.INVALID_MANIFEST -> stringResource(R.string.plugins_error_invalid)

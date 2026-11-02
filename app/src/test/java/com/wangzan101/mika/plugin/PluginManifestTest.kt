@@ -90,12 +90,13 @@ class PluginManifestTest {
         assertTrue(PluginManifest.ERR_PAGE in problems(json(extra = ",\"permissions\":[\"page\"],\"pages\":[{\"id\":\"home\",\"entry\":\"pages/index.html\"},{\"id\":\"home\",\"entry\":\"pages/other.html\"}]")))
     }
 
-    @Test fun settingsAreNonSecretAndNeedPermission() {
+    @Test fun settingsSupportSecretAndNeedPermission() {
         val webhook = ",\"settings\":[{\"key\":\"webhook\",\"type\":\"string\"}]"
         assertTrue(PluginManifest.ERR_SETTINGS_NEED_PERMISSION in problems(json(extra = webhook)))
         assertTrue(problems(json(extra = webhook + ",\"permissions\":[\"settings.plugin\"]")).isEmpty())
-        assertTrue(PluginManifest.ERR_SETTING_SECRET in problems(json(extra = ",\"settings\":[{\"key\":\"webhook\",\"type\":\"secret\"}],\"permissions\":[\"settings.plugin\"]")))
+        assertTrue(problems(json(extra = ",\"settings\":[{\"key\":\"webhook\",\"type\":\"secret\"}],\"permissions\":[\"settings.plugin\"]")).isEmpty())
         assertTrue(PluginManifest.ERR_SETTING in problems(json(extra = ",\"settings\":[{\"key\":\"Webhook\",\"type\":\"string\"}],\"permissions\":[\"settings.plugin\"]")))
+        assertTrue(PluginManifest.ERR_SETTING in problems(json(extra = ",\"settings\":[{\"key\":\"webhook\",\"type\":\"object\"}],\"permissions\":[\"settings.plugin\"]")))
     }
 
     @Test fun toolsRequireSandboxRunPermission() {

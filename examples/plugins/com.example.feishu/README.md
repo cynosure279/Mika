@@ -32,9 +32,11 @@ zip 条目统一用 `/`，只包含 manifest、`skills/` 和（工具版的）`s
 - 脚本约定：参数 JSON 由 P1b 写到 `MIKA_PLUGIN_ARGS` 指向的临时文件，脚本最后一行输出 JSON。
 - 没有 `network` 权限时不能联网；有权限时走 Mika 的全局代理。
 
-### P3（secret）
+### P3（secret、联网、日志）
 
-- 正式用法应把 webhook/secret 放进插件 secret（`secrets.bin`），脚本从 `MIKA_PLUGIN_SECRETS` 读；现在页面把两项都写进非密 `settings.json`，只是 P2 的过渡。
+- 页面写的 `secret` 类型设置进 `secrets.bin`（Keystore 加密），页面只能看到「是否已设置」；脚本通过 `MIKA_PLUGIN_SECRETS` 指向的临时 JSON 文件读取，退出前删除。
+- 插件详情的「联网」开关默认关；manifest 里的 `network` 只是申请。只有用户打开、且全局网络允许时，脚本和页面才联网。
+- 每个插件有 `logs/plugin.log`（上限 1 MB），详情里可以清空；日志只记工具名/退出码/耗时，不记参数和 secret。
 
 ### P2（页面）
 

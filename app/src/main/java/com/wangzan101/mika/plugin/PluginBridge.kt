@@ -21,6 +21,8 @@ data class PluginToolResult(val text: String, val isError: Boolean = false)
 interface PluginBridgeHost {
     suspend fun settingsGet(key: String): String?
     suspend fun settingsSet(key: String, value: String?): String?
+    suspend fun secretSet(key: String): Boolean
+    suspend fun secretWrite(key: String, value: String?): Boolean
     suspend fun callTool(name: String, args: JsonObject): PluginToolResult
     suspend fun workspaceRead(path: String): String?
     suspend fun workspaceWrite(path: String, text: String): Boolean
@@ -79,7 +81,9 @@ class PluginBridge(
         if (!has("settings.plugin")) throw Denied("settings.plugin")
         val key = params["key"]?.jsonPrimitive?.contentOrNull
             ?: throw BadRequest("key is required")
-        declaredSetting(key) ?: throw BadRequest("setting is not declared: $key")
+        val setting = declaredSetting(key) ?: throw BadRequest("setting is not declared: $key")
+        // secret 只告诉页面有没有设置,不返回明文
+        if (setting.type == "secret") return buildJsonObject { put("set", host.secretSet(key)) }
         return host.settingsGet(key)?.let(::JsonPrimitive) ?: JsonNull
     }
 
@@ -87,7 +91,7 @@ class PluginBridge(
         if (!has("settings.plugin")) throw Denied("settings.plugin")
         val key = params["key"]?.jsonPrimitive?.contentOrNull
             ?: throw BadRequest("key is required")
-        declaredSetting(key) ?: throw BadRequest("setting is not declared: $key")
+        val setting = declaredSetting(key) ?: throw BadRequest("setting is not declared: $key")
         val value = params["value"]
         val text = when {
             value == null || value is JsonNull -> null
@@ -95,6 +99,10 @@ class PluginBridge(
             else -> throw BadRequest("value must be a string, number or boolean")
         }
         if (text != null && text.length > MAX_TEXT) throw BadRequest("value is too large")
+        if (setting.type == "secret") {
+            if (!host.secretWrite(key, text)) throw Internal("could not save the secret")
+            return buildJsonObject { put("set", text != null) }
+        }
         return host.settingsSet(key, text)?.let(::JsonPrimitive) ?: JsonNull
     }
 

@@ -23,6 +23,8 @@ object PluginErrors {
     const val MISSING_MANIFEST = "missing_manifest"
     const val INVALID_MANIFEST = "invalid_manifest"
     const val IO = "io"
+    /** 同 id 的新包版本低于已安装版本。 */
+    const val DOWNGRADE = "version_downgrade"
 }
 
 /**
@@ -40,16 +42,59 @@ class PluginInstaller(
 
     /** SAF 选中的 zip:先复制到缓存,再走 [installZip]。复制/解析都在调用方的 IO 线程上。 */
     fun install(uri: Uri, resolver: ContentResolver): Result<PluginRecord> = runCatching {
-        val dir = File(cacheDir, "plugin-install").apply { mkdirs() }
-        val temp = File(dir, "${UUID.randomUUID()}.zip")
+        val temp = copyToCache(uri, resolver)
         try {
-            val input = resolver.openInputStream(uri)
-                ?: throw PluginInstallException(PluginErrors.IO, "cannot open the selected file")
-            input.use { from -> temp.outputStream().use { from.copyTo(it) } }
-            if (temp.length() > maxBytes) throw PluginInstallException(PluginErrors.TOO_LARGE, "zip is too large")
             installZipOrThrow(temp)
         } finally {
             temp.delete()
+        }
+    }
+
+    /** 安装/更新确认前先看 manifest,不做任何解压。 */
+    fun inspect(uri: Uri, resolver: ContentResolver): Result<PluginManifest> = runCatching {
+        val temp = copyToCache(uri, resolver)
+        try {
+            inspectZipOrThrow(temp)
+        } finally {
+            temp.delete()
+        }
+    }
+
+    /** 测试用:直接读一个本地 zip 的 manifest。 */
+    fun inspectZip(zip: File): Result<PluginManifest> = runCatching { inspectZipOrThrow(zip) }
+
+    private fun copyToCache(uri: Uri, resolver: ContentResolver): File {
+        val dir = File(cacheDir, "plugin-install").apply { mkdirs() }
+        val temp = File(dir, "${UUID.randomUUID()}.zip")
+        val input = resolver.openInputStream(uri)
+            ?: throw PluginInstallException(PluginErrors.IO, "cannot open the selected file")
+        input.use { from -> temp.outputStream().use { from.copyTo(it) } }
+        if (temp.length() > maxBytes) {
+            temp.delete()
+            throw PluginInstallException(PluginErrors.TOO_LARGE, "zip is too large")
+        }
+        return temp
+    }
+
+    private fun inspectZipOrThrow(zip: File): PluginManifest {
+        ZipFile(zip).use { zf ->
+            val entries = zf.entries().toList()
+            if (entries.isEmpty()) throw PluginInstallException(PluginErrors.MISSING_MANIFEST, "zip is empty")
+            if (entries.size > MAX_ENTRIES) throw PluginInstallException(PluginErrors.TOO_LARGE, "too many files")
+            for (e in entries) checkName(e.name)
+            val manifestEntry = entries.firstOrNull { it.name == MANIFEST }
+                ?: throw PluginInstallException(PluginErrors.MISSING_MANIFEST, "manifest.json missing at the root")
+            val text = zf.getInputStream(manifestEntry).use { it.readLimited(MANIFEST_LIMIT) }
+            val parsed = try {
+                PluginManifest.parse(text)
+            } catch (e: Exception) {
+                throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "manifest.json is not valid", e)
+            }
+            val problems = parsed.validate(appVersion)
+            if (problems.isNotEmpty()) {
+                throw PluginInstallException(problems.first(), "manifest rejected: ${problems.joinToString()}")
+            }
+            return parsed
         }
     }
 
@@ -103,6 +148,12 @@ class PluginInstaller(
             }
 
             val m = manifest!!
+            // v1 拒绝降级;同版本重装允许
+            val existing = File(File(pluginsDir, m.id), MANIFEST).takeIf { it.isFile }
+                ?.let { runCatching { PluginManifest.parse(it.readText()) }.getOrNull() }
+            if (existing != null && SemVer.compare(m.version, existing.version) < 0) {
+                throw PluginInstallException(PluginErrors.DOWNGRADE, "version ${m.version} is older than ${existing.version}")
+            }
             for (s in m.skills) {
                 if (!File(staging, "${s.path}/SKILL.md").isFile) {
                     throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "skill ${s.name} has no SKILL.md")

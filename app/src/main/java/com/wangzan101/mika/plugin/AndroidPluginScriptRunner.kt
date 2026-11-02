@@ -5,6 +5,8 @@ import com.wangzan101.mika.cap.sandbox.AndroidSandbox
 import com.wangzan101.mika.cap.sandbox.SandboxDirs
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.File
 import java.util.UUID
 
@@ -39,6 +41,9 @@ class AndroidPluginScriptRunner(
         }
 
         val workspace = dirs.pluginWorkspace(pluginId)
+        val settings = PluginSettings(packageDir, com.wangzan101.mika.settings.KeystoreKeyCipher(pluginKeyAlias(pluginId)))
+        val secrets = settings.secretEnv()
+        val secretsFile = File(workspace, ".mika/secrets-${UUID.randomUUID()}.json")
         val argsFile = File(workspace, ".mika/args-${UUID.randomUUID()}.json")
         return try {
             val result = sandbox.runPlugin(
@@ -46,14 +51,25 @@ class AndroidPluginScriptRunner(
                 argv = listOf(interpreter, "/opt/mika/plugins/$pluginId/$script"),
                 timeoutMs = timeoutSec.coerceIn(1, 600) * 1000L,
                 network = network,
-                extraEnv = mapOf(
-                    "MIKA_PLUGIN_ID" to pluginId,
-                    "MIKA_PLUGIN_ARGS" to "/workspace/.mika/${argsFile.name}",
-                    "MIKA_PLUGIN_NETWORK" to if (network) "on" else "off",
-                ),
+                extraEnv = buildMap {
+                    put("MIKA_PLUGIN_ID", pluginId)
+                    put("MIKA_PLUGIN_ARGS", "/workspace/.mika/${argsFile.name}")
+                    put("MIKA_PLUGIN_NETWORK", if (network) "on" else "off")
+                    if (secrets.isNotEmpty()) put("MIKA_PLUGIN_SECRETS", "/workspace/.mika/${secretsFile.name}")
+                },
                 beforeRun = {
                     argsFile.parentFile?.mkdirs()
+                    // 上次进程被杀可能留下带 secret 的临时文件;只清一小时前的,避免和并发调用抢
+                    val cutoff = System.currentTimeMillis() - 60 * 60 * 1000L
+                    argsFile.parentFile?.listFiles { f ->
+                        (f.name.startsWith("args-") || f.name.startsWith("secrets-")) && f.lastModified() < cutoff
+                    }?.forEach { it.delete() }
                     argsFile.writeText(args.toString())
+                    if (secrets.isNotEmpty()) {
+                        secretsFile.writeText(
+                            buildJsonObject { secrets.toSortedMap().forEach { (k, v) -> put(k, v) } }.toString(),
+                        )
+                    }
                     PluginScriptsSync.ensure(dirs, pluginId, packageDir)
                 },
             )
@@ -65,6 +81,7 @@ class AndroidPluginScriptRunner(
             ScriptResult("plugin_error: ${e.message ?: e.javaClass.simpleName}", exitCode = -1)
         } finally {
             argsFile.delete()
+            secretsFile.delete()
         }
     }
 

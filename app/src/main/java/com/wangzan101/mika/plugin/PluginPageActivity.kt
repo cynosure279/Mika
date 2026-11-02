@@ -39,6 +39,7 @@ import com.wangzan101.mika.ui.components.TopBar
 import com.wangzan101.mika.ui.theme.MikaIcons
 import com.wangzan101.mika.ui.theme.MikaTheme
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -59,6 +60,7 @@ class PluginPageActivity : ComponentActivity() {
     private var loader: WebViewAssetLoader? = null
     private var networkGranted = false
     private var csp = ""
+    private var pageLog: PluginLog? = null
     private val loadError = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,11 +79,12 @@ class PluginPageActivity : ComponentActivity() {
         }
 
         val pagesDir = File(filesDir, "plugins/$pluginId/pages")
+        pageLog = PluginLog(File(filesDir, "plugins/$pluginId/logs")).also { it.append("page", "open ${page.id}") }
         val sandbox = AndroidSandbox(this, SandboxState.get(this))
         val runner = AndroidPluginScriptRunner(this, sandbox)
-        val endpoint = PluginEndpoint(record, manifest, runner) { sandbox.networkAllowed() }
-        val settings = PluginSettings(File(filesDir, "plugins/$pluginId"))
-        networkGranted = "network" in manifest.permissions && sandbox.networkAllowed()
+        val endpoint = PluginEndpoint(record, manifest, runner, networkAllowed = { record.networkGranted && sandbox.networkAllowed() })
+        val settings = PluginSettings(File(filesDir, "plugins/$pluginId"), com.wangzan101.mika.settings.KeystoreKeyCipher(pluginKeyAlias(pluginId)))
+        networkGranted = "network" in manifest.permissions && record.networkGranted && sandbox.networkAllowed()
         csp = buildString {
             append("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; ")
             append("img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'; ")
@@ -102,6 +105,13 @@ class PluginPageActivity : ComponentActivity() {
                         WebView(context).also { view -> webView = view; configure(view, manifest, page) }
                     },
                 )
+            }
+        }
+        // 插件被停用或卸载时关掉已打开的页面
+        lifecycleScope.launch {
+            registry.plugins.collect { list ->
+                val current = list.firstOrNull { it.id == pluginId }
+                if (current == null || !current.enabled) finish()
             }
         }
     }
@@ -187,6 +197,7 @@ class PluginPageActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        pageLog?.append("page", "close")
         webView?.let { view ->
             runCatching { WebViewCompat.removeWebMessageListener(view, BRIDGE) }
             runCatching { view.stopLoading() }
@@ -209,6 +220,10 @@ class PluginPageActivity : ComponentActivity() {
         override suspend fun settingsGet(key: String): String? = settings.get(key)
 
         override suspend fun settingsSet(key: String, value: String?): String? = settings.set(key, value)
+
+        override suspend fun secretSet(key: String): Boolean = settings.secretSet(key)
+
+        override suspend fun secretWrite(key: String, value: String?): Boolean = settings.secretWrite(key, value)
 
         override suspend fun callTool(name: String, args: JsonObject): PluginToolResult {
             val result = endpoint.call(name, args)
