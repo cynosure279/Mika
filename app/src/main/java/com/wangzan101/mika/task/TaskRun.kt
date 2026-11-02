@@ -710,6 +710,14 @@ class TaskRun(
                 store = (service.application as MikaApp).childRuns,
                 ownerAlive = { job?.isActive == true },
             ).also { children = it } else null
+            // 主任务带启用插件的工具;子任务不带(v1),评测任务也不带(避免本机插件影响评测结果)
+            val pluginServers = if (env.evalHooks.autoAnswer == null && env.evalHooks.autoDecideConfirmation == null) {
+                (service.application as MikaApp).plugins.enabledConnections(
+                    com.wangzan101.mika.plugin.AndroidPluginScriptRunner(service, sandbox),
+                ) { sandbox.networkAllowed() }
+            } else {
+                emptyList()
+            }
             val tools = toolDispatcher(accessedPhone, model.capabilities.vision, catalog, recordFrames = true, vision = vision?.let { VisionService(it, BitmapImageOps) },
                 // 设置里允许 Mika 改自己时,才把 settings_list、settings_set 发给模型
                 selfConfig = if (FeatureFlags.get(service).selfConfig()) {
@@ -736,6 +744,7 @@ class TaskRun(
                 onSandboxPreparing = { sandboxNote(StatusCopy.RUNTIME_PREPARING) },
                 onSandboxScript = { sandboxNote(StatusCopy.sandboxScript(sandboxOnline())) },
                 imageOps = BitmapImageOps, runSpec = runSpec,
+                mcpServers = pluginServers,
                 userScreens = userScreens,
                 scheduleTrigger = if (provenance.origin == RunOrigin.Ui) { trigger -> TriggerRuntime.schedule(service, trigger) } else null,
                 scheduleAdmin = if (provenance.origin == RunOrigin.Ui) LocalScheduleAdmin(service) else null,

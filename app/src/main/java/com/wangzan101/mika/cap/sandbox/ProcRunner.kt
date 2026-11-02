@@ -27,11 +27,14 @@ object ProcRunner {
     fun argv(
         dirs: SandboxDirs, workspace: File, cwd: String, timeoutSec: Int, network: Boolean, standIns: List<String>, command: List<String>,
         devices: List<String> = ProotDevices.bindArgs(),
+        /** 额外的只读绑定(宿主目录 → 沙箱路径),自定义沙箱不能把这些暴露给普通技能。 */
+        extraBinds: List<Pair<File, String>> = emptyList(),
     ): List<String> = listOf(
         dirs.lib("libmikarun.so").path, "--timeout", timeoutSec.toString(), "--net", if (network) "on" else "off", "--",
         dirs.lib("libproot.so").path, "--kill-on-exit", "--link2symlink", "-0", "-r", dirs.rootfs.path,
     ) + devices + listOf("-b", "/proc", "-b", "/sys") +
         standIns.flatMap { listOf("-b", "${File(dirs.procStandIns, it).path}:/proc/$it") } +
+        extraBinds.flatMap { (source, target) -> listOf("-b", "${source.path}:$target") } +
         listOf(
             "-b", "${workspace.path}:${SandboxPaths.WORKSPACE}",
             "-b", "${dirs.skills.path}:${SandboxPaths.SKILLS}",
@@ -43,6 +46,8 @@ object ProcRunner {
         dirs: SandboxDirs, bridgeName: String?, token: String?, conversationId: String,
         /** 容器的网络代理;空串表示不用(见 NetProxyStore)。不允许联网时调用方给空串。 */
         proxy: String = "",
+        /** 插件脚本专用变量等;只加调用方明确给的值。 */
+        extra: Map<String, String> = emptyMap(),
     ): Map<String, String> = buildMap {
         put("PROOT_LOADER", dirs.lib("libproot_loader.so").path)
         put("PROOT_TMP_DIR", dirs.tmp.path)
@@ -55,6 +60,7 @@ object ProcRunner {
         bridgeName?.let { put("MIKA_BRIDGE", it) }
         token?.let { put("MIKA_TOKEN", it) }
         put("MIKA_CONVERSATION", conversationId)
+        putAll(extra)
         // 代理只给容器里的命令用:常见工具认这几个变量(有的只认大写);本机地址不走代理
         if (proxy.isNotBlank()) {
             for (name in listOf("http_proxy", "https_proxy", "all_proxy")) {

@@ -1,6 +1,8 @@
 package com.wangzan101.mika.plugin
 
 import com.wangzan101.mika.BuildConfig
+import com.wangzan101.mika.core.cap.mcp.McpConnection
+import com.wangzan101.mika.core.cap.mcp.McpTrust
 import com.wangzan101.mika.core.skills.PluginSkills
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +46,24 @@ class PluginRegistry(
 
     /** 任务开始时固定一份,本次任务里启用/停用从下一次任务生效。 */
     fun skillsSnapshot(): PluginSkills = skills.snapshot()
+
+    /**
+     * 启用插件里带工具的那些,转成现有 MCP 连接;每个连接只暴露本插件的工具。
+     * [networkAllowed] 是全局联网开关,插件自己的 network 权限还要同时满足。
+     */
+    fun enabledConnections(
+        runner: PluginScriptRunner,
+        networkAllowed: () -> Boolean = { false },
+    ): List<McpConnection> = enabledPlugins().mapNotNull { record ->
+        val manifest = manifest(record.id) ?: return@mapNotNull null
+        if (manifest.tools.isEmpty() || manifest.validate(appVersion).isNotEmpty()) return@mapNotNull null
+        McpConnection(
+            endpoint = PluginEndpoint(record, manifest, runner, networkAllowed),
+            resultStore = PluginResultStore(root),
+            maxCostUnits = manifest.maxCostUnits?.toLong(),
+            trust = McpTrust.Restricted,
+        )
+    }
 
     fun enabledPlugins(): List<PluginRecord> = _plugins.value.filter { it.enabled }
 

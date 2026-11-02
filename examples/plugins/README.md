@@ -4,7 +4,7 @@
 
 | 目录 | 形态 | 现在能做什么 | 依赖 |
 |---|---|---|---|
-| [`com.example.feishu/`](com.example.feishu/) | capability pack（能力包） | `manifest.json` 是纯技能插件，P1a 就能装；`manifest.full.json` 加了一个 webhook 工具，等 P1b | P1a（技能）；P1b（工具）、P3（secret） |
+| [`com.example.feishu/`](com.example.feishu/) | capability pack（能力包） | `manifest.json` 是纯技能插件，P1a 就能装；`manifest.full.json` 加了一个 webhook 工具，P1b 起可以装 | P1a（技能）；P1b（工具）、P3（secret） |
 | [`com.example.feishu-connector/`](com.example.feishu-connector/) | connector（外部连接器） | 只是 P4 的 manifest 样例，展示安装指引/命令/状态字段；不运行 App 内代码 | P4，以及官方飞书连接器 PR #160 合入 |
 
 ## 和官方飞书连接器的关系
@@ -30,9 +30,9 @@
 2. 在 App 里打开 设置 › 高级 › 插件 › 安装插件，选这个 zip。
 3. 启用后，下一次任务里 `skill_search` 能搜到 `com.example.feishu/feishu`，`skill_read` 能读，正文前会带「第三方插件技能」标记。
 
-## 工具版（等 P1b）
+## 工具版（P1b）
 
-`build.py` 同时生成 `com.example.feishu-full-0.2.0.zip`，它的 manifest 带 `tools`/`permissions`。**当前 P1a 会以 `only_skills_supported` 拒绝安装，这是预期的**；P1b 合入后才会出现 `mcp_com_example_feishu__send` 工具。
+`build.py` 同时生成 `com.example.feishu-full-0.2.0.zip`，它的 manifest 带 `tools`/`permissions`。P1b 合入后可以安装，任务里会出现 `mcp_com_example_feishu__send` 工具；只装了 P1a 的线上版本仍会以 `only_skills_supported` 拒绝安装。
 
 ## connector 样例（等 P4）
 

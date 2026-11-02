@@ -118,6 +118,8 @@ fun PluginsScreen(registry: PluginRegistry, onBack: () -> Unit) {
 private fun PluginDetail(record: PluginRecord, registry: PluginRegistry, onBack: () -> Unit, onRemoved: () -> Unit) {
     val scope = rememberCoroutineScope()
     var confirmUninstall by remember { mutableStateOf(false) }
+    val manifest = remember(record.id, record.version) { registry.manifest(record.id) }
+    val permissionLabels = record.permissions.map { permissionLabel(it) }
     PageScaffold(record.name, onBack) {
         GroupCard {
             ListRow(
@@ -135,8 +137,27 @@ private fun PluginDetail(record: PluginRecord, registry: PluginRegistry, onBack:
                 null,
                 stringResource(R.string.plugins_permissions),
                 subtitle = if (record.permissions.isEmpty()) stringResource(R.string.plugins_none)
-                else record.permissions.joinToString(),
+                else permissionLabels.joinToString(),
             )
+        }
+        GroupLabel(stringResource(R.string.plugins_tools))
+        GroupCard {
+            val tools = manifest?.tools.orEmpty()
+            if (tools.isEmpty()) {
+                ListRow(null, stringResource(R.string.plugins_no_tools), first = true)
+            } else {
+                tools.forEachIndexed { i, tool ->
+                    ListRow(
+                        MikaIcons.Terminal,
+                        tool.name,
+                        subtitle = listOfNotNull(
+                            tool.description.takeIf { it.isNotBlank() },
+                            stringResource(R.string.plugins_tool_meta, riskLabel(tool), tool.timeoutSec),
+                        ).joinToString(" · "),
+                        first = i == 0,
+                    )
+                }
+            }
         }
         GroupLabel(stringResource(R.string.plugins_skills))
         GroupCard {
@@ -178,12 +199,36 @@ private fun PluginDetail(record: PluginRecord, registry: PluginRegistry, onBack:
 }
 
 @Composable
+private fun permissionLabel(code: String): String = when (code) {
+    "sandbox.run" -> stringResource(R.string.plugins_permission_sandbox_run)
+    "workspace.own" -> stringResource(R.string.plugins_permission_workspace_own)
+    "network" -> stringResource(R.string.plugins_permission_network)
+    else -> code
+}
+
+@Composable
+private fun riskLabel(tool: com.wangzan101.mika.plugin.PluginToolDecl): String =
+    if (tool.annotations["destructiveHint"] == true || tool.annotations["openWorldHint"] == true) {
+        stringResource(R.string.plugins_risk_external)
+    } else {
+        stringResource(R.string.plugins_risk_write)
+    }
+
+@Composable
 private fun installErrorText(e: Throwable): String {
     val code = (e as? PluginInstallException)?.code
     return when (code) {
-        PluginManifest.ERR_PERMISSIONS, PluginManifest.ERR_ONLY_SKILLS -> stringResource(R.string.plugins_unsupported_in_version)
         PluginManifest.ERR_MIN_APP_TOO_HIGH -> stringResource(R.string.plugins_error_too_new)
-        PluginErrors.UNSAFE_PATH -> stringResource(R.string.plugins_error_unsafe)
+        PluginManifest.ERR_PAGES, PluginManifest.ERR_SETTINGS, PluginManifest.ERR_PERMISSIONS,
+        PluginManifest.ERR_TOOLS_NEED_SANDBOX -> stringResource(R.string.plugins_unsupported_in_version)
+        PluginManifest.ERR_TOOL, PluginManifest.ERR_TOOL_SCRIPT, PluginManifest.ERR_TOOL_TIMEOUT,
+        PluginManifest.ERR_TOOL_SCHEMA, PluginManifest.ERR_TOOL_COST, PluginManifest.ERR_SKILL,
+        PluginManifest.ERR_SKILL_PATH, PluginManifest.ERR_ID, PluginManifest.ERR_NAME,
+        PluginManifest.ERR_VERSION, PluginManifest.ERR_SCHEMA,
+        com.wangzan101.mika.plugin.PluginScriptErrors.CHANGED,
+        com.wangzan101.mika.plugin.PluginScriptErrors.SYNC -> stringResource(R.string.plugins_error_invalid)
+        PluginErrors.UNSAFE_PATH, com.wangzan101.mika.plugin.PluginScriptErrors.UNSAFE ->
+            stringResource(R.string.plugins_error_unsafe)
         PluginErrors.TOO_LARGE -> stringResource(R.string.plugins_error_too_large)
         PluginErrors.MISSING_MANIFEST -> stringResource(R.string.plugins_error_missing_manifest)
         PluginErrors.INVALID_MANIFEST -> stringResource(R.string.plugins_error_invalid)

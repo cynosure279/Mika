@@ -24,9 +24,11 @@ class PluginInstallerTest {
         name: String = "飞书通知",
         version: String = "1.0.0",
         skills: String = """[{"name":"feishu","path":"skills/feishu","display":"飞书"}]""",
+        tools: String = "[]",
+        permissions: String = "[]",
     ) = """
         {"schema":1,"id":"$id","name":"$name","version":"$version",
-         "kind":"capability","skills":$skills}
+         "kind":"capability","permissions":$permissions,"tools":$tools,"skills":$skills}
     """.trimIndent()
 
     private fun zip(entries: Map<String, String>, name: String = "plugin.zip"): File {
@@ -106,12 +108,42 @@ class PluginInstallerTest {
         assertEquals(PluginErrors.INVALID_MANIFEST, failureCode(installer().installZip(z)))
     }
 
-    @Test fun rejectsFeaturesThisVersionDoesNotSupport() {
-        val withTools = manifest(
-            id = "com.example.tools",
-            skills = "[]",
-        ).replace("\"kind\"", "\"tools\":[{\"name\":\"send\",\"script\":\"scripts/send.py\"}],\"kind\"")
-        assertEquals(PluginManifest.ERR_ONLY_SKILLS, failureCode(installer().installZip(pluginZip(manifest = withTools))))
+    @Test fun installsToolPluginAndRecordsScriptHashes() {
+        val script = "print('ok')"
+        val send = """[{"name":"send","description":"发消息","script":"scripts/send.py","timeoutSec":30}]"""
+        val z = zip(
+            mapOf(
+                "manifest.json" to manifest(skills = "[]", tools = send, permissions = """["sandbox.run","network"]"""),
+                "scripts/send.py" to script,
+            ),
+        )
+        val record = installer().installZip(z).getOrThrow()
+        assertEquals("com.example.feishu", record.id)
+        assertEquals("print('ok')", File(plugins, "com.example.feishu/scripts/send.py").readText())
+        val hashes = PluginScripts.hashes(File(plugins, "com.example.feishu"))
+        assertEquals(PluginScripts.hash(script.toByteArray()), hashes["scripts/send.py"])
+    }
+
+    @Test fun toolWithoutScriptPerPermissionIsRejected() {
+        val send = """[{"name":"send","script":"scripts/send.py"}]"""
+        val z = zip(
+            mapOf(
+                "manifest.json" to manifest(tools = send),
+                "scripts/send.py" to "print(1)",
+            ),
+        )
+        assertEquals(PluginManifest.ERR_TOOLS_NEED_SANDBOX, failureCode(installer().installZip(z)))
+    }
+
+    @Test fun declaredToolScriptMustExist() {
+        val send = """[{"name":"send","script":"scripts/send.py"}]"""
+        val z = zip(mapOf("manifest.json" to manifest(tools = send, permissions = """["sandbox.run"]""")))
+        assertEquals(PluginErrors.INVALID_MANIFEST, failureCode(installer().installZip(z)))
+    }
+
+    @Test fun rejectsPagesThisVersionDoesNotSupport() {
+        val withPages = manifest().replace("\"kind\"", "\"pages\":[{\"id\":\"home\",\"entry\":\"pages/index.html\"}],\"kind\"")
+        assertEquals(PluginManifest.ERR_PAGES, failureCode(installer().installZip(pluginZip(manifest = withPages))))
     }
 
     @Test fun brokenManifestRejected() {

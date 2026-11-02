@@ -44,6 +44,38 @@ class PluginRegistryTest {
         }
     }
 
+    private fun writeToolPlugin(id: String, name: String = id) {
+        val dir = File(root, id).apply { mkdirs() }
+        File(dir, "manifest.json").writeText(
+            """{"schema":1,"id":"$id","name":"$name","version":"1.0.0","kind":"capability",
+                "permissions":["sandbox.run","network"],
+                "tools":[{"name":"send","description":"x","script":"scripts/send.py","timeoutSec":30}]}""",
+        )
+        File(dir, "scripts").mkdirs()
+        File(dir, "scripts/send.py").writeText("print(1)")
+    }
+
+    private class FakeRunner : PluginScriptRunner {
+        override suspend fun run(pluginId: String, script: String, args: kotlinx.serialization.json.JsonObject, timeoutSec: Int, network: Boolean) =
+            ScriptResult("ok", exitCode = 0)
+    }
+
+    @Test fun enabledConnectionsExposeOnlyEnabledToolPlugins() {
+        writeToolPlugin("com.example.a")
+        writeToolPlugin("com.example.b")
+        val r = registry()
+        r.setEnabled("com.example.b", false)
+        val connections = r.enabledConnections(FakeRunner()) { true }
+        assertEquals(1, connections.size)
+        assertEquals("com.example.a", connections.single().endpoint.serverId)
+        assertEquals(listOf("send"), connections.single().endpoint.tools().map { it.name })
+    }
+
+    @Test fun skillOnlyPluginsDoNotCreateConnections() {
+        writePlugin("com.example.skill")
+        assertTrue(registry().enabledConnections(FakeRunner()) { true }.isEmpty())
+    }
+
     @Test fun scansInstalledPlugins() {
         writePlugin("com.example.a", name = "A")
         writePlugin("com.example.b", name = "B", skill = null)

@@ -8,6 +8,9 @@ object SandboxPaths {
     const val WORKSPACE = "/workspace"
     const val SKILLS = "/opt/mika/skills"
 
+    /** 插件只读包目录的沙箱父路径;每个插件只绑定自己的 `/opt/mika/plugins/<id>`,不把整个父目录给它。 */
+    const val PLUGINS = "/opt/mika/plugins"
+
     /** 相对路径以 [cwd] 为基;规范化后不在 [WORKSPACE] 或 [SKILLS] 下返回 null。 */
     fun normalize(path: String, cwd: String = WORKSPACE): String? {
         if (path.isEmpty() || '\u0000' in path) return null

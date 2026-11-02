@@ -55,12 +55,35 @@ class PluginSampleTest {
         assertTrue(body.contains("连接器"))
     }
 
-    @Test fun fullManifestAwaitsP1b() {
+    @Test fun fullManifestIsValidForP1b() {
         val m = PluginManifest.parse(File(feishu, "manifest.full.json").readText())
-        val problems = m.validate("0.1.33")
-        assertTrue(problems.toString(), PluginManifest.ERR_PERMISSIONS in problems)
-        assertTrue(problems.toString(), PluginManifest.ERR_ONLY_SKILLS in problems)
+        assertTrue(m.validate("0.1.33").isEmpty())
+        assertEquals(listOf("send"), m.tools.map { it.name })
+        assertTrue("sandbox.run" in m.permissions)
         assertTrue(File(feishu, "scripts/send.py").isFile)
+    }
+
+    @Test fun fullSampleInstallsAndExposesItsTool() {
+        val zip = File(tmp.root, "feishu-full.zip")
+        ZipOutputStream(zip.outputStream()).use { z ->
+            add(z, File(feishu, "manifest.full.json"), "manifest.json")
+            for (folder in listOf("skills", "scripts")) {
+                for (f in File(feishu, folder).walkTopDown().filter { it.isFile }) {
+                    add(z, f, f.relativeTo(feishu).invariantSeparatorsPath)
+                }
+            }
+        }
+        val files = tmp.newFolder("tool-files")
+        val record = PluginInstaller(files, appVersion = "0.1.33").installZip(zip).getOrThrow()
+        assertEquals(listOf("feishu"), record.skillNames)
+        assertTrue(File(files, "plugins/com.example.feishu/scripts.sha256").isFile)
+
+        val registry = PluginRegistry(files, CoroutineScope(Dispatchers.Unconfined), appVersion = "0.1.33")
+        val connections = registry.enabledConnections(object : PluginScriptRunner {
+            override suspend fun run(pluginId: String, script: String, args: kotlinx.serialization.json.JsonObject, timeoutSec: Int, network: Boolean) =
+                ScriptResult("ok", exitCode = 0)
+        }) { true }
+        assertEquals(listOf("send"), connections.single().endpoint.tools().map { it.name })
     }
 
     @Test fun connectorManifestAwaitsP4() {

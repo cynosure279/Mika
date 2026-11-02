@@ -26,9 +26,17 @@ class SandboxDirs internal constructor(
     val work: File get() = File(root, "work")
     val skills: File get() = File(root, "skills")
     val procStandIns: File get() = File(root, "proc")
+    /** 同步进沙箱的插件脚本副本;每个插件一个目录,只绑定自己的那一份。 */
+    val plugins: File get() = File(root, "plugins")
 
     /** 一个对话一个工作区:简单名字的 ID 为 c-<ID>,其余为 h-<哈希>(不让 ID 拼出别的路径,两类也不会撞名)。 */
     fun workspace(conversationId: String): File = File(work, dirName(conversationId))
+
+    /** 插件自己的沙箱工作区(沙箱里是 /workspace);和对话工作区分开。 */
+    fun pluginWorkspace(pluginId: String): File = File(File(work, "plugins"), dirName(pluginId))
+
+    /** 插件脚本在沙箱里的副本根目录,绑定到 /opt/mika/plugins/<pluginId>。 */
+    fun pluginScripts(pluginId: String): File = File(plugins, dirName(pluginId))
 
     fun lib(name: String): File = File(nativeDir, name)
 
@@ -37,6 +45,7 @@ class SandboxDirs internal constructor(
      * 而标准错误并进了命令输出,模型会看到。技能目录还没同步时就是空目录。
      */
     fun ensureBindSources(workspace: File) {
+        plugins.mkdirs()
         for (d in listOf(workspace, skills, tmp)) d.mkdirs()
     }
 

@@ -108,6 +108,20 @@ class PluginInstaller(
                     throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "skill ${s.name} has no SKILL.md")
                 }
             }
+            for (t in m.tools) {
+                val script = t.script ?: throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "tool ${t.name} has no script")
+                if (!File(staging, script).isFile) {
+                    throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "tool ${t.name} script is missing: $script")
+                }
+            }
+            // 记录 scripts/ 下每个文件的哈希;运行前按它复核,脚本被换过就拒绝
+            if (m.tools.isNotEmpty()) {
+                try {
+                    PluginScripts.writeHashes(staging, PluginScripts.collect(staging))
+                } catch (e: PluginScriptException) {
+                    throw PluginInstallException(e.code, e.message, e)
+                }
+            }
 
             val target = File(pluginsDir, m.id)
             val replaced = target.exists()

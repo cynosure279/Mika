@@ -2,7 +2,7 @@
 
 ```
 manifest.json         P1a：只带技能，可以直接安装
-manifest.full.json    P1b：加 send 工具（webhook），当前会以 only_skills_supported 拒绝
+manifest.full.json    P1b：加 send 工具（webhook）和 sandbox.run/network 权限
 skills/feishu/SKILL.md
 scripts/send.py       工具脚本：POST 到飞书自定义机器人 webhook
 build.py              打 zip（只用 Python 标准库）

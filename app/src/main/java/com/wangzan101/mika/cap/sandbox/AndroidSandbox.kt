@@ -47,6 +47,8 @@ private const val EXIT_LAUNCHER_ERROR = 125
 private const val EXIT_SIGKILL = 128 + 9
 /** 启动器自己有时限;Kotlin 侧多等这么久仍没结束就强杀。 */
 private const val FALLBACK_GRACE_MS = 10_000L
+/** 插件工具调用等运行环境准备好的上限(首次解包时可能要一会儿)。 */
+private const val PLUGIN_READY_MS = 30_000L
 private const val DESTROY_GRACE_MS = 3_000L
 private const val READER_GRACE_MS = 2_000L
 private const val TIMEOUT_SLACK_MS = 500L
@@ -191,6 +193,45 @@ class AndroidSandbox internal constructor(
             exitCode = if (o.timedOut) EXIT_TIMEOUT else o.exitCode, timedOut = timedOut,
             killedBySystem = !timedOut && o.exitCode == EXIT_SIGKILL, durationMs = o.durationMs,
             output = text, droppedBytes = o.droppedBytes, network = network,
+        )
+    }
+
+    /**
+     * 跑插件脚本:工作区是插件自己的目录(绑定为 /workspace),脚本目录只绑定它自己的
+     * `/opt/mika/plugins/<id>`。不提供桥接(MIKA_BRIDGE/MIKA_TOKEN);联网由 [network] 和全局设置共同决定。
+     * [beforeRun] 在树锁里、启动前执行(插件脚本同步在这里做)。
+     */
+    suspend fun runPlugin(
+        pluginId: String,
+        argv: List<String>,
+        timeoutMs: Long,
+        network: Boolean,
+        extraEnv: Map<String, String> = emptyMap(),
+        beforeRun: suspend () -> Unit = {},
+    ): CommandResult {
+        val ready = awaitReady(PLUGIN_READY_MS)
+        if (ready !is SandboxStatus.Ready) {
+            throw SandboxError("sandbox_not_ready", "The sandbox is not ready, so the plugin script cannot run.", recoverable = true)
+        }
+        val allowed = network && networkAllowed()
+        val timeoutSec = ((timeoutMs + 999) / 1000).coerceIn(1, 600).toInt()
+        val o = tree.shared {
+            val ws = withContext(Dispatchers.IO) {
+                dirs.pluginWorkspace(pluginId).also { dirs.ensureBindSources(it) }
+            }
+            beforeRun()
+            val cmd = ProcRunner.argv(
+                dirs, ws, "", timeoutSec, allowed, standIns(), argv,
+                extraBinds = listOf(dirs.pluginScripts(pluginId) to "${SandboxPaths.PLUGINS}/$pluginId"),
+            )
+            launch(cmd, ProcRunner.env(dirs, null, null, "plugin:$pluginId", if (allowed) proxy() else "", extraEnv), timeoutSec * 1000L + FALLBACK_GRACE_MS)
+        }
+        val text = String(o.output, Charsets.UTF_8)
+        val timedOut = o.timedOut || launcherTimedOut(o.exitCode, o.durationMs, timeoutSec)
+        return CommandResult(
+            exitCode = if (o.timedOut) EXIT_TIMEOUT else o.exitCode, timedOut = timedOut,
+            killedBySystem = !timedOut && o.exitCode == EXIT_SIGKILL, durationMs = o.durationMs,
+            output = text, droppedBytes = o.droppedBytes, network = allowed,
         )
     }
 

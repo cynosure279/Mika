@@ -19,10 +19,27 @@ class PluginManifestTest {
 
     private fun problems(text: String, app: String = "0.1.33") = PluginManifest.parse(text).validate(app)
 
-    @Test fun validManifestPasses() {
+    private val tool = """
+        {"name":"send","description":"发消息","script":"scripts/send.py","timeoutSec":30,
+         "annotations":{"readOnlyHint":false,"destructiveHint":false,"openWorldHint":true},
+         "maxCostUnits":5,"inputSchema":{"type":"object","properties":{},"required":[]}}
+    """.trimIndent()
+
+    private fun toolManifest(tool: String = this.tool, permissions: String = "[\"sandbox.run\"]", extra: String = "") = """
+        {"schema":1,"id":"com.example.feishu","name":"飞书通知","version":"1.0.0","kind":"capability",
+         "permissions":$permissions,"tools":[$tool],"skills":[{"name":"feishu","path":"skills/feishu"}]$extra}
+    """.trimIndent()
+
+    @Test fun validSkillManifestPasses() {
         val m = PluginManifest.parse(json())
         assertEquals("com.example.feishu", m.id)
         assertEquals(listOf("feishu"), m.skills.map { it.name })
+        assertTrue(m.validate("0.1.33").isEmpty())
+    }
+
+    @Test fun validToolManifestPasses() {
+        val m = PluginManifest.parse(toolManifest())
+        assertEquals(listOf("send"), m.tools.map { it.name })
         assertTrue(m.validate("0.1.33").isEmpty())
     }
 
@@ -51,11 +68,43 @@ class PluginManifestTest {
         }
     }
 
-    @Test fun permissionsAndNonSkillFeaturesAreRejectedInP1a() {
-        assertTrue(PluginManifest.ERR_PERMISSIONS in problems(json(extra = ",\"permissions\":[\"network\"]")))
-        assertTrue(PluginManifest.ERR_ONLY_SKILLS in problems(json(extra = ",\"tools\":[{\"name\":\"send\"}]")))
-        assertTrue(PluginManifest.ERR_ONLY_SKILLS in problems(json(extra = ",\"pages\":[{\"id\":\"home\",\"entry\":\"pages/index.html\"}]")))
-        assertTrue(PluginManifest.ERR_ONLY_SKILLS in problems(json(extra = ",\"settings\":[{\"key\":\"webhook\"}]")))
+    @Test fun unknownPermissionsAndUnsupportedFeaturesAreRejected() {
+        assertTrue(PluginManifest.ERR_PERMISSIONS in problems(json(extra = ",\"permissions\":[\"phone.apps\"]")))
+        assertTrue(PluginManifest.ERR_PERMISSIONS in problems(json(extra = ",\"permissions\":[\"settings.plugin\"]")))
+        assertTrue(PluginManifest.ERR_PAGES in problems(json(extra = ",\"pages\":[{\"id\":\"home\",\"entry\":\"pages/index.html\"}]")))
+        assertTrue(PluginManifest.ERR_SETTINGS in problems(json(extra = ",\"settings\":[{\"key\":\"webhook\"}]")))
+    }
+
+    @Test fun toolsRequireSandboxRunPermission() {
+        assertTrue(PluginManifest.ERR_TOOLS_NEED_SANDBOX in problems(toolManifest(permissions = "[]")))
+        assertTrue(PluginManifest.ERR_TOOLS_NEED_SANDBOX in problems(toolManifest(permissions = "[\"network\"]")))
+    }
+
+    @Test fun knownPermissionsAreAccepted() {
+        assertTrue(problems(toolManifest(permissions = "[\"sandbox.run\",\"workspace.own\",\"network\"]")).isEmpty())
+    }
+
+    @Test fun toolFieldsAreValidated() {
+        fun bad(t: String, permissions: String = "[\"sandbox.run\"]") = problems(toolManifest(tool = t, permissions = permissions))
+
+        assertTrue(PluginManifest.ERR_TOOL in bad(tool.replace("\"name\":\"send\"", "\"name\":\"Send\"")))
+        assertTrue(PluginManifest.ERR_TOOL in bad(tool.replace("\"name\":\"send\"", "\"name\":\"1send\"")))
+        assertTrue(PluginManifest.ERR_TOOL_SCRIPT in bad(tool.replace("\"scripts/send.py\"", "\"/abs/send.py\"")))
+        assertTrue(PluginManifest.ERR_TOOL_SCRIPT in bad(tool.replace("\"scripts/send.py\"", "\"scripts/../send.py\"")))
+        assertTrue(PluginManifest.ERR_TOOL_SCRIPT in bad(tool.replace("\"scripts/send.py\"", "\"send.py\"")))
+        assertTrue(PluginManifest.ERR_TOOL_TIMEOUT in bad(tool.replace("\"timeoutSec\":30", "\"timeoutSec\":0")))
+        assertTrue(PluginManifest.ERR_TOOL_TIMEOUT in bad(tool.replace("\"timeoutSec\":30", "\"timeoutSec\":601")))
+        assertTrue(PluginManifest.ERR_TOOL_SCHEMA in bad(tool.replace("\"type\":\"object\"", "\"type\":\"string\"")))
+        assertTrue(PluginManifest.ERR_TOOL_COST in bad(tool.replace("\"maxCostUnits\":5", "\"maxCostUnits\":-1")))
+    }
+
+    @Test fun duplicateToolNamesRejected() {
+        val two = "[$tool,$tool]"
+        val text = """
+            {"schema":1,"id":"com.example.feishu","name":"x","version":"1.0.0",
+             "permissions":["sandbox.run"],"tools":$two}
+        """.trimIndent()
+        assertTrue(PluginManifest.ERR_TOOL in problems(text))
     }
 
     @Test fun minAppMustBeCompatibleWithThisApp() {

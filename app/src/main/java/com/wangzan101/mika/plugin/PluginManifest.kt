@@ -4,8 +4,10 @@ import com.wangzan101.mika.BuildConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
-/** 插件 manifest(Schema 1);P1a 只接受技能,P1b/P2/P3 再逐步放开工具、页面与设置。 */
+/** 插件 manifest(Schema 1);P1b 接受技能和工具,页面与设置留给 P2/P3。 */
 @Serializable
 data class PluginManifest(
     val schema: Int = 0,
@@ -21,10 +23,12 @@ data class PluginManifest(
     val skills: List<PluginSkillDecl> = emptyList(),
     val pages: List<PluginPageDecl> = emptyList(),
     val settings: List<PluginSettingDecl> = emptyList(),
+    /** 连接级成本上限;工具自己的 maxCostUnits 是单次调用。 */
+    val maxCostUnits: Int? = null,
 ) {
     /**
-     * 校验 manifest;返回问题编码(空表示通过)。P1a 的 fail closed:只接受只带技能的插件,
-     * 任何权限、工具、页面或设置都拒绝安装。[currentAppVersion] 用于 `minApp` 比较。
+     * 校验 manifest;返回问题编码(空表示通过)。P1b 的 fail closed:只接受技能和工具,
+     * 页面/设置、未知权限、工具缺 `sandbox.run` 都拒绝安装。[currentAppVersion] 用于 `minApp` 比较。
      */
     fun validate(currentAppVersion: String = BuildConfig.VERSION_NAME): List<String> = buildList {
         if (schema != SCHEMA) add(ERR_SCHEMA)
@@ -36,8 +40,22 @@ data class PluginManifest(
             if (!SemVer.isValid(it)) add(ERR_MIN_APP)
             else if (SemVer.compare(it, currentAppVersion) > 0) add(ERR_MIN_APP_TOO_HIGH)
         }
-        if (permissions.isNotEmpty()) add(ERR_PERMISSIONS)
-        if (tools.isNotEmpty() || pages.isNotEmpty() || settings.isNotEmpty()) add(ERR_ONLY_SKILLS)
+        // 权限逐项 fail closed;目前只认 P1b 用到的三种
+        if (permissions.distinct().size != permissions.size || permissions.any { it !in PERMISSIONS }) add(ERR_PERMISSIONS)
+        if (tools.isNotEmpty() && "sandbox.run" !in permissions) add(ERR_TOOLS_NEED_SANDBOX)
+        if (pages.isNotEmpty()) add(ERR_PAGES)
+        if (settings.isNotEmpty()) add(ERR_SETTINGS)
+        if (maxCostUnits != null && maxCostUnits < 0) add(ERR_TOOL_COST)
+        val toolNames = mutableSetOf<String>()
+        for (t in tools) {
+            if (!TOOL_NAME.matches(t.name) || !toolNames.add(t.name)) add(ERR_TOOL)
+            val script = t.script
+            if (script == null || !SCRIPT.matches(script) || ".." in script || script.endsWith("/")) add(ERR_TOOL_SCRIPT)
+            if (t.timeoutSec !in 1..600) add(ERR_TOOL_TIMEOUT)
+            if (t.maxCostUnits != null && t.maxCostUnits < 0) add(ERR_TOOL_COST)
+            val schema = t.inputSchema
+            if (schema != null && schema["type"]?.jsonPrimitive?.contentOrNull != "object") add(ERR_TOOL_SCHEMA)
+        }
         val seen = mutableSetOf<String>()
         for (s in skills) {
             if (!SKILL_NAME.matches(s.name) || !seen.add(s.name)) add(ERR_SKILL)
@@ -53,6 +71,12 @@ data class PluginManifest(
         /** 全局唯一的插件 id;同时用作 `files/plugins/<id>/` 目录名,正则保证拼不出路径。 */
         val ID = Regex("^[a-z0-9]+(\\.[a-z0-9_-]+)+$")
         val SKILL_NAME = Regex("^[a-z0-9]+(?:-[a-z0-9]+)*$")
+        val TOOL_NAME = Regex("^[a-z][a-z0-9_]{0,63}$")
+        /** 包内脚本相对路径;只允许 scripts/ 下,不允许反斜杠、盘符和 ..。 */
+        val SCRIPT = Regex("^scripts/[A-Za-z0-9._/-]+$")
+
+        /** P1b 认的权限;P2 的 page、P3 的 settings.plugin/phone.apps 还不能装。 */
+        val PERMISSIONS = setOf("sandbox.run", "workspace.own", "network")
 
         const val ERR_SCHEMA = "schema_unsupported"
         const val ERR_ID = "invalid_id"
@@ -62,7 +86,14 @@ data class PluginManifest(
         const val ERR_MIN_APP = "invalid_min_app"
         const val ERR_MIN_APP_TOO_HIGH = "app_too_old"
         const val ERR_PERMISSIONS = "permissions_unsupported"
-        const val ERR_ONLY_SKILLS = "only_skills_supported"
+        const val ERR_TOOLS_NEED_SANDBOX = "tools_need_sandbox_run"
+        const val ERR_PAGES = "pages_unsupported"
+        const val ERR_SETTINGS = "settings_unsupported"
+        const val ERR_TOOL = "invalid_tool"
+        const val ERR_TOOL_SCRIPT = "invalid_tool_script"
+        const val ERR_TOOL_TIMEOUT = "invalid_tool_timeout"
+        const val ERR_TOOL_SCHEMA = "invalid_tool_schema"
+        const val ERR_TOOL_COST = "invalid_tool_cost"
         const val ERR_SKILL = "invalid_skill"
         const val ERR_SKILL_PATH = "invalid_skill_path"
 
