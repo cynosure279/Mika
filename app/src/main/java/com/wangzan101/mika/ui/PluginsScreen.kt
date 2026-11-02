@@ -117,8 +117,10 @@ fun PluginsScreen(registry: PluginRegistry, onBack: () -> Unit) {
 @Composable
 private fun PluginDetail(record: PluginRecord, registry: PluginRegistry, onBack: () -> Unit, onRemoved: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var confirmUninstall by remember { mutableStateOf(false) }
     val manifest = remember(record.id, record.version) { registry.manifest(record.id) }
+    val page = manifest?.pages?.firstOrNull()?.takeIf { "page" in manifest.permissions }
     val permissionLabels = record.permissions.map { permissionLabel(it) }
     PageScaffold(record.name, onBack) {
         GroupCard {
@@ -178,6 +180,17 @@ private fun PluginDetail(record: PluginRecord, registry: PluginRegistry, onBack:
                 onClick = { confirmUninstall = true },
             )
         }
+        page?.let {
+            GroupCard {
+                ListRow(
+                    MikaIcons.Screens,
+                    stringResource(R.string.plugins_open_page),
+                    subtitle = it.title?.takeIf { title -> title.isNotBlank() },
+                    first = true,
+                    onClick = { context.startActivity(com.wangzan101.mika.plugin.PluginPageActivity.intent(context, record.id, it.id)) },
+                ) { RowChevron() }
+            }
+        }
     }
     if (confirmUninstall) {
         AlertDialog(
@@ -219,8 +232,10 @@ private fun installErrorText(e: Throwable): String {
     val code = (e as? PluginInstallException)?.code
     return when (code) {
         PluginManifest.ERR_MIN_APP_TOO_HIGH -> stringResource(R.string.plugins_error_too_new)
-        PluginManifest.ERR_PAGES, PluginManifest.ERR_SETTINGS, PluginManifest.ERR_PERMISSIONS,
-        PluginManifest.ERR_TOOLS_NEED_SANDBOX -> stringResource(R.string.plugins_unsupported_in_version)
+        PluginManifest.ERR_PERMISSIONS, PluginManifest.ERR_TOOLS_NEED_SANDBOX,
+        PluginManifest.ERR_SETTING_SECRET -> stringResource(R.string.plugins_unsupported_in_version)
+        PluginManifest.ERR_PAGES_NEED_PAGE, PluginManifest.ERR_PAGE, PluginManifest.ERR_PAGE_PATH,
+        PluginManifest.ERR_SETTINGS_NEED_PERMISSION, PluginManifest.ERR_SETTING,
         PluginManifest.ERR_TOOL, PluginManifest.ERR_TOOL_SCRIPT, PluginManifest.ERR_TOOL_TIMEOUT,
         PluginManifest.ERR_TOOL_SCHEMA, PluginManifest.ERR_TOOL_COST, PluginManifest.ERR_SKILL,
         PluginManifest.ERR_SKILL_PATH, PluginManifest.ERR_ID, PluginManifest.ERR_NAME,

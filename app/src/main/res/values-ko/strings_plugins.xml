@@ -11,6 +11,8 @@
     <string name="plugins_no_skills">스킬 없음</string>
     <string name="plugins_tools">도구</string>
     <string name="plugins_no_tools">도구 없음</string>
+    <string name="plugins_open_page">페이지 열기</string>
+    <string name="plugins_page_failed">이 페이지를 열 수 없습니다.</string>
     <string name="plugins_tool_meta">%1$s · %2$d초</string>
     <string name="plugins_risk_write">데이터 변경</string>
     <string name="plugins_risk_external">외부 작업</string>

@@ -41,7 +41,7 @@ def build_full(out_dir):
     out = out_dir / "com.example.feishu-full-0.2.0.zip"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         add(zf, ROOT / "manifest.full.json", "manifest.json")
-        for folder in ("skills", "scripts"):
+        for folder in ("skills", "scripts", "pages"):
             for f in files_under(folder):
                 add(zf, f, f.relative_to(ROOT).as_posix())
     return out

@@ -68,11 +68,34 @@ class PluginManifestTest {
         }
     }
 
-    @Test fun unknownPermissionsAndUnsupportedFeaturesAreRejected() {
+    @Test fun unknownPermissionsAreRejected() {
         assertTrue(PluginManifest.ERR_PERMISSIONS in problems(json(extra = ",\"permissions\":[\"phone.apps\"]")))
-        assertTrue(PluginManifest.ERR_PERMISSIONS in problems(json(extra = ",\"permissions\":[\"settings.plugin\"]")))
-        assertTrue(PluginManifest.ERR_PAGES in problems(json(extra = ",\"pages\":[{\"id\":\"home\",\"entry\":\"pages/index.html\"}]")))
-        assertTrue(PluginManifest.ERR_SETTINGS in problems(json(extra = ",\"settings\":[{\"key\":\"webhook\"}]")))
+        assertTrue(PluginManifest.ERR_PERMISSIONS in problems(json(extra = ",\"permissions\":[\"future\"]")))
+    }
+
+    @Test fun pagesRequirePagePermission() {
+        val pages = ",\"pages\":[{\"id\":\"home\",\"entry\":\"pages/index.html\",\"title\":\"飞书\"}]"
+        assertTrue(PluginManifest.ERR_PAGES_NEED_PAGE in problems(json(extra = pages)))
+        assertTrue(problems(json(extra = pages + ",\"permissions\":[\"page\"]")).isEmpty())
+    }
+
+    @Test fun pageFieldsAreValidated() {
+        fun bad(entry: String, extra: String = "") = problems(
+            json(extra = ",\"permissions\":[\"page\"],\"pages\":[{\"id\":\"home\",\"entry\":\"$entry\"}]$extra"),
+        )
+        assertTrue(PluginManifest.ERR_PAGE_PATH in bad("../index.html"))
+        assertTrue(PluginManifest.ERR_PAGE_PATH in bad("/index.html"))
+        assertTrue(PluginManifest.ERR_PAGE_PATH in bad("pages/index.js"))
+        assertTrue(PluginManifest.ERR_PAGE in problems(json(extra = ",\"permissions\":[\"page\"],\"pages\":[{\"id\":\"Home\",\"entry\":\"pages/index.html\"}]")))
+        assertTrue(PluginManifest.ERR_PAGE in problems(json(extra = ",\"permissions\":[\"page\"],\"pages\":[{\"id\":\"home\",\"entry\":\"pages/index.html\"},{\"id\":\"home\",\"entry\":\"pages/other.html\"}]")))
+    }
+
+    @Test fun settingsAreNonSecretAndNeedPermission() {
+        val webhook = ",\"settings\":[{\"key\":\"webhook\",\"type\":\"string\"}]"
+        assertTrue(PluginManifest.ERR_SETTINGS_NEED_PERMISSION in problems(json(extra = webhook)))
+        assertTrue(problems(json(extra = webhook + ",\"permissions\":[\"settings.plugin\"]")).isEmpty())
+        assertTrue(PluginManifest.ERR_SETTING_SECRET in problems(json(extra = ",\"settings\":[{\"key\":\"webhook\",\"type\":\"secret\"}],\"permissions\":[\"settings.plugin\"]")))
+        assertTrue(PluginManifest.ERR_SETTING in problems(json(extra = ",\"settings\":[{\"key\":\"Webhook\",\"type\":\"string\"}],\"permissions\":[\"settings.plugin\"]")))
     }
 
     @Test fun toolsRequireSandboxRunPermission() {

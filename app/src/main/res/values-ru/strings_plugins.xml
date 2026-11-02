@@ -11,6 +11,8 @@
     <string name="plugins_no_skills">Нет навыков</string>
     <string name="plugins_tools">Инструменты</string>
     <string name="plugins_no_tools">Нет инструментов</string>
+    <string name="plugins_open_page">Открыть страницу</string>
+    <string name="plugins_page_failed">Не удалось открыть эту страницу.</string>
     <string name="plugins_tool_meta">%1$s · %2$d с</string>
     <string name="plugins_risk_write">Изменяет данные</string>
     <string name="plugins_risk_external">Внешнее действие</string>

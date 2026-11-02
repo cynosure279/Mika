@@ -11,6 +11,8 @@
     <string name="plugins_no_skills">Tidak ada keterampilan</string>
     <string name="plugins_tools">Alat</string>
     <string name="plugins_no_tools">Tidak ada alat</string>
+    <string name="plugins_open_page">Buka halaman</string>
+    <string name="plugins_page_failed">Halaman ini tidak dapat dibuka.</string>
     <string name="plugins_tool_meta">%1$s · %2$d dtk</string>
     <string name="plugins_risk_write">Mengubah data</string>
     <string name="plugins_risk_external">Eksternal</string>

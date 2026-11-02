@@ -27,8 +27,9 @@ data class PluginManifest(
     val maxCostUnits: Int? = null,
 ) {
     /**
-     * 校验 manifest;返回问题编码(空表示通过)。P1b 的 fail closed:只接受技能和工具,
-     * 页面/设置、未知权限、工具缺 `sandbox.run` 都拒绝安装。[currentAppVersion] 用于 `minApp` 比较。
+     * 校验 manifest;返回问题编码(空表示通过)。P2 认技能、工具、页面和非密设置:
+     * 未知权限、工具缺 `sandbox.run`、页面缺 `page`、设置缺 `settings.plugin` 都拒绝安装。
+     * [currentAppVersion] 用于 `minApp` 比较。
      */
     fun validate(currentAppVersion: String = BuildConfig.VERSION_NAME): List<String> = buildList {
         if (schema != SCHEMA) add(ERR_SCHEMA)
@@ -40,11 +41,11 @@ data class PluginManifest(
             if (!SemVer.isValid(it)) add(ERR_MIN_APP)
             else if (SemVer.compare(it, currentAppVersion) > 0) add(ERR_MIN_APP_TOO_HIGH)
         }
-        // 权限逐项 fail closed;目前只认 P1b 用到的三种
+        // 权限逐项 fail closed;P2 认工具、页面、非密设置用到的权限
         if (permissions.distinct().size != permissions.size || permissions.any { it !in PERMISSIONS }) add(ERR_PERMISSIONS)
         if (tools.isNotEmpty() && "sandbox.run" !in permissions) add(ERR_TOOLS_NEED_SANDBOX)
-        if (pages.isNotEmpty()) add(ERR_PAGES)
-        if (settings.isNotEmpty()) add(ERR_SETTINGS)
+        if (pages.isNotEmpty() && "page" !in permissions) add(ERR_PAGES_NEED_PAGE)
+        if (settings.isNotEmpty() && "settings.plugin" !in permissions) add(ERR_SETTINGS_NEED_PERMISSION)
         if (maxCostUnits != null && maxCostUnits < 0) add(ERR_TOOL_COST)
         val toolNames = mutableSetOf<String>()
         for (t in tools) {
@@ -62,6 +63,16 @@ data class PluginManifest(
             // 技能目录只能是包内 skills/<name>,不允许 ..、绝对路径或别名
             if (s.path != "skills/${s.name}" || s.path.contains("..")) add(ERR_SKILL_PATH)
         }
+        val pageIds = mutableSetOf<String>()
+        for (p in pages) {
+            if (!PAGE_ID.matches(p.id) || !pageIds.add(p.id)) add(ERR_PAGE)
+            if (!PAGE_ENTRY.matches(p.entry) || ".." in p.entry || !p.entry.endsWith(".html")) add(ERR_PAGE_PATH)
+        }
+        val settingKeys = mutableSetOf<String>()
+        for (s in settings) {
+            if (!SETTING_KEY.matches(s.key) || !settingKeys.add(s.key)) add(ERR_SETTING)
+            if (s.type !in SETTING_TYPES) add(if (s.type == "secret") ERR_SETTING_SECRET else ERR_SETTING)
+        }
     }
 
     companion object {
@@ -72,11 +83,16 @@ data class PluginManifest(
         val ID = Regex("^[a-z0-9]+(\\.[a-z0-9_-]+)+$")
         val SKILL_NAME = Regex("^[a-z0-9]+(?:-[a-z0-9]+)*$")
         val TOOL_NAME = Regex("^[a-z][a-z0-9_]{0,63}$")
+        val PAGE_ID = Regex("^[a-z][a-z0-9_-]{0,31}$")
+        val PAGE_ENTRY = Regex("^pages/[A-Za-z0-9._/-]+\\.html$")
+        val SETTING_KEY = Regex("^[a-z][a-z0-9_]{0,63}$")
         /** 包内脚本相对路径;只允许 scripts/ 下,不允许反斜杠、盘符和 ..。 */
         val SCRIPT = Regex("^scripts/[A-Za-z0-9._/-]+$")
 
-        /** P1b 认的权限;P2 的 page、P3 的 settings.plugin/phone.apps 还不能装。 */
-        val PERMISSIONS = setOf("sandbox.run", "workspace.own", "network")
+        /** P2 认的权限;P3 的 phone.apps 还不能装。 */
+        val PERMISSIONS = setOf("sandbox.run", "workspace.own", "settings.plugin", "network", "page")
+        /** P2 只存非密设置;secret 等 P3。 */
+        val SETTING_TYPES = setOf("string", "bool", "number")
 
         const val ERR_SCHEMA = "schema_unsupported"
         const val ERR_ID = "invalid_id"
@@ -87,8 +103,12 @@ data class PluginManifest(
         const val ERR_MIN_APP_TOO_HIGH = "app_too_old"
         const val ERR_PERMISSIONS = "permissions_unsupported"
         const val ERR_TOOLS_NEED_SANDBOX = "tools_need_sandbox_run"
-        const val ERR_PAGES = "pages_unsupported"
-        const val ERR_SETTINGS = "settings_unsupported"
+        const val ERR_PAGES_NEED_PAGE = "pages_need_page_permission"
+        const val ERR_PAGE = "invalid_page"
+        const val ERR_PAGE_PATH = "invalid_page_path"
+        const val ERR_SETTINGS_NEED_PERMISSION = "settings_need_permission"
+        const val ERR_SETTING = "invalid_setting"
+        const val ERR_SETTING_SECRET = "setting_secret_unsupported"
         const val ERR_TOOL = "invalid_tool"
         const val ERR_TOOL_SCRIPT = "invalid_tool_script"
         const val ERR_TOOL_TIMEOUT = "invalid_tool_timeout"

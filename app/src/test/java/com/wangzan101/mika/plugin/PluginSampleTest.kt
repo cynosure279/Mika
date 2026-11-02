@@ -55,19 +55,21 @@ class PluginSampleTest {
         assertTrue(body.contains("连接器"))
     }
 
-    @Test fun fullManifestIsValidForP1b() {
+    @Test fun fullManifestIsValid() {
         val m = PluginManifest.parse(File(feishu, "manifest.full.json").readText())
         assertTrue(m.validate("0.1.33").isEmpty())
         assertEquals(listOf("send"), m.tools.map { it.name })
         assertTrue("sandbox.run" in m.permissions)
+        assertTrue("page" in m.permissions)
         assertTrue(File(feishu, "scripts/send.py").isFile)
+        assertTrue(File(feishu, "pages/index.html").isFile)
     }
 
     @Test fun fullSampleInstallsAndExposesItsTool() {
         val zip = File(tmp.root, "feishu-full.zip")
         ZipOutputStream(zip.outputStream()).use { z ->
             add(z, File(feishu, "manifest.full.json"), "manifest.json")
-            for (folder in listOf("skills", "scripts")) {
+            for (folder in listOf("skills", "scripts", "pages")) {
                 for (f in File(feishu, folder).walkTopDown().filter { it.isFile }) {
                     add(z, f, f.relativeTo(feishu).invariantSeparatorsPath)
                 }
@@ -77,6 +79,7 @@ class PluginSampleTest {
         val record = PluginInstaller(files, appVersion = "0.1.33").installZip(zip).getOrThrow()
         assertEquals(listOf("feishu"), record.skillNames)
         assertTrue(File(files, "plugins/com.example.feishu/scripts.sha256").isFile)
+        assertTrue(File(files, "plugins/com.example.feishu/pages/index.html").isFile)
 
         val registry = PluginRegistry(files, CoroutineScope(Dispatchers.Unconfined), appVersion = "0.1.33")
         val connections = registry.enabledConnections(object : PluginScriptRunner {

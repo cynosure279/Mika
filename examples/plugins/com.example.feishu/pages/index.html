@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>飞书通知</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>飞书通知</h1>
+  <p class="hint">保存飞书自定义机器人的 webhook。插件工具 <code>send</code> 会用它发消息。</p>
+  <label>Webhook
+    <input id="webhook" type="url" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/...">
+  </label>
+  <label>签名 secret（可选）
+    <input id="secret" type="password" placeholder="机器人开启签名校验时填写">
+  </label>
+  <div class="buttons">
+    <button id="save" type="button">保存</button>
+    <button id="close" type="button" class="secondary">关闭</button>
+  </div>
+  <p id="status" role="status"></p>
+  <script src="app.js"></script>
+</body>
+</html>

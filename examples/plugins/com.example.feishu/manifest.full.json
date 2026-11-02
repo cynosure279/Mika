@@ -6,8 +6,8 @@
   "kind": "capability",
   "minApp": "0.1.33",
   "author": "Mika 插件示例",
-  "description": "飞书消息技能，加上通过自定义机器人 webhook 发消息的工具；需要 P1b 的工具接入。",
-  "permissions": ["sandbox.run", "network"],
+  "description": "飞书消息技能，加上通过自定义机器人 webhook 发消息的工具和设置页面。",
+  "permissions": ["sandbox.run", "workspace.own", "settings.plugin", "network", "page"],
   "tools": [
     {
       "name": "send",
@@ -46,6 +46,25 @@
       "name": "feishu",
       "path": "skills/feishu",
       "display": "飞书消息"
+    }
+  ],
+  "pages": [
+    {
+      "id": "home",
+      "entry": "pages/index.html",
+      "title": "飞书通知"
+    }
+  ],
+  "settings": [
+    {
+      "key": "webhook",
+      "type": "string",
+      "label": "Webhook"
+    },
+    {
+      "key": "secret",
+      "type": "string",
+      "label": "签名 secret"
     }
   ]
 }

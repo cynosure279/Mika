@@ -11,6 +11,8 @@
     <string name="plugins_no_skills">Sin habilidades</string>
     <string name="plugins_tools">Herramientas</string>
     <string name="plugins_no_tools">Sin herramientas</string>
+    <string name="plugins_open_page">Abrir página</string>
+    <string name="plugins_page_failed">No se pudo abrir esta página.</string>
     <string name="plugins_tool_meta">%1$s · %2$d s</string>
     <string name="plugins_risk_write">Cambia datos</string>
     <string name="plugins_risk_external">Externo</string>

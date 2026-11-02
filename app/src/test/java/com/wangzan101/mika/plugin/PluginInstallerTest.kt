@@ -26,9 +26,10 @@ class PluginInstallerTest {
         skills: String = """[{"name":"feishu","path":"skills/feishu","display":"飞书"}]""",
         tools: String = "[]",
         permissions: String = "[]",
+        pages: String = "[]",
     ) = """
         {"schema":1,"id":"$id","name":"$name","version":"$version",
-         "kind":"capability","permissions":$permissions,"tools":$tools,"skills":$skills}
+         "kind":"capability","permissions":$permissions,"tools":$tools,"pages":$pages,"skills":$skills}
     """.trimIndent()
 
     private fun zip(entries: Map<String, String>, name: String = "plugin.zip"): File {
@@ -141,9 +142,23 @@ class PluginInstallerTest {
         assertEquals(PluginErrors.INVALID_MANIFEST, failureCode(installer().installZip(z)))
     }
 
-    @Test fun rejectsPagesThisVersionDoesNotSupport() {
-        val withPages = manifest().replace("\"kind\"", "\"pages\":[{\"id\":\"home\",\"entry\":\"pages/index.html\"}],\"kind\"")
-        assertEquals(PluginManifest.ERR_PAGES, failureCode(installer().installZip(pluginZip(manifest = withPages))))
+    @Test fun installsPagePlugin() {
+        val pages = """[{"id":"home","entry":"pages/index.html","title":"飞书"}]"""
+        val z = zip(
+            mapOf(
+                "manifest.json" to manifest(skills = "[]", pages = pages, permissions = """["page"]"""),
+                "pages/index.html" to "<html><body>hi</body></html>",
+            ),
+        )
+        val record = installer().installZip(z).getOrThrow()
+        assertEquals("com.example.feishu", record.id)
+        assertTrue(File(plugins, "com.example.feishu/pages/index.html").isFile)
+    }
+
+    @Test fun declaredPageMustExist() {
+        val pages = """[{"id":"home","entry":"pages/index.html"}]"""
+        val z = zip(mapOf("manifest.json" to manifest(skills = "[]", pages = pages, permissions = """["page"]""")))
+        assertEquals(PluginErrors.INVALID_MANIFEST, failureCode(installer().installZip(z)))
     }
 
     @Test fun brokenManifestRejected() {

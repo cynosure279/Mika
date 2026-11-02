@@ -114,6 +114,13 @@ class PluginInstaller(
                     throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "tool ${t.name} script is missing: $script")
                 }
             }
+            val pagesRoot = File(staging, "pages").canonicalPath + File.separator
+            for (p in m.pages) {
+                val page = File(staging, p.entry).canonicalFile
+                if (!page.isFile || !page.path.startsWith(pagesRoot)) {
+                    throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "page ${p.id} is missing: ${p.entry}")
+                }
+            }
             // 记录 scripts/ 下每个文件的哈希;运行前按它复核,脚本被换过就拒绝
             if (m.tools.isNotEmpty()) {
                 try {

@@ -11,6 +11,8 @@
     <string name="plugins_no_skills">スキルなし</string>
     <string name="plugins_tools">ツール</string>
     <string name="plugins_no_tools">ツールなし</string>
+    <string name="plugins_open_page">ページを開く</string>
+    <string name="plugins_page_failed">このページを開けませんでした。</string>
     <string name="plugins_tool_meta">%1$s · %2$d 秒</string>
     <string name="plugins_risk_write">データを変更</string>
     <string name="plugins_risk_external">外部操作</string>

@@ -11,6 +11,8 @@
     <string name="plugins_no_skills">没有技能</string>
     <string name="plugins_tools">工具</string>
     <string name="plugins_no_tools">没有工具</string>
+    <string name="plugins_open_page">打开页面</string>
+    <string name="plugins_page_failed">这个页面打不开。</string>
     <string name="plugins_tool_meta">%1$s · %2$d 秒</string>
     <string name="plugins_risk_write">会改数据</string>
     <string name="plugins_risk_external">对外操作</string>

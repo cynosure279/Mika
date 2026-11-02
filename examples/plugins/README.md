@@ -4,7 +4,7 @@
 
 | 目录 | 形态 | 现在能做什么 | 依赖 |
 |---|---|---|---|
-| [`com.example.feishu/`](com.example.feishu/) | capability pack（能力包） | `manifest.json` 是纯技能插件，P1a 就能装；`manifest.full.json` 加了一个 webhook 工具，P1b 起可以装 | P1a（技能）；P1b（工具）、P3（secret） |
+| [`com.example.feishu/`](com.example.feishu/) | capability pack（能力包） | `manifest.json` 是纯技能插件，P1a 就能装；`manifest.full.json` 加了 webhook 工具和设置页，P1b/P2 起可以装 | P1a（技能）；P1b（工具）、P2（页面）、P3（secret） |
 | [`com.example.feishu-connector/`](com.example.feishu-connector/) | connector（外部连接器） | 只是 P4 的 manifest 样例，展示安装指引/命令/状态字段；不运行 App 内代码 | P4，以及官方飞书连接器 PR #160 合入 |
 
 ## 和官方飞书连接器的关系

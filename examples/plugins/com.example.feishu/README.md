@@ -2,9 +2,10 @@
 
 ```
 manifest.json         P1a：只带技能，可以直接安装
-manifest.full.json    P1b：加 send 工具（webhook）和 sandbox.run/network 权限
+manifest.full.json    P1b/P2：加 send 工具（webhook）、设置页和 sandbox.run/network/page 权限
 skills/feishu/SKILL.md
 scripts/send.py       工具脚本：POST 到飞书自定义机器人 webhook
+pages/                动态设置页：填 webhook/secret，走白名单 mika 桥
 build.py              打 zip（只用 Python 标准库）
 ```
 
@@ -33,7 +34,13 @@ zip 条目统一用 `/`，只包含 manifest、`skills/` 和（工具版的）`s
 
 ### P3（secret）
 
-- 正式用法应把 webhook/secret 放进插件设置（`secrets.bin`），脚本从 `MIKA_PLUGIN_SECRETS` 读，而不是每次把 webhook 放在工具参数里。现在的参数写法只是 P1b 阶段的过渡。
+- 正式用法应把 webhook/secret 放进插件 secret（`secrets.bin`），脚本从 `MIKA_PLUGIN_SECRETS` 读；现在页面把两项都写进非密 `settings.json`，只是 P2 的过渡。
+
+### P2（页面）
+
+- 完整版安装后，插件详情里有「打开页面」；页面通过 `window.mika` 白名单桥读写字设置（`settings.get/set`）、调用 `tools.list/call`。
+- 页面只从包内 `pages/` 加载，固定 origin，默认断网；没有 `network` 权限或全局不允许联网时 `connect-src 'none'`。
+- `pages/app.js` 是独立脚本，页面没有内联脚本；宿主会再加一层 CSP。
 
 ## 手动验证工具脚本
 
