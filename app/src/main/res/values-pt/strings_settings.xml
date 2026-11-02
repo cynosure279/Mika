@@ -121,4 +121,8 @@
     <string name="appearance_dark">Sempre escuro</string>
     <string name="settings_self_config">Deixar o Mika alterar as próprias configurações</string>
     <string name="settings_self_config_sub">Ativado, as tarefas ganham uma ferramenta para ler e alterar estas preferências (ritmo, silenciar, cápsula, aparência, tela ligada). Modelos, chaves de API, rede do contêiner e qualquer coisa que apague dados nunca são incluídos</string>
+    <string name="quit_title">Sair do Mika completamente</string>
+    <string name="quit_row_sub">Interrompe as tarefas em segundo plano e oculta a cápsula flutuante</string>
+    <string name="quit_confirm_body">As tarefas em andamento serão interrompidas, e a cápsula flutuante e as notificações desaparecerão. Ao abrir o Mika de novo, tudo volta.</string>
+    <string name="quit_confirm_action">Sair</string>
 </resources>

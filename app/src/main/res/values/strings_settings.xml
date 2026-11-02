@@ -126,4 +126,8 @@
     <string name="appearance_dark">Always dark</string>
     <string name="settings_self_config">Let Mika change its own settings</string>
     <string name="settings_self_config_sub">When on, tasks get one tool to read and change these preferences (pace, mute, capsule, appearance, screen-on). Models, API keys, container network and anything that deletes data are never included</string>
+    <string name="quit_title">Quit Mika completely</string>
+    <string name="quit_row_sub">Stops background tasks and hides the floating capsule</string>
+    <string name="quit_confirm_body">Tasks that are running will stop, and the floating capsule and notifications will go away. Open Mika again and everything comes back.</string>
+    <string name="quit_confirm_action">Quit</string>
 </resources>

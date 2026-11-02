@@ -105,6 +105,26 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 
+    /**
+     * 用户点了「完全退出」,要到下次打开 Mika 的界面为止([com.wangzan101.mika.quit.MikaQuit])。
+     * 在这期间进程可能被无障碍服务重新拉起:胶囊不画、电脑连接不补起、自动恢复也不做,直到用户自己打开 App。
+     */
+    fun quitRequested(): Boolean = prefs.getBoolean(QUIT_REQUESTED, false)
+
+    fun setQuitRequested(on: Boolean) {
+        prefs.edit().putBoolean(QUIT_REQUESTED, on).commit()
+    }
+
+    /** 退出标记的当前值,之后每次改动再发一次。 */
+    fun quitChanges(): Flow<Boolean> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == null || key == QUIT_REQUESTED) trySend(quitRequested())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        send(quitRequested())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }.distinctUntilChanged()
+
     /** 胶囊停在哪:左边还是右边、高度占可摆范围的比例;没拖过时在右上角。 */
     fun capsuleDock(): CapsuleDock = CapsuleDock(
         if (prefs.getString(CAPSULE_SIDE, null) == DockSide.Left.name) DockSide.Left else DockSide.Right,
@@ -143,6 +163,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val SELF_CONFIG = "self_config"
         private const val THEME_MODE = "theme_mode"
         private const val CAPSULE_MODE = "capsule_mode"
+        private const val QUIT_REQUESTED = "quit_requested"
         private const val CAPSULE_SIDE = "capsule_side"
         private const val CAPSULE_HEIGHT = "capsule_height"
         private const val CAPSULE_CARD_HEIGHT = "capsule_card_height"

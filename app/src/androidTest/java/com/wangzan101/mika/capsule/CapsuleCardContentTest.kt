@@ -59,6 +59,9 @@ class CapsuleCardContentTest {
         override fun loadEarlier() { calls += "earlier" }
         override fun captureScreen() { calls += "capture" }
         override fun dropScreen() { calls += "drop" }
+        override fun askQuit() { calls += "askQuit" }
+        override fun cancelQuit() { calls += "cancelQuit" }
+        override fun quit() { calls += "quit" }
     }
 
     private fun run(key: String, state: TaskState, kind: CapsuleKind, line: String = "", startedAt: Long? = null, ahead: Int = 0) =
@@ -450,5 +453,23 @@ class CapsuleCardContentTest {
         compose.onNodeWithTag("capsule-header").performTouchInput { swipeDown() }
         compose.onNodeWithContentDescription(CardCopy.COLLAPSE).performTouchInput { swipe(center, center + Offset(0f, 300f)) }
         compose.runOnIdle { assertEquals(emptyList<String>(), calls) }
+    }
+
+    /** 标题栏的电源按钮只问一句,不直接退;确认卡片里「退出」「取消」各走各的。 */
+    @Test fun quitIsConfirmedInsideTheCard() {
+        show(detail(run("a", TaskState.Running(1, "n"), CapsuleKind.Running, "在搜")))
+        compose.onNodeWithContentDescription("完全退出 Mika").performClick()
+        compose.runOnIdle { assertEquals(listOf("askQuit"), calls) }
+    }
+
+    @Test fun quitCardOffersQuitAndCancel() {
+        compose.setContent {
+            MikaTheme(dark = false, reduceMotion = true) { QuitCard(actions, 420.dp) }
+        }
+        compose.onNodeWithText("完全退出 Mika").assertIsDisplayed()
+        compose.onNodeWithText("下次打开 Mika 就回来。", substring = true).assertIsDisplayed()
+        compose.onNodeWithTag("capsule-quit").performClick()
+        compose.onNodeWithTag("capsule-quit-cancel").performClick()
+        compose.runOnIdle { assertEquals(listOf("quit", "cancelQuit"), calls) }
     }
 }

@@ -113,4 +113,8 @@
     <string name="appearance_dark">一直深色</string>
     <string name="settings_self_config">允許 Mika 改自己的設定</string>
     <string name="settings_self_config_sub">打開後，任務裡會多一件工具，能看和改這些偏好（操作節奏、靜音、膠囊、外觀、螢幕常亮）。模型和 Key、容器聯網、任何刪資料的操作都不在其中</string>
+    <string name="quit_title">完全結束 Mika</string>
+    <string name="quit_row_sub">停止背景任務，收起浮動膠囊</string>
+    <string name="quit_confirm_body">正在進行的任務會停止，浮動膠囊和通知都會收起。下次開啟 Mika 就回來。</string>
+    <string name="quit_confirm_action">結束</string>
 </resources>

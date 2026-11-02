@@ -125,4 +125,8 @@
     <string name="appearance_dark">Всегда тёмное</string>
     <string name="settings_self_config">Разрешить Mika менять свои настройки</string>
     <string name="settings_self_config_sub">Когда включено, у задач появляется один инструмент для чтения и изменения этих настроек (темп, звук, капсула, оформление, экран не гаснет). Модели, ключи API, сеть контейнера и всё, что удаляет данные, никогда не включаются</string>
+    <string name="quit_title">Полностью выйти из Mika</string>
+    <string name="quit_row_sub">Останавливает фоновые задачи и скрывает плавающую капсулу</string>
+    <string name="quit_confirm_body">Выполняющиеся задачи остановятся, плавающая капсула и уведомления исчезнут. При следующем запуске Mika всё вернётся.</string>
+    <string name="quit_confirm_action">Выйти</string>
 </resources>

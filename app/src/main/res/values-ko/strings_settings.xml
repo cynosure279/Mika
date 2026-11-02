@@ -113,4 +113,8 @@
     <string name="appearance_dark">항상 다크</string>
     <string name="settings_self_config">Mika가 자신의 설정을 바꾸도록 허용</string>
     <string name="settings_self_config_sub">켜면 작업에서 이 환경설정(속도, 음소거, 캡슐, 화면 모드, 화면 켜 두기)을 읽고 바꾸는 도구를 하나 쓸 수 있어요. 모델, API 키, 컨테이너 네트워크, 데이터를 삭제하는 항목은 포함되지 않아요</string>
+    <string name="quit_title">Mika 완전히 종료</string>
+    <string name="quit_row_sub">백그라운드 작업을 중지하고 플로팅 캡슐을 숨깁니다</string>
+    <string name="quit_confirm_body">실행 중인 작업이 중지되고 플로팅 캡슐과 알림이 사라집니다. Mika를 다시 열면 모두 돌아옵니다.</string>
+    <string name="quit_confirm_action">종료</string>
 </resources>

@@ -163,6 +163,12 @@ interface CardActions {
     fun dropScreen()
     /** 留在后台运行的那一页的卡片上的「关闭网页」。 */
     fun closeKeptPage() {}
+    /** 标题栏的电源按钮:在卡片里换成「完全退出」的确认,不马上退。 */
+    fun askQuit() {}
+    /** 退出确认里的「取消」:回到刚才那张卡片。 */
+    fun cancelQuit() {}
+    /** 退出确认里的「退出」:真正完全退出 Mika。 */
+    fun quit() {}
 }
 
 /** 截下来、挂在输入框上面等着发的一屏:[thumb] 是缩略图(不让截图的页面没有)。 */
@@ -437,6 +443,7 @@ private fun Header(title: String, sub: String, actions: CardActions, handle: Mod
             Text(title, style = Title, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(sub, style = Sub, color = c.ink3, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        IconButton(MikaIcons.Power, tr(R.string.quit_title), actions::askQuit)
         IconButton(MikaIcons.Close, CardCopy.COLLAPSE, actions::collapse)
     }
 }
@@ -458,6 +465,7 @@ private fun IdleHeader(card: CardView.Chat, actions: CardActions, handle: Modifi
                 TextLink(if (continuing) CardCopy.NEW_CHAT else CardCopy.CONTINUE_LAST) { actions.freshChat(continuing) }
             }
         }
+        IconButton(MikaIcons.Power, tr(R.string.quit_title), actions::askQuit)
         IconButton(MikaIcons.Close, CardCopy.COLLAPSE, actions::collapse)
     }
 }
@@ -470,6 +478,38 @@ private fun IconButton(icon: ImageVector, label: String, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, null, Modifier.size(18.dp), tint = MikaTheme.colors.ink3)
+    }
+}
+
+/**
+ * 「完全退出」的确认:标题栏的电源按钮点过后替掉卡片内容。说清楚会发生什么:后台任务停下、胶囊和通知收起,
+ * 下次打开 Mika 就回来。「取消」回到刚才那张卡片,「退出」交给 [CardActions.quit]。
+ * 卡片按内容高,最矮和任务卡片一样,最高不超过 [height]。
+ */
+@Composable
+internal fun QuitCard(actions: CardActions, height: Dp = Dp.Unspecified) {
+    val c = MikaTheme.colors
+    val quitLabel = tr(R.string.quit_title)
+    CardFrame(height, fixed = false) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MikaLogo(28.dp, corner = 14.dp)
+            Text(tr(R.string.quit_title), Modifier.weight(1f), style = Title, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            IconButton(MikaIcons.Close, CardCopy.COLLAPSE, actions::collapse)
+        }
+        Text(tr(R.string.quit_confirm_body), Modifier.padding(top = 10.dp), style = Body, color = c.ink2)
+        Row(Modifier.padding(top = 12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                Modifier.weight(1f).height(40.dp).testTag("capsule-quit-cancel").clip(MikaShapes.Pill).background(c.fill)
+                    .clickable(role = Role.Button, onClickLabel = tr(R.string.cancel)) { actions.cancelQuit() },
+                contentAlignment = Alignment.Center,
+            ) { Text(tr(R.string.cancel), style = Strong, color = c.ink) }
+            // 和「关闭网页」一样:淡红底、红字,和别的操作分开
+            Box(
+                Modifier.weight(1f).height(40.dp).testTag("capsule-quit").clip(MikaShapes.Pill).background(c.badSoft)
+                    .clickable(role = Role.Button, onClickLabel = quitLabel) { actions.quit() },
+                contentAlignment = Alignment.Center,
+            ) { Text(tr(R.string.quit_confirm_action), style = Strong, color = c.bad) }
+        }
     }
 }
 

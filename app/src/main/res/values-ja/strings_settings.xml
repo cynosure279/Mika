@@ -113,4 +113,8 @@
     <string name="appearance_dark">常にダーク</string>
     <string name="settings_self_config">Mika に自分の設定を変更させる</string>
     <string name="settings_self_config_sub">オンにすると、タスクがこれらの設定(ペース、ミュート、カプセル、外観、画面オン)を読み取り・変更するツールを 1 つ使えるようになります。モデル、API キー、コンテナのネットワーク、データを削除するものは含まれません</string>
+    <string name="quit_title">Mika を完全に終了</string>
+    <string name="quit_row_sub">バックグラウンドのタスクを停止し、フローティングカプセルを閉じます</string>
+    <string name="quit_confirm_body">実行中のタスクは停止し、フローティングカプセルと通知は消えます。次に Mika を開くと元に戻ります。</string>
+    <string name="quit_confirm_action">終了</string>
 </resources>

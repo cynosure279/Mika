@@ -61,7 +61,7 @@ class SettingsScreenTest {
                 sandbox = SandboxStatus.Ready(network = false), onOpenSandbox = { opened += "sandbox" },
                 routes = 8, onOpenRoutes = { opened += "routes" }, onOpenRecovery = { opened += "recovery" },
                 showDeveloper = showDeveloper, onOpenDeveloper = { opened += "dev" },
-                versionName = "0.1.0", onOpenAbout = { opened += "about" },
+                versionName = "0.1.0", onOpenAbout = { opened += "about" }, onQuit = { opened += "quit" },
             )
         }
     }
@@ -89,11 +89,11 @@ class SettingsScreenTest {
     fun homeRowsOpenTheirPages() {
         val opened = mutableListOf<String>()
         home(opened = opened)
-        for (t in listOf("模型", "Token 用量", "手机操作", "干活时", "悬浮胶囊", "通知", "记忆与技能", "网站登录", "文件与计算环境", "记住的操作路线", "恢复与修复", "开发者选项", "关于 Mika")) {
+        for (t in listOf("模型", "Token 用量", "手机操作", "干活时", "悬浮胶囊", "通知", "记忆与技能", "网站登录", "文件与计算环境", "记住的操作路线", "恢复与修复", "开发者选项", "关于 Mika", "完全退出 Mika")) {
             scrollTo(t)
             compose.onNodeWithText(t).performClick()
         }
-        assertEquals(listOf("models", "usage", "phone", "work", "capsule", "notifications", "memory", "web", "sandbox", "routes", "recovery", "dev", "about"), opened)
+        assertEquals(listOf("models", "usage", "phone", "work", "capsule", "notifications", "memory", "web", "sandbox", "routes", "recovery", "dev", "about", "quit"), opened)
     }
 
     /** 「Token 用量」写近 7 天的合计;一点没有时写「还没有」,还没统计出来时不显示这一行。 */

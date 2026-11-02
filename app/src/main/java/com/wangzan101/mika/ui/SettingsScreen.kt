@@ -56,6 +56,7 @@ import com.wangzan101.mika.ui.components.StateCard
 import com.wangzan101.mika.ui.components.StatusPill
 import com.wangzan101.mika.ui.components.TileTone
 import com.wangzan101.mika.ui.theme.MikaIcons
+import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.core.usage.UsageQuery
 import com.wangzan101.mika.core.usage.UsageRange
 import com.wangzan101.mika.i18n.AppLanguage
@@ -95,6 +96,8 @@ fun SettingsScreen(
     val visionConfig = remember(configs, roles) { store.configFor(ModelRole.Vision) }
     var page by rememberSaveable { mutableStateOf(SettingsPage.Home) }
     var explaining by remember { mutableStateOf<Problem?>(null) }
+    // 「完全退出」先问一句:任务、胶囊和通知都会停
+    var confirmingQuit by remember { mutableStateOf(false) }
 
     fun fix(f: Fix) = if (f == Fix.AddModel) onOpenModels() else onFix(f)
     val onProblem: (Problem) -> Unit = { p -> StatusCopy.directFix(p)?.let(::fix) ?: run { explaining = p } }
@@ -184,6 +187,7 @@ fun SettingsScreen(
             computerAccess = mcpOn, onOpenComputerAccess = { page = SettingsPage.ComputerAccess },
             showDeveloper = showDeveloper, onOpenDeveloper = { page = SettingsPage.Developer },
             versionName = BuildConfig.VERSION_NAME, updateVersion = updateVersion, onOpenAbout = onOpenAbout,
+            onQuit = { confirmingQuit = true },
         )
         SettingsPage.AppAccess -> AppAccessScreen(onBack = toHome)
         SettingsPage.Usage -> UsageScreen(usage, store.providers, onBack = toHome)
@@ -251,6 +255,20 @@ fun SettingsScreen(
             dismissButton = if (e.fix != null) ({ TextButton({ explaining = null }) { Text(stringResource(R.string.cancel)) } }) else null,
         )
     }
+
+    if (confirmingQuit) {
+        AlertDialog(
+            onDismissRequest = { confirmingQuit = false },
+            title = { Text(stringResource(R.string.quit_title)) },
+            text = { Text(stringResource(R.string.quit_confirm_body)) },
+            confirmButton = {
+                TextButton({ confirmingQuit = false; com.wangzan101.mika.quit.MikaQuit.quit(context) }) {
+                    Text(stringResource(R.string.quit_confirm_action), color = MikaTheme.colors.bad)
+                }
+            },
+            dismissButton = { TextButton({ confirmingQuit = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
 }
 
 /**
@@ -301,6 +319,8 @@ fun SettingsContent(
     versionName: String = "",
     updateVersion: String? = null,
     onOpenAbout: () -> Unit = {},
+    /** 完全退出 Mika(先弹确认)。 */
+    onQuit: () -> Unit = {},
 ) {
     val check = Prerequisites.check(status, hasMainModel = mainModel != null)
     PageScaffold(stringResource(R.string.settings_title), onBack) {
@@ -395,6 +415,14 @@ fun SettingsContent(
                 TrailingValue(AboutCopy.settingsValue(updateVersion, versionName))
                 RowChevron()
             }
+        }
+
+        // 完全退出:和无障碍服务不同,它只是让 Mika 安静下来;下次打开 App 就回来
+        GroupCard {
+            ListRow(
+                MikaIcons.Power, stringResource(R.string.quit_title), stringResource(R.string.quit_row_sub),
+                first = true, titleColor = MikaTheme.colors.bad, onClick = onQuit,
+            ) { RowChevron() }
         }
     }
 }
