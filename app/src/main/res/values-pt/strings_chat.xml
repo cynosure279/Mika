@@ -77,10 +77,10 @@
     <string name="chat_unverified_because">Concluído, mas não foi possível verificar: %1$s</string>
     <string name="chat_wait_answer">Aguardando sua resposta</string>
     <string name="chat_wait_approval">Aguardando sua aprovação</string>
-    <string name="steer_received">Entendi — próximo passo</string>
+    <string name="steer_received">Entendi — o próximo passo vai ajustar a tarefa atual</string>
     <string name="steer_joined">Adicionado à tarefa atual</string>
     <string name="steer_interrupted_reply">Interrompido pela sua mensagem</string>
-    <string name="steer_next">Na fila como próxima tarefa</string>
+    <string name="steer_next">A tarefa atual terminou; está na fila como a próxima</string>
     <string name="steer_cancelled">Cancelado</string>
     <plurals name="chat_steps_done">
         <item quantity="one">%1$d passo</item>
@@ -153,4 +153,19 @@
     <string name="pip_reopen">Mostrar tela</string>
     <string name="pip_closed_needs_you">Precisa de você</string>
     <string name="pip_closed_hint">Fechada para esta tarefa. Toque em “Mostrar tela” no canto inferior direito ou abra “Telas em segundo plano” no menu lateral.</string>
+    <string name="follow_up_steer">Guiar</string>
+    <string name="follow_up_queue">Enfileirar</string>
+    <string name="follow_up_steer_hint">O próximo passo vai ajustar a tarefa atual</string>
+    <string name="follow_up_steer_hint_paused">A tarefa está pausada; isto vale quando continuar</string>
+    <string name="follow_up_steer_hint_queued">Isto vale quando a tarefa começar</string>
+    <string name="follow_up_queue_hint">Começa quando a tarefa atual terminar</string>
+    <string name="follow_up_count">Na fila · %1$d</string>
+    <string name="follow_up_edit">Editar</string>
+    <string name="follow_up_cancel">Cancelar</string>
+    <string name="follow_up_start_now">Começar agora</string>
+    <string name="follow_up_idle_hint">Serão executadas uma a uma quando você iniciar uma tarefa</string>
+    <string name="follow_up_already_started">Esta já começou; pare-a diretamente se precisar</string>
+    <string name="chat_placeholder_queue">Escreva a próxima tarefa…</string>
+    <string name="voice_placeholder_queue">Diga a próxima tarefa…</string>
+    <string name="steer_received_paused">Entendi — será usado quando a tarefa continuar</string>
 </resources>

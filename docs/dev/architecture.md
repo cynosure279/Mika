@@ -47,7 +47,7 @@
 
 `TaskCenter`(`app/task/TaskRegistry.kt`,由 `TaskService` 持有)管运行的启动、排队与收尾:
 
-- 每个对话同时只有一个 Run。同一对话里任务进行中用户又发消息,不另开任务,而是作为插话交给正在跑的 Run(`TaskService.begin`)。
+- 每个对话同时只有一个 Run。同一对话里任务进行中用户又发消息，默认作为插话交给正在跑的 Run（`TaskService.begin`）；用户也可以在输入框上选「排队」，这句会进这个对话的持久队列（`FollowUpQueue`），当前任务结束后成为下一件。
 - 不同对话的任务可以并行,上限见 §8;超过上限的进先进先出队列,有 Run 结束时依次补上(跳过对话里已有 Run 的)。并行开关关着(默认)时,任务进行中界面不能切换对话(`ChatViewModel.canSwitch`、侧栏 `ChatDrawer` 里别的对话不可点并有提示),交给服务的另一个对话的任务(对话页、悬浮胶囊、浏览器页、定时、电脑)一律进队列,不丢(`TaskService.begin`)。对话页先等服务空下来再交(这时那条消息下面写「等前一个任务做完再开始」,`ChatViewModel.begin`),防的是同一个对话里上一个任务还在收尾时,新的一句被当成插话;查完到交到之间别处先开始了一个任务,它照样排上,那个任务收尾后开始。这时点停止只停这个对话的任务(`TaskActions.cancelIn`),不碰正在跑的那个。
 - 定时任务到点时,如果原对话正有任务在跑,就在这个对话里排队等它结束(`queueInConversation`),不当成插话,也不丢。
 - 运行状态写进 `runs-v3.json`(`app/task/FileRunStateStore.kt`,原子替换写入)。
@@ -64,9 +64,10 @@
 - **等待提前结束**:收件箱给出「有插话还没交给模型」的信号(`core/run/SteerSignal.kt`),装在整个运行的协程上下文里。撤掉也什么都不丢的调用经 `waitOrSteer` 包起来,插话一到就提前结束:纯等待和只问看图模型的工具(声明 `AgentTool.yieldsToSteer`:wait、phone_wait、phone_event、web_wait_for、describe、find_visually,由分发器统一包)、`phone_run` 里的等字、`do_steps` 按条件等界面的每一段、网页换页之前的停留(`PageDwell`)、同一网站或 App 里两次对外动作之间的间隔(`ActionExecutor`)。被截断的调用报 `skipped_for_new_message`、这次什么也没做;在 `do_steps` 里这一步和后面的子步一起跳过。动作做完之后等界面安静、判效果的那一下不截断(它给的是动作的结果)。模型调用的重试等待本来就在模型请求里,随它一起撤掉。
 - **节奏保护不丢**:停留和间隔被截断时,动作本身不做(工具结果说明为什么、要的话再调一次)。两者都按时刻算(间隔从上一次对外动作做完算起,停留从这一页来的时刻算起),没停够的部分不算停过,下一次换页或对外动作之前照样补足余下的时间;插话只是让模型现在就能想,不会让下一次动作来得更快。
 - **一次多步途中**:`do_steps` 在两步之间发现有插话,就停在那里,结果写明「为处理新消息而跳过」(`skipped_for_new_message`),不算失败(`core/agent/BatchRunner.kt`)。某一步做完正在按条件等界面时有插话,等待也马上停下(那一步的 `wait.stopped` 是 `new_message`),后面的子步照样跳过。
-- **界面上马上有回音**:`TaskRun.steer` 送进收件箱成功就把这句话标成「已收到，下一步处理」(`SteerState.Received`),交给模型时改成「已加入当前任务」;对话页和悬浮胶囊的对话卡片都在这句话下面写这行小字(`steerLabel`)。
+- **界面上马上有回音**：`TaskRun.steer` 送进收件箱成功就把这句话标成「已收到，下一步调整当前任务」(`SteerState.Received`)；任务暂停/接管中显示「已收到，任务继续后处理」；交给模型时改成「已加入当前任务」；没赶上收尾、排到下一件时是「当前任务已结束，已排到下一件」。对话页和悬浮胶囊的对话卡片都在这句话下面写这行小字(`steerLabel`)。
 - **撤回与编辑插话**:默认仍直接插给当前任务。对话页长按尚未交给模型的消息,可以撤回或取回编辑;`RunInbox.withdrawSteer` 与 `takeSteers`、收尾共用一把锁,已交给模型或已收尾时返回失败。成功后标为 `SteerState.Withdrawn`,对话页和胶囊不再显示,也不计入已加入的插话。任务尚未交给服务时从 `ChatViewModel.held` 撤回。编辑恢复正文与引用,输入框已有草稿、引用或附件时不提供编辑;悬浮胶囊带着屏幕、浏览器页带着页面说明插的话不提供编辑(`editableSteer`):取回来时输入框开头是屏幕标记或几行页面说明原文,删掉就丢了屏幕和页面,改坏就认不出页面。电脑追加的插话(`SteerNote.remote`)也显示在对话里,但不提供撤回和编辑,收件箱也拒绝撤回(编辑会把只归当前任务的话变成手机插话、可能转成下一件事;撤不撤由电脑定);`remoteSteers` 把 `Withdrawn` 按 `not_applied` 报,不多出对外状态。
-- **没来得及处理的插话**:运行结束时还没消费的插话,如果用户没按停止,就成为这个对话的下一个任务;按了停止的丢掉(`TaskRun.handoffUnconsumed` 只管收尾时未消费的)。运行已关闭后才到的插话,由 `TaskRun.steer` 收不进收件箱时 `deferMessage`,或 `TaskService.begin` 发现任务已收尾时排成下一个任务。
+- **没来得及处理的插话**:运行结束时还没消费的插话,如果用户没按停止,就成为这个对话的下一件;按了停止的丢掉(`TaskRun.handoffUnconsumed` 只管收尾时未消费的)。运行已关闭后才到的插话,由 `TaskRun.steer` 收不进收件箱时排成下一件,或 `TaskService.begin` 发现任务已收尾时排成下一件。
+- **排队（`FollowUpQueue`，`app/task/FollowUpQueue.kt`）**：用户明确选「排队」的话和没赶上收尾的引导都进同一个按对话分开的 FIFO，落盘在 `files/followups-v1.json`（临时文件 + 落盘 + 原子改名；坏文件挪到 `.corrupt-时间戳`）。服务用 `TaskCenter.tryStart(..., followUp)` 在同一个锁里决定开始还是放回队列；`onRunEnded` 只取**这个对话**的下一件，按 `claimNext` 一次一件；`cancelQueued` 之后也会取下一件，免得排在后面的项搁浅。停止当前任务不取消明确排队的项；进程被杀或退出后队列文件保留，不在启动时自动开始，下次打开对话时 `ChatViewModel.openConversation/switchTo/refresh` 调 `TaskService.drainFollowUps`。`claimed` 只在内存里：进程在取走和登记运行之间被杀，重启后这条仍是待处理（宁可重跑不丢）。界面用 `app.followUpQueue.changes` 显示输入框上方排队条；引导 fallback 由穿插话那行 `SteerState.Next` 表示，不重复显示。
 - **停止**:Cancel 是控制信号,不在插话后面排队。`TaskRun.cancel` 同时取消子任务;接管中就结束接管;排队中的直接移出队列。
 - **停止后的交代**:界面当场显示已停止,输入框空出来;随后补上几行交代当作这一轮的回答(做过什么、看到了什么、成批的事发出了几次和是哪些、哪些没做完),结局照旧是取消(评测、结果分类、学习都按取消算)。`TaskService` 收尾时先把运行编号登记进 `TaskCenterState.summarizing`(界面据此在「已停止」下面写「正在整理已做的事…」),记下「已取消」那一轮,再在进程级作用域里由 `TaskRun.stopSummary` 写,写好用 `ConversationStore.updateTurn` 改进那一轮,写好或写不成都拿掉登记;不挡着收尾、下一件事和再点停止。写法在 `StopSummary`(`core/agent/StopSummary.kt`):只读这次的运行记录(活动、那一步的用意、最近读到的两段、停下时写了一半的字,有上限,不带画面),请一次模型(轻量模型优先,出错换主模型,不给工具,总共 12 秒),没模型、出错、超时就按记录直接拼(`StopSummary.plain`)。对外动作(发送、提交)按活动上的 `outward`(`ActionExecutor` 照不可逆判定标上)数。什么也没做、也没写出字的只说已停止。下一轮的上文里写成「你中途停止了这次任务,停止前:…」(`Conversation.context`),「继续」知道从哪接着做。之前几轮读到的原文不进上文,要用时模型自己查(`history_read`,见「之前几轮的记录」)。
 

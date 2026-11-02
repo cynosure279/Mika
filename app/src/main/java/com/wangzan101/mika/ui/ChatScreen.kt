@@ -341,6 +341,15 @@ fun ChatScreen(
             hasHistory = ui.exchanges.isNotEmpty(),
             onSend = { if (vm.send(input, check)) input = "" },
             onStop = vm::cancel,
+            followUpMode = ui.followUpMode,
+            queued = ui.queued,
+            onFollowUpMode = vm::setFollowUpMode,
+            onCancelQueued = { id ->
+                if (!vm.cancelQueued(id)) Toast.makeText(context, context.getString(R.string.follow_up_already_started), Toast.LENGTH_SHORT).show()
+            },
+            onEditQueued = { id -> vm.editQueued(id)?.let { input = it; editRequest++ } },
+            onStartQueued = vm::startQueued,
+            followUpStatus = last?.status?.takeIf { it.isActive() },
             attachPanel = if (ui.attachEnabled && ui.composer == ComposerMode.Idle) ({
                 AttachPanelHost(ui.attachments, onPicked = vm::attach, onToggle = vm::toggleAttachment)
             }) else null,
@@ -357,7 +366,7 @@ fun ChatScreen(
             // 说的话接在已有的字后面;任务在跑时发出去就是插话
             onVoiceText = { input = HoldToTalk.join(input, it) },
             onPickSpeech = openSpeechModel,
-            steerTarget = last?.goal?.let(ChatCopy::plainTitle),
+            steerTarget = if (ui.followUpMode == FollowUpMode.Steer) last?.goal?.let(ChatCopy::plainTitle) else null,
             onVoiceHolding = { voiceHolding = it },
             editRequest = editRequest,
         )
@@ -475,6 +484,9 @@ private fun LazyListScope.exchange(
     kept: KeptPage? = null,
 ) {
     if (ex.goal.isNotEmpty()) item("u$index") { UserBubble(ex.goal, conversationId, key = "u$index") }
+    val paused = ex.status is ExchangeStatus.Paused || ex.status is ExchangeStatus.WaitingUnlock ||
+        ex.status is ExchangeStatus.NeedsTakeover || ex.status is ExchangeStatus.NeedsConfirmation ||
+        ex.status is ExchangeStatus.NeedsInput || ex.status is ExchangeStatus.Queued
     val active = ex.status.isActive()
     val answering = ex.status == ExchangeStatus.Working && !ex.draft.isNullOrBlank()
     if (active) {
@@ -488,7 +500,7 @@ private fun LazyListScope.exchange(
     fun steer(n: SteerNote) {
         n.finished?.takeIf(String::isNotBlank)?.let { done -> item("a$index-${n.id}") { FinishedReply(done, "a$index-${n.id}") } }
         n.interrupted?.takeIf(String::isNotBlank)?.let { cut -> item("i$index-${n.id}") { InterruptedReply(cut) } }
-        item("m$index-${n.id}") { UserBubble(n.text, conversationId, steerLabel(n.state), "m$index-${n.id}") }
+        item("m$index-${n.id}") { UserBubble(n.text, conversationId, steerLabel(n.state, paused), "m$index-${n.id}") }
     }
     val (joined, waiting) = steersAroundDraft(ex.steers)
     joined.forEach(::steer)
@@ -1086,6 +1098,16 @@ internal fun Composer(
     hasHistory: Boolean,
     onSend: () -> Unit,
     onStop: () -> Unit,
+    /** 任务进行中补充消息交给谁;只影响下次发送。 */
+    followUpMode: FollowUpMode = FollowUpMode.Steer,
+    /** 这个对话明确排队、还没开始的下一件。 */
+    queued: List<com.wangzan101.mika.task.QueuedFollowUp> = emptyList(),
+    onFollowUpMode: (FollowUpMode) -> Unit = {},
+    onCancelQueued: (String) -> Unit = {},
+    onEditQueued: (String) -> Unit = {},
+    onStartQueued: () -> Unit = {},
+    /** 显示中的任务状态,选择器据此说「下一步生效」还是「继续后生效」。 */
+    followUpStatus: ExchangeStatus? = null,
     /** 沙箱就绪、没有任务在跑时才有「＋」;点开是这块面板。 */
     attachPanel: (@Composable () -> Unit)? = null,
     attachments: List<PendingAttachment> = emptyList(),
@@ -1186,6 +1208,8 @@ internal fun Composer(
             .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
     ) {
         Column(Modifier.fillMaxWidth()) {
+            if (busy) FollowUpModeBar(followUpMode, onFollowUpMode, followUpStatus)
+            FollowUpTray(queued, active = mode != ComposerMode.Idle, onEdit = onEditQueued, onCancel = onCancelQueued, onStartNow = onStartQueued)
             quote?.let { QuoteChip(it, onRemoveQuote, Modifier.padding(bottom = 6.dp)) }
             if (attachments.isNotEmpty()) PendingTray(attachments, onRemove, Modifier.padding(bottom = 2.dp))
             if (importing || rejected.isNotEmpty() || overLimit > 0) {
@@ -1223,8 +1247,8 @@ internal fun Composer(
                 Box(Modifier.weight(1f).padding(start = if (attachPanel != null) 2.dp else 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp)) {
                     val converting = vState is HoldToTalk.State.Converting
                     if (text.isEmpty() && !converting) {
-                        if (vh != null) VoicePlaceholder(mode)
-                        else Text(ChatCopy.placeholder(mode, hasHistory), style = MikaType.Body, color = c.ink3, maxLines = 1)
+                        if (vh != null) VoicePlaceholder(mode, followUpMode)
+                        else Text(ChatCopy.placeholder(mode, hasHistory, followUpMode), style = MikaType.Body, color = c.ink3, maxLines = 1)
                     }
                     BasicTextField(
                         shownValue,

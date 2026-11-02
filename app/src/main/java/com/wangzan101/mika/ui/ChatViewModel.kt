@@ -29,6 +29,8 @@ import com.wangzan101.mika.settings.Problem
 import com.wangzan101.mika.takeover.Takeover
 import com.wangzan101.mika.task.SteerNote
 import com.wangzan101.mika.task.SteerState
+import com.wangzan101.mika.task.QueuedFollowUp
+import com.wangzan101.mika.task.QueuedSource
 import com.wangzan101.mika.task.unconsumed
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +57,12 @@ interface TaskActions {
     fun start(goal: String, conversationId: String)
     /** 任务进行中在它的对话里插的话;[messageId] 用来跟这句话的去向。 */
     fun steer(conversationId: String, messageId: String, text: String) = start(text, conversationId)
+    /** 任务进行中在这个对话里排下一件;[messageId] 用来跟这一条的去向。 */
+    fun enqueueFollowUp(conversationId: String, messageId: String, text: String) = start(text, conversationId)
+    /** 取消一条还没开始的排队;已经开始就返回 false。 */
+    fun cancelFollowUp(conversationId: String, messageId: String): Boolean = false
+    /** 打开这个对话时,把排在它下面、又没任务在跑的下一件取出来开始。 */
+    fun drainFollowUps(conversationId: String) {}
     fun withdrawSteer(conversationId: String, messageId: String): Boolean = false
     fun cancel()
     fun resume()
@@ -193,10 +201,10 @@ fun liveLine(ex: Exchange): String? {
     return ex.line.ifEmpty { null } ?: ex.steps.lastOrNull()?.text
 }
 
-/** 插话下面那行小字;还没有去向时不写。 */
-fun steerLabel(state: SteerState): String? = when (state) {
+/** 插话下面那行小字;还没有去向时不写。[paused] 时任务正等着用户处理,说明这句要等继续后才生效。 */
+fun steerLabel(state: SteerState, paused: Boolean = false): String? = when (state) {
     SteerState.Pending, SteerState.Withdrawn -> null
-    SteerState.Received -> tr(R.string.steer_received)
+    SteerState.Received -> tr(if (paused) R.string.steer_received_paused else R.string.steer_received)
     SteerState.Joined -> tr(R.string.steer_joined)
     SteerState.Next -> tr(R.string.steer_next)
     SteerState.Cancelled -> tr(R.string.steer_cancelled)
@@ -254,6 +262,9 @@ enum class ComposerMode {
     Answer,
 }
 
+/** 任务进行中发补充消息时,这句话交给谁:当前任务(下一步带上),还是这个对话的下一件任务。 */
+enum class FollowUpMode { Steer, Queue }
+
 data class ChatUi(
     val conversationId: String? = null,
     val exchanges: List<Exchange> = emptyList(),
@@ -261,6 +272,10 @@ data class ChatUi(
     val blocked: List<Problem>? = null,
     val pip: PipUi = PipUi(),
     val composer: ComposerMode = ComposerMode.Idle,
+    /** 任务进行中补充消息交给谁;新任务开始时回到引导。 */
+    val followUpMode: FollowUpMode = FollowUpMode.Steer,
+    /** 这个对话明确排队、还没开始的下一件(按先后);开始或取消后从这里拿掉。 */
+    val queued: List<QueuedFollowUp> = emptyList(),
     val takeoverStage: Takeover.Stage = Takeover.Stage.None,
     /** 沙箱就绪时输入框旁才有附件按钮。 */
     val attachEnabled: Boolean = false,
@@ -343,6 +358,8 @@ class ChatViewModel(
     private val activities: StateFlow<List<RunEvent.Activity>> = MutableStateFlow(emptyList()),
     /** 显示中的任务收到的插话和去向。 */
     private val steers: StateFlow<List<SteerNote>> = MutableStateFlow(emptyList()),
+    /** 整个进程的排队队列;这里只取当前对话、还没被服务取走的项。 */
+    private val followUps: StateFlow<List<QueuedFollowUp>> = MutableStateFlow(emptyList()),
     /** 停止之后正在写交代的那几次运行(运行编号);那一轮下面显示「正在整理已做的事…」。 */
     private val summarizing: StateFlow<Set<String>> = MutableStateFlow(emptySet()),
     /** 算用时的时钟(毫秒)。 */
@@ -367,6 +384,8 @@ class ChatViewModel(
     val deleted: StateFlow<Set<String>> = _deleted.asStateFlow()
     /** 还没删完的。 */
     private val deleting = mutableSetOf<String>()
+    /** 原话的任务还没交给服务时排队的话;开始后按先后交给服务。 */
+    private val heldQueued = MutableStateFlow<List<QueuedFollowUp>>(emptyList())
 
     /** 屏上这个对话以外、有任务在跑或排队的对话(顶部「另 n 个任务进行中」)。 */
     val otherRunning: StateFlow<List<String>> = combine(activeConversations, _ui.map { it.conversationId }.distinctUntilChanged()) { active, current ->
@@ -435,6 +454,19 @@ class ChatViewModel(
         // 开关关着时也按状态带的对话认:别的对话的任务(悬浮胶囊、定时任务开始的)不接到屏上这个对话里
         scope.launch { taskState.collect { s -> if (!parallel()) shownTask.value?.let { onShown(it.first, s) } ?: onState(s) } }
         scope.launch { shownTask.collect { t -> if (t != null && parallel()) onShown(t.first, t.second) } }
+        // 排队条:只显示当前对话、明确排队、还没被服务取走的项;fallback 由穿插话那行 SteerState.Next 表示。
+        // 和整个 ChatUi 组合(不只是 conversationId):换对话/重建 ChatUi 时即使编号没变,也要把队列补回去。
+        scope.launch {
+            combine(followUps, heldQueued, _ui) { list, held, ui ->
+                val id = ui.conversationId
+                if (id == null) emptyList() else {
+                    val stored = list.filter {
+                        it.conversationId == id && !it.claimed && it.source == QueuedSource.Explicit
+                    }
+                    (stored + held.filter { it.conversationId == id }).distinctBy { it.id }
+                }
+            }.collect { queued -> _ui.update { if (it.queued == queued) it else it.copy(queued = queued) } }
+        }
         // 不论是谁存进屏上这个对话的(悬浮胶囊、定时任务、这里),都按存下的那份补上
         scope.launch {
             store.changes.collect { id ->
@@ -657,7 +689,7 @@ class ChatViewModel(
                 act({ actions.answer(goal) }) { actions.answerIn(it, goal) }
                 return true
             }
-            ComposerMode.Busy -> return steer(goal, check)
+            ComposerMode.Busy -> return if (_ui.value.followUpMode == FollowUpMode.Queue) enqueue(goal, check) else steer(goal, check)
             ComposerMode.Idle -> Unit
         }
         if (!check.canStartTask) {
@@ -710,6 +742,9 @@ class ChatViewModel(
                 attachments = emptyList(),
                 pip = gated(PipUi(visible = true)),
                 composer = ComposerMode.Busy,
+                followUpMode = FollowUpMode.Steer,
+                // 这一句如果本来在排队条上乐观挂着、现在已经开始,就不能再显示一行
+                queued = it.queued.filterNot { q -> q.text == goal },
             )
         }
         // 并行时服务忙着(别的对话的任务在跑)也直接交给它
@@ -727,6 +762,10 @@ class ChatViewModel(
                 actions.start(goal, id)
                 // 等着期间插的话:原话的任务先开始,再交给它
                 held.toList().also { held.clear() }.forEach { n -> actions.steer(id, n.id, n.text) }
+                // 等着期间排的队:同一对话的前一件已经开跑,后续按先后交给服务
+                val pendingQueued = heldQueued.value
+                heldQueued.value = emptyList()
+                pendingQueued.forEach { n -> actions.enqueueFollowUp(id, n.id, n.text) }
             }
         } else {
             actions.start(goal, id)
@@ -752,6 +791,67 @@ class ChatViewModel(
         }
         if (pendingStart?.isActive == true) held += note else actions.steer(id, note.id, text)
         return true
+    }
+
+    /** 切换任务进行中补充消息的默认去向;只影响下次发送,不改已经发出的消息。 */
+    fun setFollowUpMode(mode: FollowUpMode) {
+        _ui.update { if (it.followUpMode == mode) it else it.copy(followUpMode = mode) }
+    }
+
+    /**
+     * 任务在跑时把这句话排到这个对话的下一件:任务还没交给服务时先本地挂着;否则交给服务,
+     * 由持久队列的状态驱动排队条(这个对话刚好空了就直接开始,队列里不会有它)。
+     */
+    private fun enqueue(text: String, check: Prerequisites.Check): Boolean {
+        val id = _ui.value.conversationId ?: return false
+        if (!check.canStartTask) {
+            _ui.update { it.copy(blocked = check.blockers) }
+            return false
+        }
+        val item = QueuedFollowUp(java.util.UUID.randomUUID().toString(), id, text, clock(), QueuedSource.Explicit)
+        if (pendingStart?.isActive == true) {
+            // 任务还没交给服务:先本地挂着,start 之后再发;队列流之后会接管这一行
+            _ui.update { it.copy(queued = it.queued + item) }
+            heldQueued.update { it + item }
+        } else {
+            // 不在这里乐观加行:服务这个对话刚好空了会直接开始,队列里根本不会有它
+            actions.enqueueFollowUp(id, item.id, text)
+        }
+        return true
+    }
+
+    /** 当前没有任务在跑时,把排队的第一件开始(排队条上的「现在开始」)。 */
+    fun startQueued() {
+        val id = _ui.value.conversationId ?: return
+        actions.drainFollowUps(id)
+    }
+
+    /** 取消一条还没开始的排队;已经轮到了返回 false。 */
+    fun cancelQueued(id: String): Boolean {
+        val conversationId = _ui.value.conversationId ?: return false
+        val held = heldQueued.value.firstOrNull { it.id == id }
+        if (held != null) {
+            heldQueued.update { it.filterNot { q -> q.id == id } }
+            _ui.update { it.copy(queued = it.queued.filterNot { q -> q.id == id }) }
+            return true
+        }
+        if (!actions.cancelFollowUp(conversationId, id)) return false
+        _ui.update { it.copy(queued = it.queued.filterNot { q -> q.id == id }) }
+        return true
+    }
+
+    /**
+     * 取回一条排队:先取消,成功才把文字放回输入框(引用照旧解析)。带屏幕/页面标记的只能取消,不能编辑。
+     */
+    fun editQueued(id: String): String? {
+        val ui = _ui.value
+        if (ui.quote != null || ui.attachments.isNotEmpty() || ui.importing) return null
+        val item = ui.queued.firstOrNull { it.id == id } ?: return null
+        if (!editableSteer(item.text)) return null
+        if (!cancelQueued(id)) return null
+        val parsed = QuoteMessage.parse(item.text)
+        _ui.update { it.copy(quote = parsed.quote) }
+        return parsed.words
     }
 
     fun withdrawSteer(messageId: String): Boolean {
@@ -815,7 +915,7 @@ class ChatViewModel(
         // 没有任务的对话不带别的任务的接管进度
         _ui.update { ChatUi(conversationId = conversationId, exchanges = past, takeoverStage = Takeover.Stage.None) }
         markCurrent(CurrentChat.Open(conversationId))
-        if (conversationId !in activeConversations.value) { unpark(conversationId); return }
+        if (conversationId !in activeConversations.value) { unpark(conversationId); actions.drainFollowUps(conversationId); return }
         follow(conversationId, unpark(conversationId))
     }
 
@@ -833,7 +933,8 @@ class ChatViewModel(
             pipClosed = p?.pipClosed ?: false
             _ui.update {
                 liveIndex = it.exchanges.size
-                it.copy(exchanges = it.exchanges + live, composer = ComposerMode.Busy, pip = gated(PipUi(visible = true)))
+                it.copy(exchanges = it.exchanges + live, composer = ComposerMode.Busy, pip = gated(PipUi(visible = true)),
+                    followUpMode = FollowUpMode.Steer, queued = it.queued.filterNot { q -> q.text == live.goal })
             }
         }
         actions.show(conversationId)
@@ -857,7 +958,8 @@ class ChatViewModel(
         refreshParallel()
         val id = _ui.value.conversationId ?: return
         syncSaved(id)
-        if (id !in activeConversations.value || pendingStart?.isActive == true) return
+        if (id !in activeConversations.value) { actions.drainFollowUps(id); return }
+        if (pendingStart?.isActive == true) return
         // 开关关着、这里没在跟任务时换对话要等任务结束:那时屏上这个对话的任务就是服务里唯一在跑的
         follow(id, if (parallel()) unpark(id) else null)
     }
@@ -917,10 +1019,12 @@ class ChatViewModel(
         pending.cancel()
         pendingStart = null
         held.clear()
+        val dropped = heldQueued.value.map { it.id }.toSet()
+        heldQueued.value = emptyList()
         _ui.update { ui ->
             val exchanges = ui.exchanges.toMutableList()
             if (liveIndex in exchanges.indices) exchanges[liveIndex] = exchanges[liveIndex].copy(status = ExchangeStatus.Cancelled())
-            ui.copy(exchanges = exchanges, pip = PipUi(), composer = ComposerMode.Idle)
+            ui.copy(exchanges = exchanges, queued = ui.queued.filterNot { it.id in dropped }, pip = PipUi(), composer = ComposerMode.Idle)
         }
         liveIndex = -1
     }
@@ -971,7 +1075,7 @@ class ChatViewModel(
         _ui.update { ChatUi(conversationId = id, exchanges = past, takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled) }
         markCurrent(CurrentChat.Open(id))
         // 这个对话的任务是别处开始的(悬浮胶囊、定时任务):打开就接上它
-        if (id in activeConversations.value) follow(id)
+        if (id in activeConversations.value) follow(id) else actions.drainFollowUps(id)
     }
 
     /**
@@ -1034,6 +1138,7 @@ class ChatViewModel(
         pendingStart?.cancel()
         pendingStart = null
         held.clear()
+        heldQueued.value = emptyList()
         unpark(id)
         liveIndex = -1
         screenSeen = false
@@ -1068,7 +1173,8 @@ class ChatViewModel(
                 val goal = it.conversationId?.let(runGoal).orEmpty()
                 val files = if (ownTask()) sharedFiles.value else emptyList()
                 val ex = Exchange(goal, emptyList(), ExchangeStatus.Working, live = true, files = files, startedAt = clock())
-                it.copy(exchanges = it.exchanges + ex)
+                it.copy(exchanges = it.exchanges + ex, followUpMode = FollowUpMode.Steer,
+                    queued = it.queued.filterNot { q -> q.text == goal })
             }
         }
         _ui.update { ui ->

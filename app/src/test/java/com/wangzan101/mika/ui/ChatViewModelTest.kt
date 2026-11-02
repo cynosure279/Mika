@@ -24,6 +24,8 @@ import com.wangzan101.mika.settings.SystemStatus
 import com.wangzan101.mika.takeover.Takeover
 import com.wangzan101.mika.task.SteerNote
 import com.wangzan101.mika.task.SteerState
+import com.wangzan101.mika.task.QueuedFollowUp
+import com.wangzan101.mika.task.QueuedSource
 import com.wangzan101.mika.ui.PipPhysics.Corner
 import com.wangzan101.mika.core.cap.web.AttachedPage
 import com.wangzan101.mika.core.userscreen.UserScreenMessage
@@ -52,11 +54,22 @@ class ChatViewModelTest {
     private val calls = mutableListOf<String>()
     private val acts = MutableStateFlow<List<RunEvent.Activity>>(emptyList())
     private val steerFlow = MutableStateFlow<List<SteerNote>>(emptyList())
+    private val followUpFlow = MutableStateFlow<List<QueuedFollowUp>>(emptyList())
     private val steerIds = mutableListOf<String>()
     private var canWithdraw = true
     private val actions = object : TaskActions {
         override fun start(goal: String, conversationId: String) { calls += "start:$goal" }
         override fun steer(conversationId: String, messageId: String, text: String) { calls += "steer:$text"; steerIds += messageId }
+        override fun enqueueFollowUp(conversationId: String, messageId: String, text: String) {
+            calls += "queue:$text"; steerIds += messageId
+            followUpFlow.value = followUpFlow.value + QueuedFollowUp(messageId, conversationId, text)
+        }
+        override fun cancelFollowUp(conversationId: String, messageId: String): Boolean {
+            calls += "cancelQueued:$messageId"
+            followUpFlow.value = followUpFlow.value.filterNot { it.id == messageId }
+            return true
+        }
+        override fun drainFollowUps(conversationId: String) { calls += "drain:$conversationId" }
         override fun withdrawSteer(conversationId: String, messageId: String): Boolean {
             calls += "withdraw:$messageId"
             return canWithdraw
@@ -82,13 +95,13 @@ class ChatViewModelTest {
 
     private fun TestScope.vm(store: ConversationStore = ConversationStore(tmp.newFolder())) =
         ChatViewModel(backgroundScope, state, stage, actions, store, appLabel = { if (it == "com.chat") "聊天" else it },
-            activities = acts, steers = steerFlow).also { runCurrent() }
+            activities = acts, steers = steerFlow, followUps = followUpFlow).also { runCurrent() }
 
     /** 和 [vm] 一样,但能指定这块屏开没开。 */
     private fun TestScope.vmWithScreen(open: MutableStateFlow<Boolean>) =
         ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()),
             appLabel = { if (it == "com.chat") "聊天" else it }, activities = acts, steers = steerFlow,
-            screenOpen = open).also { runCurrent() }
+            screenOpen = open, followUps = followUpFlow).also { runCurrent() }
 
     private fun TestScope.emit(s: TaskState) {
         state.value = s
@@ -1295,6 +1308,80 @@ class ChatViewModelTest {
         assertEquals("留下这句", vm.ui.value.exchanges.single().steers.last().text)
     }
 
+    @Test fun queueModeEnqueuesInsteadOfSteering() = runTest {
+        val vm = vm()
+        vm.send("当前任务", ok)
+        emit(TaskState.Running(1, "在做"))
+        vm.setFollowUpMode(FollowUpMode.Queue)
+        vm.send("下一件", ok)
+        runCurrent()
+        assertEquals(listOf("queue:下一件"), calls.filter { it.startsWith("queue:") })
+        assertTrue(vm.ui.value.exchanges.single().steers.isEmpty())
+        assertEquals(listOf("下一件"), vm.ui.value.queued.map { it.text })
+        assertEquals(FollowUpMode.Queue, vm.ui.value.followUpMode)
+    }
+
+    @Test fun newTaskResetsFollowUpModeToSteer() = runTest {
+        val vm = vm()
+        vm.setFollowUpMode(FollowUpMode.Queue)
+        vm.send("新任务", ok)
+        assertEquals(FollowUpMode.Steer, vm.ui.value.followUpMode)
+    }
+
+    @Test fun queuedTrayFollowsStoreAndHidesClaimedAndFallback() = runTest {
+        val vm = vm()
+        vm.send("当前任务", ok)
+        emit(TaskState.Running(1, "在做"))
+        vm.setFollowUpMode(FollowUpMode.Queue)
+        vm.send("下一件", ok)
+        runCurrent()
+        val item = vm.ui.value.queued.single()
+        // 服务取走:排队条隐藏
+        followUpFlow.value = listOf(item.copy(claimed = true))
+        runCurrent()
+        assertTrue(vm.ui.value.queued.isEmpty())
+        // fallback 不由排队条显示(交给插话那行的「下一件」)
+        followUpFlow.value = listOf(item.copy(claimed = false, source = QueuedSource.Fallback))
+        runCurrent()
+        assertTrue(vm.ui.value.queued.isEmpty())
+        // 别的对话的排队不混进来
+        followUpFlow.value = listOf(item.copy(conversationId = "other"))
+        runCurrent()
+        assertTrue(vm.ui.value.queued.isEmpty())
+    }
+
+    @Test fun cancelAndEditQueuedUseTheServiceAndRestoreText() = runTest {
+        val vm = vm()
+        vm.send("当前任务", ok)
+        emit(TaskState.Running(1, "在做"))
+        vm.setFollowUpMode(FollowUpMode.Queue)
+        vm.send("取回这句", ok)
+        runCurrent()
+        val id = vm.ui.value.queued.single().id
+        assertEquals("取回这句", vm.editQueued(id))
+        assertTrue(vm.ui.value.queued.isEmpty())
+        assertTrue(calls.contains("cancelQueued:$id"))
+
+        vm.setFollowUpMode(FollowUpMode.Queue)
+        vm.send("取消这句", ok)
+        runCurrent()
+        val cancelId = vm.ui.value.queued.single().id
+        assertTrue(vm.cancelQueued(cancelId))
+        assertTrue(vm.ui.value.queued.isEmpty())
+    }
+
+    @Test fun stopKeepsExplicitQueue() = runTest {
+        val vm = vm()
+        vm.send("当前任务", ok)
+        emit(TaskState.Running(1, "在做"))
+        vm.setFollowUpMode(FollowUpMode.Queue)
+        vm.send("下一件", ok)
+        runCurrent()
+        vm.cancel()
+        assertEquals(listOf("下一件"), vm.ui.value.queued.map { it.text })
+    }
+
+
     @Test fun editingRestoresQuoteAndTextWithoutOverwritingAnotherQuote() = runTest {
         val vm = vm()
         vm.send("当前任务", ok)
@@ -1384,6 +1471,25 @@ class ChatViewModelTest {
         assertEquals(SteerState.Withdrawn, vm.ui.value.exchanges.single().steers.single().state)
     }
 
+    @Test fun queueWhileWaitingForBusyServiceIsHeldUntilStart() = runTest {
+        val busy = MutableStateFlow(true)
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, ConversationStore(tmp.newFolder()),
+            serviceBusy = busy, followUps = followUpFlow)
+        runCurrent()
+        vm.send("当前任务", ok)
+        vm.setFollowUpMode(FollowUpMode.Queue)
+        vm.send("下一件", ok)
+        runCurrent()
+        // 原话还没交给服务:先挂在排队条上,不提前发
+        assertEquals(listOf("下一件"), vm.ui.value.queued.map { it.text })
+        assertTrue(calls.none { it.startsWith("queue:") })
+        busy.value = false
+        runCurrent()
+        assertEquals("start:当前任务", calls.first())
+        assertTrue(calls.contains("queue:下一件"))
+        assertEquals(listOf("下一件"), vm.ui.value.queued.map { it.text })
+    }
+
     // 任务在跑时输入框照样能发:发出去的话挂在这一问一答下面,交给当前任务;去向由服务报回来
     @Test fun messageWhileRunningSteersTheTask() = runTest {
         val vm = vm()
@@ -1408,7 +1514,7 @@ class ChatViewModelTest {
         emit(TaskState.Succeeded("订好了"))
         ex = vm.ui.value.exchanges.single()
         assertEquals(listOf(SteerState.Joined, SteerState.Next), ex.steers.map { it.state })
-        assertEquals("将作为下一件事", steerLabel(ex.steers.last().state))
+        assertEquals("当前任务已结束，已排到下一件", steerLabel(ex.steers.last().state))
         assertEquals(1, vm.ui.value.exchanges.size)
     }
 
@@ -1430,7 +1536,7 @@ class ChatViewModelTest {
         assertEquals("今天晴,最高", vm.ui.value.exchanges.single().steers.single().interrupted)
     }
 
-    // 任务的收件箱一收下就有回音「已收到，下一步处理」;任务就此收尾时它和还没发到的一样作为下一件事
+    // 任务的收件箱一收下就有回音「已收到，下一步调整当前任务」;任务就此收尾时它和还没发到的一样作为下一件事
     @Test fun receivedSteerIsShownAtOnceAndBecomesNextIfTheRunEnds() = runTest {
         val vm = vm()
         vm.send("订明天的会议室", ok)
@@ -1440,7 +1546,7 @@ class ChatViewModelTest {
         runCurrent()
         val note = vm.ui.value.exchanges.single().steers.single()
         assertEquals(SteerState.Received, note.state)
-        assertEquals("已收到，下一步处理", steerLabel(note.state))
+        assertEquals("已收到，下一步调整当前任务", steerLabel(note.state))
         emit(TaskState.Succeeded("订好了"))
         assertEquals(SteerState.Next, vm.ui.value.exchanges.single().steers.single().state)
     }

@@ -90,7 +90,7 @@ class TaskService : Service() {
     @Volatile private var parallel = false
     private val center by lazy {
         TaskCenter<TaskRun>(::limit, { it.conversationId }, { it.key }, (application as com.wangzan101.mika.MikaApp).runStore,
-            (application as com.wangzan101.mika.MikaApp).resources) { c, g ->
+            (application as com.wangzan101.mika.MikaApp).resources, (application as com.wangzan101.mika.MikaApp).followUpQueue) { c, g ->
             TaskRun(c, g, this, scope, freeSlot(), parallel)
         }
     }
@@ -133,9 +133,32 @@ class TaskService : Service() {
     internal suspend fun awaitPackage(pkg: String, runKey: String, timeoutMs: Long, free: suspend () -> Boolean) =
         center.awaitApp(pkg, runKey, timeoutMs, free)
 
-    /** 这个对话空着就当场开始;还有任务就留着,它收尾时([onRunEnded])交出来。查与留在同一把锁里。 */
-    internal fun deferMessage(threadId: String, text: String) {
-        if (center.deferOrStart(threadId, text)) start(this, text, threadId)
+    /** 这个对话空着就当场开始;还有任务就留在持久队列里,它收尾时([onRunEnded])交出来。查与留在同一把锁里。 */
+    internal fun deferMessage(threadId: String, text: String, messageId: String) {
+        if (center.deferOrStart(threadId, text, messageId, QueuedSource.Fallback)) start(this, text, threadId)
+        else keepForeground()
+    }
+
+    /** 用户明确选了「排队」:这个对话还有任务就写进持久队列;刚好空了就当场开始。 */
+    private fun queueFollowUp(threadId: String, text: String, messageId: String, source: QueuedSource) {
+        val item = QueuedFollowUp(messageId, threadId, text, System.currentTimeMillis(), source)
+        if (center.deferOrStart(threadId, text, messageId, source)) {
+            // 这个对话刚空:不先入队,直接走 startNew;若这中间又来了任务,tryStart 会把它原子放回队列
+            startFollowUp(item)
+        } else {
+            keepForeground()
+        }
+    }
+
+    /** 取这个对话的下一件;只取一件,由 startNew 登记或放回。 */
+    private fun drainReady(conversationId: String?) {
+        center.takeReady(conversationId).forEach(::startFollowUp)
+    }
+
+    /** 起动一件排队项;起不来就放回队列,别停在 claim 状态。 */
+    private fun startFollowUp(item: QueuedFollowUp) {
+        runCatching { startNew(item.text, item.conversationId, followUp = item) }
+            .onFailure { center.followUps.add(item) }
     }
 
     internal fun interaction(threadId: String) = ChannelInteraction(outbox, localChannel,
@@ -183,6 +206,15 @@ class TaskService : Service() {
         when (intent?.action) {
             ACTION_START -> begin(intent.getStringExtra(EXTRA_GOAL).orEmpty(), intent.getStringExtra(EXTRA_CONVERSATION),
                 messageId = intent.getStringExtra(EXTRA_MESSAGE_ID))
+            ACTION_ENQUEUE_FOLLOWUP -> {
+                val thread = intent.getStringExtra(EXTRA_CONVERSATION)
+                val text = intent.getStringExtra(EXTRA_GOAL).orEmpty()
+                val id = intent.getStringExtra(EXTRA_MESSAGE_ID) ?: java.util.UUID.randomUUID().toString()
+                val source = QueuedSource.entries.firstOrNull { it.name == intent.getStringExtra(EXTRA_SOURCE) }
+                    ?: QueuedSource.Explicit
+                if (thread != null && text.isNotBlank()) queueFollowUp(thread, text, id, source)
+            }
+            ACTION_DRAIN_FOLLOWUPS -> drainReady(intent.getStringExtra(EXTRA_CONVERSATION))
             ACTION_START_TRIGGER -> begin(intent.getStringExtra(EXTRA_GOAL).orEmpty(), intent.getStringExtra(EXTRA_CONVERSATION),
                 provenance = RunProvenance(RunOrigin.Trigger, Attendance.Unattended),
                 triggerKey = intent.getStringExtra(EXTRA_TRIGGER_KEY),
@@ -228,9 +260,11 @@ class TaskService : Service() {
                 return
             }
         }
-        // 插话到的时候那个任务已经收尾:作为这个对话的下一件事,不因服务还在收尾而丢掉
+        // 插话到的时候那个任务已经收尾:作为这个对话的下一件事,不因服务还在收尾而丢掉。
+        // 走 Fallback 项加 startNew:tryStart 在同一个锁里决定开始还是放回队列,不再递归 deferMessage。
         if (messageId != null && requestedConversation != null) {
-            deferMessage(requestedConversation, newGoal)
+            val item = QueuedFollowUp(messageId, requestedConversation, newGoal, System.currentTimeMillis(), QueuedSource.Fallback)
+            startNew(newGoal, requestedConversation, provenance, triggerKey, triggerActionGoal, triggerThreadId, mcpExternalId, item)
             keepForeground()
             return
         }
@@ -239,13 +273,25 @@ class TaskService : Service() {
             keepForeground()
             return
         }
+        startNew(newGoal, requestedConversation, provenance, triggerKey, triggerActionGoal, triggerThreadId, mcpExternalId)
+    }
+
+    /**
+     * 活任务检查之后的公共部分:建/排一个任务。[followUp] 是排队里取出来的项(或引导 fallback):
+     * 运行登记成功就把它从队列移除;这个对话刚好又有任务了,tryStart 会在同一个锁里把它放回队列。
+     */
+    private fun startNew(newGoal: String, requestedConversation: String?,
+        provenance: RunProvenance = RunProvenance(), triggerKey: String? = null,
+        triggerActionGoal: String? = null, triggerThreadId: String? = null, mcpExternalId: String? = null,
+        followUp: QueuedFollowUp? = null) {
+        parallel = FeatureFlags.get(this).speedFlags().parallelTasks
         // 别的对话的任务正在跑、并行关着(或已到上限)时不丢:登记处让它排在后面,那个任务收尾时放出来。
         // 对话页先等服务空下来再交过来,但查完到交到之间别处(定时、电脑)可能先开始了一个,这里同样排上
         val store = ConversationStore.shared(this)
         val conversationId = requestedConversation ?: store.newConversation()
         // 定时和电脑交来的任务不丢:这个对话还有任务时排在它后面
         val queueHere = provenance.origin == RunOrigin.Trigger || provenance.origin == RunOrigin.Mcp
-        when (val r = center.tryStart(conversationId, newGoal, queueInConversation = queueHere)) {
+        when (val r = center.tryStart(conversationId, newGoal, queueInConversation = queueHere, followUp = followUp)) {
             StartResult.AlreadyRunningInConversation -> keepForeground()
             is StartResult.Queued -> {
                 nameConversation(store, conversationId, newGoal, provenance)
@@ -421,11 +467,11 @@ class TaskService : Service() {
         val started = center.onEnded(run)
         publishRuns()
         if (wasShown) started.firstOrNull { it.conversationId == run.conversationId }?.show()
-        // 对话空出来就开始留给它的话,不等别的对话的任务
-        val ready = center.takeReady()
+        // 对话空出来就开始留给它的下一件,不等别的对话的任务
+        val ready = center.takeReady(run.conversationId)
         if (center.runs().isEmpty()) {
             if (ready.isNotEmpty()) {
-                ready.forEach { (threadId, message) -> begin(message, threadId) }
+                ready.forEach(::startFollowUp)
                 return
             }
             // 还留着一页在后台运行:前台通知换成它的,服务不退(进程靠它撑着);关掉时由 [onKeptPage] 退出
@@ -459,10 +505,10 @@ class TaskService : Service() {
         }
         center.queued().forEachIndexed { i, q -> q.queue(i + 1) }
         center.running().forEach(::refreshNotifications)
-        ready.forEach { (threadId, message) -> begin(message, threadId) }
+        ready.forEach(::startFollowUp)
     }
 
-    /** 排队中的任务被取消(已移出队伍):没开跑,直接记为已取消。 */
+    /** 排队中的任务被取消(已移出队伍):没开跑,直接记为已取消;排在它后面的下一件接着取。 */
     private fun cancelQueued(run: TaskRun) {
         run.handoffUnconsumed(cancelled = true)
         run.end(TaskState.Cancelled)
@@ -470,6 +516,7 @@ class TaskService : Service() {
         run.mcpExternalId?.let { (application as com.wangzan101.mika.MikaApp).remoteTasks.ended(it, TaskState.Cancelled, run.steers.value) }
         publishRuns()
         center.queued().forEachIndexed { i, q -> q.queue(i + 1) }
+        drainReady(run.conversationId)
     }
 
     /**
@@ -804,6 +851,8 @@ class TaskService : Service() {
         const val INPUT_TIMEOUT_MS = AgentLoop.DEFAULT_INPUT_TIMEOUT_MS
         const val INPUT_TIMEOUT_MINUTES = INPUT_TIMEOUT_MS / 60_000
         const val ACTION_START = "com.wangzan101.mika.task.START"
+        const val ACTION_ENQUEUE_FOLLOWUP = "com.wangzan101.mika.task.ENQUEUE_FOLLOWUP"
+        const val ACTION_DRAIN_FOLLOWUPS = "com.wangzan101.mika.task.DRAIN_FOLLOWUPS"
         const val ACTION_START_TRIGGER = "com.wangzan101.mika.task.START_TRIGGER"
         const val ACTION_START_MCP = "com.wangzan101.mika.task.START_MCP"
         const val ACTION_CANCEL_MCP = "com.wangzan101.mika.task.CANCEL_MCP"
@@ -824,6 +873,7 @@ class TaskService : Service() {
         const val ACTION_DECLINE = "com.wangzan101.mika.task.DECLINE"
         private const val EXTRA_GOAL = "goal"
         private const val EXTRA_MESSAGE_ID = "message_id"
+        private const val EXTRA_SOURCE = "source"
         private const val EXTRA_CONVERSATION = "conversation"
         private const val EXTRA_TRIGGER_KEY = "trigger_key"
         private const val EXTRA_TRIGGER_ACTION = "trigger_action"
@@ -875,6 +925,34 @@ class TaskService : Service() {
                     .apply { if (conversationId != null) putExtra(EXTRA_CONVERSATION, conversationId) }
                     .apply { if (messageId != null) putExtra(EXTRA_MESSAGE_ID, messageId) },
             )
+        }
+
+        /** 用户明确选了「排队」:交给这个对话的持久队列;它刚好空着就当场开始。 */
+        fun enqueueFollowUp(context: Context, conversationId: String, messageId: String, text: String,
+            source: QueuedSource = QueuedSource.Explicit) {
+            if (text.isBlank()) return
+            val app = context.applicationContext as? com.wangzan101.mika.MikaApp ?: return
+            val started = runCatching {
+                context.startService(
+                    Intent(context, TaskService::class.java).setAction(ACTION_ENQUEUE_FOLLOWUP)
+                        .putExtra(EXTRA_GOAL, text).putExtra(EXTRA_CONVERSATION, conversationId)
+                        .putExtra(EXTRA_MESSAGE_ID, messageId).putExtra(EXTRA_SOURCE, source.name),
+                )
+            }.isSuccess
+            // 后台起服务被系统挡下时至少把话留在持久队列里,下次打开对话再跑
+            if (!started) app.followUpQueue.add(QueuedFollowUp(messageId, conversationId, text, System.currentTimeMillis(), source))
+        }
+
+        /** 打开对话时:这个对话还有排队的下一件、又没有任务在跑,就让服务取一件开始。 */
+        fun drainFollowUps(context: Context, conversationId: String) {
+            val app = context.applicationContext as? com.wangzan101.mika.MikaApp ?: return
+            if (!app.followUpQueue.contains(conversationId)) return
+            runCatching {
+                context.startService(
+                    Intent(context, TaskService::class.java).setAction(ACTION_DRAIN_FOLLOWUPS)
+                        .putExtra(EXTRA_CONVERSATION, conversationId),
+                )
+            }
         }
 
         fun startTrigger(context: Context, goal: String, threadId: String, windowKey: String, conditionGoal: String?) {

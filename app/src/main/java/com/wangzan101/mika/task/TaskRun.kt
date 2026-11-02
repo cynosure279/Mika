@@ -312,7 +312,7 @@ class TaskRun(
                 if (stopPressed) markSteers(setOf(messageId), SteerState.Cancelled)
                 else {
                     markSteers(setOf(messageId), SteerState.Next)
-                    service.deferMessage(conversationId, text)
+                    service.deferMessage(conversationId, text, messageId)
                 }
             }
         }
@@ -347,7 +347,7 @@ class TaskRun(
         val (discard, next) = left.partition { cancelled || it.currentTaskOnly }
         markSteers(discard.map { it.messageId }.toSet(), SteerState.Cancelled)
         markSteers(next.map { it.messageId }.toSet(), SteerState.Next)
-        next.forEach { service.deferMessage(conversationId, it.text) }
+        next.forEach { service.deferMessage(conversationId, it.text, it.messageId) }
     }
 
     /** 已交给这个任务的插话,随这一轮存进对话。 */

@@ -51,6 +51,7 @@ import com.wangzan101.mika.task.TaskService
 import com.wangzan101.mika.task.TaskService.Companion.isActive
 import com.wangzan101.mika.takeover.TakeoverQueue
 import com.wangzan101.mika.ui.ChatCopy
+import com.wangzan101.mika.ui.FollowUpMode
 import com.wangzan101.mika.ui.VoiceCopy
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.voice.HoldToTalk
@@ -123,6 +124,8 @@ class CapsuleController(
 
     private var view by mutableStateOf<CapsuleView.Shown?>(null)
     private var card by mutableStateOf<CardView?>(null)
+    /** 同进程的排队队列;卡片按自己的对话数明确排队的项。 */
+    private var followUps by mutableStateOf<List<com.wangzan101.mika.task.QueuedFollowUp>>(emptyList())
     private var preview by mutableStateOf<Bitmap?>(null)
     private var zoomed by mutableStateOf(false)
     private var dock by mutableStateOf(flags.capsuleDock())
@@ -230,6 +233,8 @@ class CapsuleController(
         }
         // 说话面板出来时铺满整屏(压暗背后),收起时回到没有大小
         scope.launch { snapshotFlow { talk.active }.collect { panelWindow?.setFullScreen(it) } }
+        // 排队条:卡片按自己的对话显示还有几件
+        scope.launch { (context.applicationContext as MikaApp).followUpQueue.changes.collect { followUps = it } }
         // 停止后的交代写好(或写不成)时那一轮已改进对话:重读记下的轮次
         scope.launch { tasks.summarizing.collect { threadOf?.let(::loadPast) } }
         // 对话删掉了:见 [forget]
@@ -481,21 +486,28 @@ class CapsuleController(
         val c = card ?: return
         val kind = CapsuleCards.input(c)?.kind ?: return
         if (text.isEmpty() && shot == null) return
+        val mode = inputUi.followUpMode
         inputUi = CardInputUi()
         cardWindow?.setFocusable(false)
-        if (shot != null) deliver(c, kind, shot, text) else submit(c, kind, text, CapsuleCards.conversationOf(c))
+        if (shot != null) deliver(c, kind, shot, text, mode) else submit(c, kind, text, CapsuleCards.conversationOf(c), mode)
         refresh()
     }
 
     /** 按输入框此刻交给谁([kind])发出 [text];开始说时进 [conversationId](为 null 时新开一个)。 */
-    private fun submit(c: CardView, kind: CardInputKind, text: String, conversationId: String?) {
+    private fun submit(c: CardView, kind: CardInputKind, text: String, conversationId: String?, mode: FollowUpMode = FollowUpMode.Steer) {
         val run = when (c) {
             is CardView.Detail -> c.run.run
             is CardView.Chat -> c.run?.run
             is CardView.Kept -> null
         }
         when (kind) {
-            CardInputKind.Steer -> run?.let { TaskService.start(context, text, it.conversationId, messageId = UUID.randomUUID().toString()) }
+            CardInputKind.Steer -> run?.let {
+                if (mode == FollowUpMode.Queue) {
+                    TaskService.enqueueFollowUp(context, it.conversationId, UUID.randomUUID().toString(), text)
+                } else {
+                    TaskService.start(context, text, it.conversationId, messageId = UUID.randomUUID().toString())
+                }
+            }
             CardInputKind.Answer -> run?.let { TaskService.answer(context, text, it.key) }
             CardInputKind.Continue -> run?.let { startIn(it.conversationId, text) }
             CardInputKind.Start -> startIn(conversationId ?: ConversationStore.shared(context).newConversation(), text)
@@ -506,7 +518,7 @@ class CapsuleController(
      * 截下的屏幕连同附言 [words] 发出:先存进这句话要去的那个对话(新对话这时就定下编号),
      * 再写成带屏幕的一句话([UserScreenMessage])照常发出;存不下就不发。
      */
-    private fun deliver(c: CardView, kind: CardInputKind, shot: CapturedScreen, words: String) {
+    private fun deliver(c: CardView, kind: CardInputKind, shot: CapturedScreen, words: String, mode: FollowUpMode = FollowUpMode.Steer) {
         val access = (context.applicationContext as MikaApp).appAccess.current()
         if (shot.sourcePackages.isEmpty() || shot.sourcePackages.any { !access.canShare(it) }) {
             inputUi = inputUi.copy(screen = null)
@@ -523,7 +535,7 @@ class CapsuleController(
                 android.widget.Toast.makeText(context, tr(R.string.appaccess_share_expired), android.widget.Toast.LENGTH_SHORT).show()
                 return@launch
             }
-            submit(c, kind, UserScreenMessage.compose(saved.id, words), conversationId)
+            submit(c, kind, UserScreenMessage.compose(saved.id, words), conversationId, mode)
             refresh()
         }
     }
@@ -545,7 +557,7 @@ class CapsuleController(
                 return@launch
             }
             val shot = captureScreen() ?: return@launch
-            deliver(target, kind, shot, "")
+            deliver(target, kind, shot, "", FollowUpMode.Steer)
             CapsuleCards.conversationOf(target)?.let { follow = it }
             open()
             refresh()
@@ -1061,7 +1073,7 @@ class CapsuleController(
             refresh()
             return
         }
-        submit(target, kind, text, CapsuleCards.conversationOf(target))
+        submit(target, kind, text, CapsuleCards.conversationOf(target), inputUi.followUpMode)
         showNote(CapsuleVoice.sent(kind, text), CapsuleKind.Done, opensMika = false, NOTE_SENT_MS)
         refresh()
     }
@@ -1209,6 +1221,9 @@ class CapsuleController(
         override fun dropScreen() {
             inputUi = inputUi.copy(screen = null)
         }
+        override fun setFollowUpMode(mode: FollowUpMode) {
+            inputUi = inputUi.copy(followUpMode = mode)
+        }
         override fun closeKeptPage() {
             keeper.close(KeptPageClose.User)
             collapse()
@@ -1222,7 +1237,13 @@ class CapsuleController(
         MikaTheme(reduceMotion = animationsOff(context)) {
             val height = if (cardHeight > 0) with(LocalDensity.current) { cardHeight.toDp() } else Dp.Unspecified
             OverlayMotion(open = !closing, origin = ::cardOrigin, onClosed = ::closed, onOpened = { cardOut = true }) {
-                CapsuleCard(c, preview, zoomed, actions, { elapsed(it) }, input = inputUi, thread = thread, height = height, onHandle = ::onHandle)
+                CapsuleCard(
+                    c, preview, zoomed, actions, { elapsed(it) }, input = inputUi, thread = thread, height = height, onHandle = ::onHandle,
+                    queuedCount = CapsuleCards.conversationOf(c)?.let { id ->
+                        followUps.count { it.conversationId == id && !it.claimed && it.source == com.wangzan101.mika.task.QueuedSource.Explicit }
+                    } ?: 0,
+                    onQueued = { CapsuleCards.conversationOf(c)?.let(::open) },
+                )
             }
         }
     }

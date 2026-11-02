@@ -147,6 +147,13 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     val runStore: RunStore by lazy { FileRunStateStore(java.io.File(filesDir, "runs-v3.json")) }
     val outbox: Outbox by lazy { Outbox(FileOutboxStore(java.io.File(filesDir, "outbox-v3.json"))) }
 
+    /** 同对话下一件任务的持久队列:用户明确排队的和引导 fallback 都在这里,任务服务与界面共用。 */
+    val followUpQueue: com.wangzan101.mika.task.FollowUpQueue by lazy {
+        com.wangzan101.mika.task.FollowUpQueue(
+            com.wangzan101.mika.task.FileFollowUpQueueStore(java.io.File(filesDir, "followups-v1.json")),
+        )
+    }
+
     /** 没结束的运行的善后(标中断、补送、告知):进程里只做一次,App 启动和任务服务启动都调它。 */
     val runRecovery: RunRecovery by lazy {
         val app = this
@@ -229,6 +236,11 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             object : TaskActions {
                 override fun start(goal: String, conversationId: String) = TaskService.start(app, goal, conversationId)
                 override fun steer(conversationId: String, messageId: String, text: String) = TaskService.start(app, text, conversationId, messageId)
+                override fun enqueueFollowUp(conversationId: String, messageId: String, text: String) =
+                    TaskService.enqueueFollowUp(app, conversationId, messageId, text)
+                override fun cancelFollowUp(conversationId: String, messageId: String): Boolean =
+                    app.followUpQueue.cancel(messageId) != null
+                override fun drainFollowUps(conversationId: String) = TaskService.drainFollowUps(app, conversationId)
                 override fun withdrawSteer(conversationId: String, messageId: String) = taskState.run(conversationId)?.withdrawSteer(messageId) ?: false
                 override fun cancel() = TaskService.cancel(app)
                 override fun resume() = TaskService.resume(app)
@@ -254,7 +266,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                 override fun declineIn(conversationId: String, key: Int) { key(conversationId)?.let { TaskService.decline(app, key, it) } }
             },
             conversations,
-            taskState.busy,
+            followUps = followUpQueue.changes,
+            serviceBusy = taskState.busy,
             appLabel = { ConfirmationNotifier.appLabel(app, it) },
             // 虚拟屏上打开过 App,或在用内置浏览器:画中画才有画面可看(只建了空屏的不算)
             screenOpen = tasks.previewOpen
@@ -285,7 +298,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             },
             describeAttachments = { uris -> AttachFiles.describe(app, uris) },
             deletionImpact = conversationDeleter::impact,
-            removeConversation = conversationDeleter::delete,
+            removeConversation = { id -> followUpQueue.dropConversation(id); conversationDeleter.delete(id) },
             keptPage = pageKeeper.page,
             closeKept = { pageKeeper.close(com.wangzan101.mika.core.cap.web.KeptPageClose.User) },
         )

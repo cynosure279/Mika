@@ -26,27 +26,35 @@ class TaskCenter<R : Any>(
     private val keyOf: (R) -> String,
     val store: RunStore = MemoryRunStore(),
     val resources: ResourceScheduler = ResourceScheduler(),
+    /** 同对话下一件任务的持久队列;测试里换成内存实现。 */
+    val followUps: FollowUpQueue = FollowUpQueue(),
     private val create: (conversationId: String, goal: String) -> R,
 ) {
     private val running = mutableListOf<R>()
     private val queued = mutableListOf<R>()
-    private val deferred = ArrayDeque<Pair<String, String>>()
     /** 迁移中的调用方继续从这里拿资源，实际所有权归 [resources]。 */
     val clipLock get() = resources.clipboard
     val takeoverQueue get() = resources.takeoverQueue
 
     @Synchronized
-    fun tryStart(conversationId: String, goal: String, queueInConversation: Boolean = false): StartResult<R> {
+    fun tryStart(conversationId: String, goal: String, queueInConversation: Boolean = false,
+        followUp: QueuedFollowUp? = null): StartResult<R> {
         val sameConversation = byConversation(conversationId) != null
-        if (sameConversation && !queueInConversation) return StartResult.AlreadyRunningInConversation
+        if (sameConversation && !queueInConversation) {
+            // 点发送和任务收尾撞在一起:在同一个锁里放回队列,调用方据此知道下一件还排着
+            followUp?.let { followUps.add(it) }
+            return StartResult.AlreadyRunningInConversation
+        }
         val run = create(conversationId, goal)
         return if (!sameConversation && running.size < limit().max) {
             store.save(StoredRun(RunId(keyOf(run)), conversationId, goal, RunPhase.Preparing))
             running += run
+            followUp?.let { followUps.remove(it.id) }
             StartResult.Started(run)
         } else {
             store.save(StoredRun(RunId(keyOf(run)), conversationId, goal, RunPhase.Queued))
             queued += run
+            followUp?.let { followUps.remove(it.id) }
             StartResult.Queued(run, queued.size)
         }
     }
@@ -125,20 +133,23 @@ class TaskCenter<R : Any>(
 
     /**
      * 收尾边界收到、已经不能注入原 Run 的用户原话:这个对话此刻没有任务就返回 true(调用方当场开始);
-     * 还有就留下返回 false,等它收尾后由 [takeReady] 交出。查与留在同一把锁里,和 [onEnded] 不会错开。
+     * 还有就进持久队列,等它收尾后按对话取出。查与留在同一把锁里,和 [onEnded] 不会错开。
      */
-    @Synchronized fun deferOrStart(threadId: String, text: String): Boolean {
+    @Synchronized fun deferOrStart(threadId: String, text: String, id: String, source: QueuedSource = QueuedSource.Fallback): Boolean {
         if (byConversation(threadId) == null) return true
-        deferred += threadId to text
+        followUps.add(QueuedFollowUp(id, threadId, text, System.currentTimeMillis(), source))
         return false
     }
 
-    /** 留下的话里,所在对话已经没有任务的那些(按到的先后),取走。 */
-    @Synchronized fun takeReady(): List<Pair<String, String>> {
-        val ready = deferred.filter { (threadId, _) -> byConversation(threadId) == null }
-        deferred.removeAll { (threadId, _) -> byConversation(threadId) == null }
-        return ready
-    }
+    /** 这个对话的下一件;只取一件,所在对话没有任务时才取。 */
+    @Synchronized fun takeReady(conversationId: String? = null): List<QueuedFollowUp> =
+        followUps.claimNext({ byConversation(it) == null }, conversationId)
+
+    @Synchronized fun cancelFollowUp(id: String): Boolean = followUps.cancel(id) != null
+
+    @Synchronized fun dropFollowUps(conversationId: String) = followUps.dropConversation(conversationId)
+
+    @Synchronized fun hasFollowUps(conversationId: String): Boolean = followUps.contains(conversationId)
 }
 
 /** 迁移期旧名称，现有调用方和测试仍可逐步转到 TaskCenter。 */
