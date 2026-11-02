@@ -632,7 +632,11 @@ class TaskRun(
             // 用户本次说的话:记忆的引文、按用户要求写下技能的引文都据此核对(只在内存里,任务开始清空)
             val utterances = UserUtterances()
             // 改名前沉淀的个人技能:里面的旧工具名载入时换成现在的
-            val catalog = GuideCatalog.withPersonal(skills, memoryRuntime.skills(), legacyNames()::rewrite)
+            // 插件技能取任务开始时的快照:任务中途启停插件,下一次任务才生效
+            val catalog = GuideCatalog.withPersonal(
+                skills, memoryRuntime.skills(), legacyNames()::rewrite,
+                plugins = (service.application as MikaApp).plugins.skillsSnapshot(),
+            )
             // 内置浏览器:每个任务自己的后台网页显示、标签池和脚本引擎,第一次打开网址时才建(只用手机的任务不建);
             // 系统里没有 WebView 时不提供网页工具
             val webInstalled = runCatching { WebViewCompat.getCurrentWebViewPackage(service) != null }.getOrDefault(false)

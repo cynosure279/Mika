@@ -2,6 +2,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    // 插件 manifest/注册表用 kotlinx.serialization(依赖已经在 libs 里,core 也在用)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 // 关于页上的构建编号:当前提交的短哈希;没有 git(如从源码包编译)时写 dev

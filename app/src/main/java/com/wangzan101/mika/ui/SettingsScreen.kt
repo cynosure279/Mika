@@ -66,7 +66,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** 设置里能进入的子页面;[Home] 是设置首页。 */
-private enum class SettingsPage { Home, AppAccess, Usage, PhoneOps, DuringWork, Capsule, Language, Notifications, WebSites, Sandbox, Routes, Recovery, SelfCheck, ComputerAccess, Developer, RunStats }
+private enum class SettingsPage { Home, AppAccess, Usage, PhoneOps, DuringWork, Capsule, Language, Notifications, WebSites, Sandbox, Routes, Plugins, Recovery, SelfCheck, ComputerAccess, Developer, RunStats }
 
 /**
  * 设置页:总状态卡 + 基本 / 隐私与数据 / 高级 / 关于四组。各子页面在这里切换(返回键先回首页),
@@ -130,6 +130,8 @@ fun SettingsScreen(
     val mcpNetworkOn by mcp.settings.enabled.collectAsState()
     val mcpUsbOn by mcp.usb.enabled.collectAsState()
     val mcpOn = mcpNetworkOn || mcpUsbOn
+    val pluginRegistry = remember { (context.applicationContext as com.wangzan101.mika.MikaApp).plugins }
+    val pluginRecords by pluginRegistry.plugins.collectAsState()
     // 「Token 用量」一行的值:近 7 天的合计,账本每记一笔就重算
     val usage = remember { (context.applicationContext as com.wangzan101.mika.MikaApp).usage }
     val usageVersion by usage.version.collectAsState()
@@ -179,6 +181,7 @@ fun SettingsScreen(
             onOpenMemory = onOpenMemory,
             webSitesCount = webSites?.sites?.size, onOpenWebSites = { page = SettingsPage.WebSites },
             sandbox = sandboxStatus, onOpenSandbox = { page = SettingsPage.Sandbox },
+            pluginsCount = pluginRecords.size, onOpenPlugins = { page = SettingsPage.Plugins },
             routes = routeCount, onOpenRoutes = { page = SettingsPage.Routes },
             onOpenRecovery = { page = SettingsPage.Recovery },
             computerAccess = mcpOn, onOpenComputerAccess = { page = SettingsPage.ComputerAccess },
@@ -205,6 +208,7 @@ fun SettingsScreen(
         // 没有数据时首页不显示入口,走不到这一页
         SettingsPage.WebSites -> webSites?.let { WebSitesScreen(it, onBack = toHome) }
         SettingsPage.Sandbox -> SandboxScreen(onBack = toHome)
+        SettingsPage.Plugins -> PluginsScreen(pluginRegistry, onBack = toHome)
         SettingsPage.Routes -> RoutesScreen(
             routeCount,
             onClear = { scope.launch { routeCount = withContext(Dispatchers.IO) { routeStore.clear(); routeStore.count() } } },
@@ -289,6 +293,9 @@ fun SettingsContent(
     onOpenWebSites: () -> Unit = {},
     sandbox: SandboxStatus? = null,
     onOpenSandbox: () -> Unit = {},
+    /** 已安装的插件数;为空时不显示这一行。 */
+    pluginsCount: Int? = null,
+    onOpenPlugins: () -> Unit = {},
     /** 已记住的操作路线条数;为空(还没读出来)时不显示这一行。 */
     routes: Int? = null,
     onOpenRoutes: () -> Unit = {},
@@ -363,7 +370,7 @@ fun SettingsContent(
 
         val sandboxRow = sandbox?.takeIf { it !is SandboxStatus.Unsupported }
         val recoveryRow = status.sdkInt >= Prerequisites.MIN_SDK
-        if (sandboxRow != null || routes != null || recoveryRow || computerAccess != null || showDeveloper) {
+        if (sandboxRow != null || pluginsCount != null || routes != null || recoveryRow || computerAccess != null || showDeveloper) {
             GroupLabel(stringResource(R.string.settings_advanced))
             GroupCard {
                 var first = true
@@ -371,6 +378,11 @@ fun SettingsContent(
                 if (sandboxRow != null) {
                     ListRow(MikaIcons.Terminal, stringResource(R.string.settings_sandbox), first = take(), onClick = onOpenSandbox) {
                         RowValue(sandboxValue(sandboxRow)); RowChevron()
+                    }
+                }
+                pluginsCount?.let {
+                    ListRow(MikaIcons.Spark, stringResource(R.string.plugins_title), first = take(), onClick = onOpenPlugins) {
+                        RowValue(trPlural(R.plurals.plugins_count, it)); RowChevron()
                     }
                 }
                 routes?.let {
