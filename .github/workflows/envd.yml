@@ -34,8 +34,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: tools/envd/go.mod
-          cache: true
-          cache-dependency-path: tools/envd/go.mod
+          cache: false
       - name: Vet and unit tests
         working-directory: tools/envd
         run: |
