@@ -173,4 +173,20 @@
     <string name="mcp_servers_status_fail">Ошибка подключения: %1$s</string>
     <string name="mcp_servers_refresh_all">Проверить все</string>
     <string name="mcp_servers_allowlist">Разрешённые инструменты (через запятую, пусто — все)</string>
+    <string name="permissions_title">Разрешения</string>
+    <string name="permissions_sub">Возможности, ресурсы и значения по умолчанию (предпросмотр)</string>
+    <string name="permissions_preview_note">Только предпросмотр: существующие настройки показаны как разрешения, но пока не применяются. Применение будет на следующем шаге.</string>
+    <string name="permissions_group_defaults">По умолчанию</string>
+    <string name="permissions_group_phone">Телефон</string>
+    <string name="permissions_group_web">Веб</string>
+    <string name="permissions_group_sandbox">Среда вычислений</string>
+    <string name="permissions_group_core">Основные инструменты</string>
+    <string name="permissions_group_extension">Расширения</string>
+    <string name="permissions_group_summary">Разрешений: %1$d · разрешено: %2$d · спрашивать: %3$d · запрещено: %4$d</string>
+    <string name="permissions_migrated_group">Импортировано из существующих настроек</string>
+    <string name="permissions_migrated_none">Разрешения ещё не импортированы</string>
+    <string name="permissions_access_allow">Разрешить</string>
+    <string name="permissions_access_ask">Спрашивать</string>
+    <string name="permissions_access_deny">Запретить</string>
+    <string name="permissions_unavailable">Не удалось прочитать настройки разрешений. Используются значения по умолчанию; изменение настройки перезапишет файл.</string>
 </resources>

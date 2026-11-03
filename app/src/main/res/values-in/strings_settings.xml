@@ -161,4 +161,20 @@
     <string name="mcp_servers_status_fail">Gagal terhubung: %1$s</string>
     <string name="mcp_servers_refresh_all">Uji semua</string>
     <string name="mcp_servers_allowlist">Alat yang diizinkan (dipisah koma, kosong = semua)</string>
+    <string name="permissions_title">Izin</string>
+    <string name="permissions_sub">Kemampuan, resource, dan default (pratinjau)</string>
+    <string name="permissions_preview_note">Hanya pratinjau: pengaturan yang ada ditampilkan sebagai izin, tetapi belum diterapkan. Penerapan ada di langkah berikutnya.</string>
+    <string name="permissions_group_defaults">Default</string>
+    <string name="permissions_group_phone">Ponsel</string>
+    <string name="permissions_group_web">Web</string>
+    <string name="permissions_group_sandbox">Lingkungan komputasi</string>
+    <string name="permissions_group_core">Alat inti</string>
+    <string name="permissions_group_extension">Ekstensi</string>
+    <string name="permissions_group_summary">%1$d izin · %2$d izinkan · %3$d tanya · %4$d tolak</string>
+    <string name="permissions_migrated_group">Diimpor dari pengaturan yang ada</string>
+    <string name="permissions_migrated_none">Belum ada izin yang diimpor</string>
+    <string name="permissions_access_allow">Izinkan</string>
+    <string name="permissions_access_ask">Tanya</string>
+    <string name="permissions_access_deny">Tolak</string>
+    <string name="permissions_unavailable">Pengaturan izin tidak dapat dibaca. Default tetap dipakai; mengubah pengaturan akan menulis ulang file.</string>
 </resources>

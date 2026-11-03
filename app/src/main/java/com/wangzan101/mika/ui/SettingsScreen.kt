@@ -60,7 +60,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** 设置里能进入的子页面;[Home] 是设置首页,[Advanced] 集中放置连接、维护和工程能力。 */
-private enum class SettingsPage { Home, Advanced, AppAccess, PhoneOps, DuringWork, Capsule, Language, Notifications, Sandbox, Recovery, SelfCheck, ComputerAccess, McpServers, Developer, RunStats }
+private enum class SettingsPage { Home, Advanced, AppAccess, Permissions, PhoneOps, DuringWork, Capsule, Language, Notifications, Sandbox, Recovery, SelfCheck, ComputerAccess, McpServers, Developer, RunStats }
 
 /**
  * 设置页:总状态卡 + 常用 / 我的数据 / 其他。高级与其他只增加一层,各子页返回来时的页面。
@@ -140,7 +140,7 @@ fun SettingsScreen(
             SettingsPage.RunStats -> SettingsPage.Developer
             SettingsPage.SelfCheck -> SettingsPage.Recovery
             SettingsPage.Sandbox, SettingsPage.Recovery, SettingsPage.ComputerAccess,
-            SettingsPage.McpServers, SettingsPage.Developer -> SettingsPage.Advanced
+            SettingsPage.McpServers, SettingsPage.Developer, SettingsPage.Permissions -> SettingsPage.Advanced
             else -> SettingsPage.Home
         }
     }
@@ -167,12 +167,14 @@ fun SettingsScreen(
             proxy = proxy, proxyNote = proxy?.let { NetProxyCopy.subtitle(it, browserProxy) }, onOpenProxy = { editingProxy = true },
             sandbox = sandboxStatus, onOpenSandbox = { page = SettingsPage.Sandbox },
             showRecovery = status.sdkInt >= Prerequisites.MIN_SDK, onOpenRecovery = { page = SettingsPage.Recovery },
+            onOpenPermissions = { page = SettingsPage.Permissions },
             computerAccess = mcpOn, onOpenComputerAccess = { page = SettingsPage.ComputerAccess },
             mcpServersCount = mcpServers?.servers?.value?.size, onOpenMcpServers = { page = SettingsPage.McpServers },
             showDeveloper = showDeveloper, onOpenDeveloper = { page = SettingsPage.Developer },
             onBack = toHome,
         )
         SettingsPage.AppAccess -> AppAccessScreen(onBack = toHome)
+        SettingsPage.Permissions -> PermissionsScreen(onBack = toHome)
         SettingsPage.PhoneOps -> PhoneOpsScreen(
             status, androidRelease, onProblem,
             onRepair = { onFix(Fix.RepairPhoneHelper) }, onUnpair = { onFix(Fix.UnpairPhoneHelper) }, onBack = toHome,
@@ -321,6 +323,7 @@ fun AdvancedSettingsContent(
     onOpenSandbox: () -> Unit = {},
     showRecovery: Boolean = true,
     onOpenRecovery: () -> Unit = {},
+    onOpenPermissions: () -> Unit = {},
     computerAccess: Boolean? = null,
     onOpenComputerAccess: () -> Unit = {},
     mcpServersCount: Int? = null,
@@ -358,10 +361,11 @@ fun AdvancedSettingsContent(
                 }
             }
         }
-        if (showRecovery) {
-            GroupLabel(stringResource(R.string.settings_maintenance))
-            GroupCard {
-                ListRow(MikaIcons.Wrench, stringResource(R.string.settings_recovery), first = true, onClick = onOpenRecovery) { RowChevron() }
+        GroupLabel(stringResource(R.string.settings_maintenance))
+        GroupCard {
+            ListRow(MikaIcons.Shield, stringResource(R.string.permissions_title), stringResource(R.string.permissions_sub), first = true, onClick = onOpenPermissions) { RowChevron() }
+            if (showRecovery) {
+                ListRow(MikaIcons.Wrench, stringResource(R.string.settings_recovery), first = false, onClick = onOpenRecovery) { RowChevron() }
             }
         }
         if (showDeveloper) {

@@ -51,6 +51,8 @@ class McpToolSession internal constructor(
         provenance = spec.provenance, autonomous = true)
 
     init {
+        // Phase 0:每次工具调用记一条权限观察,只记录,不改执行
+        tools.permissionObserver = { events.event(it) }
         store.save(StoredRun(spec.id, spec.threadId, spec.goal, RunPhase.Running, roundInProgress = true))
         events.event(RunEvent.State(clock(), "mcp_session_started", spec.id.value))
     }

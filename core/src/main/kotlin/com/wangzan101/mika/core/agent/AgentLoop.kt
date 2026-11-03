@@ -160,6 +160,8 @@ class AgentLoop(
         require(maxSteps > 0) { "maxSteps must be positive" }
         // 只有开着回放才在写操作前取目标元素与锚点
         tools.captureTargets = flags.replay
+        // Phase 0:每次工具调用记一条权限观察,只记录,不改执行
+        tools.permissionObserver = ::emit
     }
 
     /** 运行记录:按因果先后写(见 [RecordOrder])。 */

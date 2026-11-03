@@ -188,6 +188,24 @@ sealed interface RunEvent {
         val risk: String, val payment: Boolean = false, val decision: String,
     ) : RunEvent
 
+    /**
+     * 一次工具调用的权限结论。Phase 0 是观察模式:[decision] 以 `would_` 开头,只说明按清单默认值会怎么判,不影响执行。
+     * 正式执行后是 allowed / required / denied / unattended。[resource] 是 `app:<包名>` 一类的标识,不含用户内容;
+     * [reason] 是清单里的权限说明,不是调用参数。
+     */
+    @Serializable @SerialName("permission")
+    data class Permission(
+        override val atMs: Long,
+        val step: Int,
+        val permission: String,
+        val resource: String? = null,
+        val decision: String,
+        val source: String = "tool",
+        val scope: String? = null,
+        val tool: String? = null,
+        val reason: String? = null,
+    ) : RunEvent
+
     @Serializable @SerialName("takeover")
     data class Takeover(override val atMs: Long, val reason: String, val outcome: String?, val durationMs: Long?, val inputCount: Int?) : RunEvent
 

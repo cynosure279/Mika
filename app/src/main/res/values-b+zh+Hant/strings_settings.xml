@@ -161,4 +161,20 @@
     <string name="mcp_servers_status_fail">連線失敗:%1$s</string>
     <string name="mcp_servers_refresh_all">測試全部</string>
     <string name="mcp_servers_allowlist">允許的工具(英文逗號分隔,留空為全部)</string>
+    <string name="permissions_title">權限</string>
+    <string name="permissions_sub">能力、資源和預設值（預覽）</string>
+    <string name="permissions_preview_note">僅預覽：現有設定已對應為授權，但還沒有真正執行；執行會在下一步接入。</string>
+    <string name="permissions_group_defaults">預設值</string>
+    <string name="permissions_group_phone">手機</string>
+    <string name="permissions_group_web">網頁</string>
+    <string name="permissions_group_sandbox">運算環境</string>
+    <string name="permissions_group_core">核心工具</string>
+    <string name="permissions_group_extension">擴充</string>
+    <string name="permissions_group_summary">%1$d 項權限 · %2$d 允許 · %3$d 詢問 · %4$d 拒絕</string>
+    <string name="permissions_migrated_group">從現有設定匯入</string>
+    <string name="permissions_migrated_none">還沒有匯入授權</string>
+    <string name="permissions_access_allow">允許</string>
+    <string name="permissions_access_ask">每次詢問</string>
+    <string name="permissions_access_deny">拒絕</string>
+    <string name="permissions_unavailable">權限設定讀不出來。仍按預設值工作；改一項設定會重寫檔案。</string>
 </resources>

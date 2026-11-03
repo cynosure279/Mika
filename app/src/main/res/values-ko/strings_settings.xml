@@ -161,4 +161,20 @@
     <string name="mcp_servers_status_fail">연결 실패: %1$s</string>
     <string name="mcp_servers_refresh_all">모두 테스트</string>
     <string name="mcp_servers_allowlist">허용할 도구(쉼표로 구분, 비우면 전체)</string>
+    <string name="permissions_title">권한</string>
+    <string name="permissions_sub">기능, 리소스 및 기본값(미리보기)</string>
+    <string name="permissions_preview_note">미리보기 전용: 기존 설정을 권한으로 표시하지만 아직 적용되지 않습니다. 적용은 다음 단계입니다.</string>
+    <string name="permissions_group_defaults">기본값</string>
+    <string name="permissions_group_phone">휴대폰</string>
+    <string name="permissions_group_web">웹</string>
+    <string name="permissions_group_sandbox">컴퓨팅 환경</string>
+    <string name="permissions_group_core">핵심 도구</string>
+    <string name="permissions_group_extension">확장</string>
+    <string name="permissions_group_summary">권한 %1$d개 · 허용 %2$d · 확인 %3$d · 거부 %4$d</string>
+    <string name="permissions_migrated_group">기존 설정에서 가져옴</string>
+    <string name="permissions_migrated_none">아직 가져온 권한이 없습니다</string>
+    <string name="permissions_access_allow">허용</string>
+    <string name="permissions_access_ask">매번 확인</string>
+    <string name="permissions_access_deny">거부</string>
+    <string name="permissions_unavailable">권한 설정을 읽을 수 없습니다. 기본값으로 동작하며, 설정을 변경하면 파일을 다시 씁니다.</string>
 </resources>

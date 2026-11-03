@@ -169,4 +169,20 @@
     <string name="mcp_servers_status_fail">Error de conexión: %1$s</string>
     <string name="mcp_servers_refresh_all">Probar todo</string>
     <string name="mcp_servers_allowlist">Herramientas permitidas (separadas por comas, vacío = todas)</string>
+    <string name="permissions_title">Permisos</string>
+    <string name="permissions_sub">Capacidades, recursos y valores predeterminados (vista previa)</string>
+    <string name="permissions_preview_note">Solo vista previa: los ajustes existentes se muestran como permisos, pero aún no se aplican. La aplicación llega en el siguiente paso.</string>
+    <string name="permissions_group_defaults">Valores predeterminados</string>
+    <string name="permissions_group_phone">Teléfono</string>
+    <string name="permissions_group_web">Web</string>
+    <string name="permissions_group_sandbox">Entorno de cálculo</string>
+    <string name="permissions_group_core">Herramientas básicas</string>
+    <string name="permissions_group_extension">Extensiones</string>
+    <string name="permissions_group_summary">%1$d permisos · %2$d permitir · %3$d preguntar · %4$d denegar</string>
+    <string name="permissions_migrated_group">Importado de los ajustes existentes</string>
+    <string name="permissions_migrated_none">Aún no se ha importado ningún permiso</string>
+    <string name="permissions_access_allow">Permitir</string>
+    <string name="permissions_access_ask">Preguntar</string>
+    <string name="permissions_access_deny">Denegar</string>
+    <string name="permissions_unavailable">No se pudo leer la configuración de permisos. Se siguen usando los valores predeterminados; cambiar un ajuste reescribirá el archivo.</string>
 </resources>

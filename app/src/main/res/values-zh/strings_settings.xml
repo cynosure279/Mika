@@ -161,4 +161,20 @@
     <string name="mcp_servers_status_fail">连接失败:%1$s</string>
     <string name="mcp_servers_refresh_all">测试全部</string>
     <string name="mcp_servers_allowlist">允许的工具(英文逗号分隔,留空为全部)</string>
+    <string name="permissions_title">权限</string>
+    <string name="permissions_sub">能力、资源和默认值（预览）</string>
+    <string name="permissions_preview_note">仅预览：现有设置已映射为授权，但还没有真正执行；执行会在下一步接入。</string>
+    <string name="permissions_group_defaults">默认值</string>
+    <string name="permissions_group_phone">手机</string>
+    <string name="permissions_group_web">网页</string>
+    <string name="permissions_group_sandbox">计算环境</string>
+    <string name="permissions_group_core">核心工具</string>
+    <string name="permissions_group_extension">扩展</string>
+    <string name="permissions_group_summary">%1$d 项权限 · %2$d 允许 · %3$d 询问 · %4$d 拒绝</string>
+    <string name="permissions_migrated_group">从现有设置导入</string>
+    <string name="permissions_migrated_none">还没有导入授权</string>
+    <string name="permissions_access_allow">允许</string>
+    <string name="permissions_access_ask">每次询问</string>
+    <string name="permissions_access_deny">拒绝</string>
+    <string name="permissions_unavailable">权限设置读不出来。仍按默认值工作；改一项设置会重写文件。</string>
 </resources>

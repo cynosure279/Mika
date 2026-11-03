@@ -9,7 +9,9 @@ import com.wangzan101.mika.core.memory.Change
 import com.wangzan101.mika.core.memory.UserUtterances
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.ToolSpec
+import com.wangzan101.mika.core.permission.PermissionCatalog
 import com.wangzan101.mika.core.prompt.Feedback
+import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.risk.GateTarget
 import com.wangzan101.mika.core.run.SKIPPED_FOR_NEW_MESSAGE
 import com.wangzan101.mika.core.run.waitOrSteer
@@ -230,6 +232,7 @@ class ToolDispatcher internal constructor(
     private suspend fun dispatch(call: Part.ToolCall, step: Int?, sub: SubActions?): ToolExecution {
         surfaces.skip()
         val tool = registry[call.name] ?: return unknown(call.name, parseArgs(call.argsJson))
+        notePermission(tool, step)
         // 收着的组里的工具(入口,或模型凭记忆调了没给它看的)照常执行;它那一组就此展开,结果里说一句,下一次调用起看得到整组
         val group = groupOf(tool)
         if (group != null && group != ToolGroups.SCREENS && tool.entry != Entry.Alone) usedGroups += group
@@ -313,6 +316,28 @@ class ToolDispatcher internal constructor(
 
     /** 每条记进证据账本的观察(运行记录据此原样记下,评测能照样重建账本);由循环设置。 */
     var observer: ((Observation) -> Unit)? = null
+
+    /**
+     * 权限观察:每次工具调用记一条「按清单默认值会怎么判」。Phase 0 只记录,不影响执行;由循环设置。
+     * 没有映射的工具不记(穷尽性测试应拦住),执行照旧。
+     */
+    var permissionObserver: ((RunEvent.Permission) -> Unit)? = null
+
+    private fun notePermission(tool: AgentTool, step: Int?) {
+        val observer = permissionObserver ?: return
+        val seen = PermissionCatalog.observe(tool) ?: return
+        observer(RunEvent.Permission(
+            atMs = System.currentTimeMillis(),
+            step = step ?: (executed + 1),
+            permission = seen.permission.value,
+            resource = seen.resource.label(),
+            decision = seen.decision,
+            source = "tool",
+            scope = "observe",
+            tool = tool.name,
+            reason = seen.reason,
+        ))
+    }
 
     /** 不认识的工具;是改名前的名字时说清现在叫什么(不替模型换成新名执行)。 */
     private fun unknown(name: String, args: JsonObject) = ToolExecution(buildJsonObject {

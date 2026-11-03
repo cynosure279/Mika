@@ -175,4 +175,20 @@
     <string name="mcp_servers_status_fail">Connection failed: %1$s</string>
     <string name="mcp_servers_refresh_all">Test all</string>
     <string name="mcp_servers_allowlist">Allowed tools (comma separated, empty = all)</string>
+    <string name="permissions_title">Permissions</string>
+    <string name="permissions_sub">Capabilities, resources and defaults (preview)</string>
+    <string name="permissions_preview_note">Preview only: existing settings are shown as grants, but permissions are not enforced yet. Enforcement comes in the next step.</string>
+    <string name="permissions_group_defaults">Defaults</string>
+    <string name="permissions_group_phone">Phone</string>
+    <string name="permissions_group_web">Web</string>
+    <string name="permissions_group_sandbox">Computing</string>
+    <string name="permissions_group_core">Core tools</string>
+    <string name="permissions_group_extension">Extensions</string>
+    <string name="permissions_group_summary">%1$d permissions · %2$d allow · %3$d ask · %4$d deny</string>
+    <string name="permissions_migrated_group">Imported from existing settings</string>
+    <string name="permissions_migrated_none">No grants imported yet</string>
+    <string name="permissions_access_allow">Allow</string>
+    <string name="permissions_access_ask">Ask</string>
+    <string name="permissions_access_deny">Deny</string>
+    <string name="permissions_unavailable">Permission settings could not be read. Defaults are still in use; change a setting to rewrite the file.</string>
 </resources>

@@ -181,4 +181,20 @@
     <string name="mcp_servers_status_fail">فشل الاتصال: %1$s</string>
     <string name="mcp_servers_refresh_all">اختبار الكل</string>
     <string name="mcp_servers_allowlist">الأدوات المسموح بها (مفصولة بفواصل، فارغ = الكل)</string>
+    <string name="permissions_title">الأذونات</string>
+    <string name="permissions_sub">القدرات والموارد والقيم الافتراضية (معاينة)</string>
+    <string name="permissions_preview_note">معاينة فقط: تُعرض الإعدادات الحالية كأذونات، لكنها لا تُطبَّق بعد. سيأتي التطبيق في الخطوة التالية.</string>
+    <string name="permissions_group_defaults">القيم الافتراضية</string>
+    <string name="permissions_group_phone">الهاتف</string>
+    <string name="permissions_group_web">الويب</string>
+    <string name="permissions_group_sandbox">بيئة الحوسبة</string>
+    <string name="permissions_group_core">الأدوات الأساسية</string>
+    <string name="permissions_group_extension">الإضافات</string>
+    <string name="permissions_group_summary">%1$d أذونات · %2$d سماح · %3$d سؤال · %4$d رفض</string>
+    <string name="permissions_migrated_group">مستورد من الإعدادات الحالية</string>
+    <string name="permissions_migrated_none">لم تُستورد أي أذونات بعد</string>
+    <string name="permissions_access_allow">سماح</string>
+    <string name="permissions_access_ask">سؤال</string>
+    <string name="permissions_access_deny">رفض</string>
+    <string name="permissions_unavailable">تعذرت قراءة إعدادات الأذونات. لا تزال القيم الافتراضية مستخدمة؛ سيؤدي تغيير إعداد إلى إعادة كتابة الملف.</string>
 </resources>

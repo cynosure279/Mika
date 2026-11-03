@@ -223,6 +223,19 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         com.wangzan101.mika.settings.AppAccessStore(java.io.File(filesDir, "app-access.json"))
     }
 
+    /** 权限授权;第一次打开时把旧开关映射进来。Phase 1 只记录和展示,执行层尚未接。 */
+    val permissions: com.wangzan101.mika.settings.PermissionStore by lazy {
+        com.wangzan101.mika.settings.PermissionStore(java.io.File(filesDir, "settings/permissions.json")).also { store ->
+            store.migrateOnce(com.wangzan101.mika.settings.PermissionMigration.Legacy(
+                blockedApps = appAccess.current().blocked,
+                shareAllowedApps = appAccess.current().shareAllowed,
+                sandboxNetwork = com.wangzan101.mika.cap.sandbox.SandboxState.get(this).networkAllowed,
+                selfConfig = com.wangzan101.mika.settings.FeatureFlags.get(this).selfConfig(),
+                enabledMcpServers = mcpServers.servers.value.filter { it.enabled }.map { it.id },
+            ))
+        }
+    }
+
     /** 全局的询问 / 自主和各任务自己的那一份;开发者选项里的「自主模式」经它改。 */
     val approvalControl: ApprovalControl by lazy { ApprovalControl(approvals) }
 

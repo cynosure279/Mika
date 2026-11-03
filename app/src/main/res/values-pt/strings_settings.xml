@@ -169,4 +169,20 @@
     <string name="mcp_servers_status_fail">Falha na conexão: %1$s</string>
     <string name="mcp_servers_refresh_all">Testar tudo</string>
     <string name="mcp_servers_allowlist">Ferramentas permitidas (separadas por vírgulas, vazio = todas)</string>
+    <string name="permissions_title">Permissões</string>
+    <string name="permissions_sub">Capacidades, recursos e padrões (prévia)</string>
+    <string name="permissions_preview_note">Apenas prévia: as configurações existentes aparecem como permissões, mas ainda não são aplicadas. A aplicação vem no próximo passo.</string>
+    <string name="permissions_group_defaults">Padrões</string>
+    <string name="permissions_group_phone">Telefone</string>
+    <string name="permissions_group_web">Web</string>
+    <string name="permissions_group_sandbox">Ambiente de computação</string>
+    <string name="permissions_group_core">Ferramentas principais</string>
+    <string name="permissions_group_extension">Extensões</string>
+    <string name="permissions_group_summary">%1$d permissões · %2$d permitir · %3$d perguntar · %4$d negar</string>
+    <string name="permissions_migrated_group">Importado das configurações existentes</string>
+    <string name="permissions_migrated_none">Nenhuma permissão importada ainda</string>
+    <string name="permissions_access_allow">Permitir</string>
+    <string name="permissions_access_ask">Perguntar</string>
+    <string name="permissions_access_deny">Negar</string>
+    <string name="permissions_unavailable">Não foi possível ler as configurações de permissões. Os padrões continuam em uso; alterar uma configuração reescreverá o arquivo.</string>
 </resources>

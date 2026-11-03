@@ -161,4 +161,20 @@
     <string name="mcp_servers_status_fail">接続に失敗:%1$s</string>
     <string name="mcp_servers_refresh_all">すべてテスト</string>
     <string name="mcp_servers_allowlist">許可するツール(カンマ区切り、空欄はすべて)</string>
+    <string name="permissions_title">権限</string>
+    <string name="permissions_sub">機能・リソース・既定値（プレビュー）</string>
+    <string name="permissions_preview_note">プレビューのみ：既存の設定を権限として表示していますが、まだ適用されません。適用は次のステップです。</string>
+    <string name="permissions_group_defaults">既定値</string>
+    <string name="permissions_group_phone">スマホ</string>
+    <string name="permissions_group_web">ウェブ</string>
+    <string name="permissions_group_sandbox">計算環境</string>
+    <string name="permissions_group_core">コアツール</string>
+    <string name="permissions_group_extension">拡張</string>
+    <string name="permissions_group_summary">%1$d 件の権限 · %2$d 許可 · %3$d 確認 · %4$d 拒否</string>
+    <string name="permissions_migrated_group">既存の設定から取り込み</string>
+    <string name="permissions_migrated_none">取り込んだ権限はまだありません</string>
+    <string name="permissions_access_allow">許可</string>
+    <string name="permissions_access_ask">毎回確認</string>
+    <string name="permissions_access_deny">拒否</string>
+    <string name="permissions_unavailable">権限設定を読み取れませんでした。既定値で動作します。設定を変更するとファイルが書き直されます。</string>
 </resources>
