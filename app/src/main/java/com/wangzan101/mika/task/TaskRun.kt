@@ -709,7 +709,7 @@ class TaskRun(
             val userScreens = (service.application as MikaApp).userScreens.source(conversationId)
             // 人格只属于这个对话;条件检查是内部只读 JSON 检查,不继承人格。
             // 人格被删除时 get 返回 null,按无人格跑;界面另行提示。
-            val persona = if (conditionCheck) null else {
+            val persona = if (conditionCheck || !FeatureFlags.get(service).persona()) null else {
                 val app = service.application as MikaApp
                 app.conversations.persona(conversationId)?.personaId?.let(app.personas::get)
             }

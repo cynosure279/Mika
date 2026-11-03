@@ -2,6 +2,7 @@ package com.wangzan101.mika.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.wangzan101.mika.BuildConfig
 import com.wangzan101.mika.capsule.CapsuleDock
 import com.wangzan101.mika.capsule.CardDocking
 import com.wangzan101.mika.capsule.CapsuleMode
@@ -94,6 +95,13 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putBoolean(SELF_CONFIG, on).commit()
     }
 
+    /** 人格:调试版默认可见,发布版默认关;合并前再决定默认值。 */
+    fun persona(): Boolean = prefs.getBoolean(PERSONA, BuildConfig.DEBUG)
+
+    fun setPersona(on: Boolean) {
+        prefs.edit().putBoolean(PERSONA, on).commit()
+    }
+
     /** 悬浮胶囊:关闭、有任务时显示(默认)、一直显示。 */
     fun capsuleMode(): CapsuleMode = CapsuleMode.parse(prefs.getString(CAPSULE_MODE, null))
 
@@ -151,6 +159,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val MUTE_TARGET = "mute_target"
         private const val OPERATING_PACE = "operating_pace"
         private const val SELF_CONFIG = "self_config"
+        private const val PERSONA = "persona"
         private const val THEME_MODE = "theme_mode"
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_SIDE = "capsule_side"

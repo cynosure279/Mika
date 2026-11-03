@@ -316,7 +316,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             branchWorkspace = AndroidBranchWorkspace(app),
             // 标题后面加当前界面语言的「分支」后缀;源标题太长时先截短,后缀留着
             branchTitle = { base -> ChatCopy.branchTitle(base, tr(R.string.chat_branch_title_suffix)) },
-            personaStore = personas,
+            personaStore = if (FeatureFlags.get(this).persona()) personas else null,
         )
     }
 
