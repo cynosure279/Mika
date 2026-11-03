@@ -502,6 +502,7 @@ class ProviderStore(
         _groups.value = _groups.value
             .map { g -> g.copy(members = g.members.filterNot { it.configId in gone }) }
             .filter { it.members.isNotEmpty() }
+        repairGroupRoles()
         _roles.value = _roles.value.keepOnly(_configs.value.map { it.id }.toSet(), usableGroupIds())
         prune()
         if (providerId in keys) setKey(providerId, "")
@@ -567,10 +568,12 @@ class ProviderStore(
     @Synchronized
     fun saveGroup(group: ModelGroup): Boolean {
         if (group.members.any { m -> _configs.value.none { it.id == m.configId } }) return false
-        val usedRoles = ModelRole.entries.filter { _roles.value.resolveGroup(it) == group.id }
+        // 只看显式绑定的角色;Vision/Light 的「用主模型」不算自己在用这个组,不能拿它来拦保存
+        val usedRoles = ModelRole.entries.filter { role -> (_roles.value[role] as? RoleChoice.Group)?.groupId == group.id }
         if (usedRoles.any { role -> !group.usableFor(role) { id -> _configs.value.firstOrNull { it.id == id }?.capabilities } }) return false
         val i = _groups.value.indexOfFirst { it.id == group.id }
         _groups.value = if (i >= 0) _groups.value.toMutableList().also { it[i] = group } else _groups.value + group
+        repairGroupRoles()
         _roles.value = _roles.value.keepOnly(_configs.value.map { it.id }.toSet(), usableGroupIds())
         prune()
         writeConfig()
@@ -599,6 +602,21 @@ class ProviderStore(
     private fun usableGroupIds(): Set<String> = _groups.value.filter { g ->
         g.enabledMembers.any { m -> _configs.value.any { it.id == m.configId } }
     }.map { it.id }.toSet()
+
+    /** 组失去成员或能力变化后,把显式绑在它上面、却已经不满足角色要求的用途退回默认。 */
+    private fun repairGroupRoles() {
+        var roles = _roles.value
+        for (role in ModelRole.entries) {
+            val choice = roles[role]
+            if (choice !is RoleChoice.Group || groupUsable(choice.groupId, role)) continue
+            roles = when (role) {
+                ModelRole.Main -> roles.copy(main = null, mainGroup = null)
+                ModelRole.Vision -> roles.copy(vision = RoleChoice.Off)
+                ModelRole.Light -> roles.copy(light = RoleChoice.SameAsMain)
+            }
+        }
+        _roles.value = roles
+    }
 
     /** 只改这个用途;不支持的协议、跟随主模型的用途或列表明确不支持的档位不接受。 */
     @Synchronized
@@ -1009,6 +1027,7 @@ class ProviderStore(
         _groups.value = _groups.value
             .map { g -> g.copy(members = g.members.filter { it.configId in validConfigIds }) }
             .filter { it.members.isNotEmpty() }
+        repairGroupRoles()
         // 指向不存在的配置/组的选择退回默认,没人用的配置删掉;和文件里的不一样(含刚迁移的用途)才写回
         _roles.value = _roles.value.keepOnly(_configs.value.map { it.id }.toSet(), usableGroupIds())
         prune()

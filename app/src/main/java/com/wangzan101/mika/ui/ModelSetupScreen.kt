@@ -599,7 +599,8 @@ private fun hasModelContextControl(ui: ModelSetupUi, role: ModelRole): Boolean =
 private fun ModelContextControl(ui: ModelSetupUi, role: ModelRole,
     onSave: (String, ModelContextSettings) -> Boolean, modifier: Modifier = Modifier,
 ) {
-    if (ui.roles[role] !is RoleChoice.Model) return
+    // 具体模型和组都能设;组先给排在最前的成员,成员级设置在组编辑页再补
+    if (ui.roles[role] !is RoleChoice.Model && ui.roles[role] !is RoleChoice.Group) return
     val cfg = ui.configFor(role) ?: return
     val saved = ui.providerOf(cfg)?.contextSettings?.get(cfg.model) ?: ModelContextSettings()
     var open by rememberSaveable(cfg.id) { mutableStateOf(false) }

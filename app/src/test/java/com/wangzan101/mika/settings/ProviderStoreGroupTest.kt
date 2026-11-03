@@ -133,6 +133,36 @@ class ProviderStoreGroupTest {
         assertEquals(64_000, pool.members[1].model.capabilities.contextTokens)
     }
 
+    @Test
+    fun editingTextOnlyMainGroupWithVisionSameAsMainIsAllowed() {
+        val s = store()
+        val p = s.connectOne(models = arrayOf("m1", "m2"))
+        val a = s.member(p, "m1")
+        val b = s.member(p, "m2")
+        assertTrue(s.saveGroup(ModelGroup("g", "g", members = listOf(GroupMember(a), GroupMember(b)))))
+        assertTrue(s.choose(ModelRole.Main, RoleChoice.Group("g")))
+        assertTrue(s.choose(ModelRole.Vision, RoleChoice.SameAsMain))
+        // Vision=SameAsMain 会跟随主组,但不该拿「主组没有视觉成员」来拦保存
+        assertTrue(s.saveGroup(ModelGroup("g", "主力改名", members = listOf(GroupMember(a), GroupMember(b)))))
+        assertEquals("主力改名", s.group("g")!!.name)
+        assertEquals("g", s.roles.value.resolveGroup(ModelRole.Main))
+    }
+
+    @Test
+    fun removingSoleVisionMemberFallsBackVisionRole() {
+        val s = store()
+        val p1 = s.connectOne("One", "see")
+        val p2 = s.connectOne("Two", "text")
+        val a = s.member(p1, "see", vision = true)
+        val b = s.member(p2, "text")
+        assertTrue(s.saveGroup(ModelGroup("v", "v", members = listOf(GroupMember(a), GroupMember(b)))))
+        assertTrue(s.choose(ModelRole.Vision, RoleChoice.Group("v")))
+        s.removeProvider(p1.id)
+        assertEquals(RoleChoice.Off, s.roles.value.vision)
+        assertNull(s.modelFor(ModelRole.Vision))
+        assertEquals(RoleChoice.Off, store().roles.value.vision)
+    }
+
     private class FakeModel(override val name: String, override val capabilities: Capabilities) : ChatModel {
         override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply =
             ModelReply(emptyList(), StopReason.EndTurn, Usage(3, 2))

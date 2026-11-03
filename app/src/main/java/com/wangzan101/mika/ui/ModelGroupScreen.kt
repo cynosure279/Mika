@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.R
+import com.wangzan101.mika.core.model.GroupLimits
 import com.wangzan101.mika.core.model.GroupMember
 import com.wangzan101.mika.core.model.GroupStrategy
 import com.wangzan101.mika.core.model.ModelGroup
@@ -116,6 +117,9 @@ fun ModelGroupEditorScreen(
         strategy = GroupStrategy.of(strategy),
         members = members.mapIndexed { i, m -> m.copy(priority = i) },
         sticky = sticky,
+        // 编辑页还没有这两项的控件;保存时保留已存的值,不要静默重置
+        raceReadOnly = existing?.raceReadOnly ?: false,
+        limits = existing?.limits ?: GroupLimits(),
     )
     val validMain = group.usableFor(com.wangzan101.mika.core.model.ModelRole.Main) { id -> ui.configOf(id)?.capabilities }
     val validVision = group.usableFor(com.wangzan101.mika.core.model.ModelRole.Vision) { id -> ui.configOf(id)?.capabilities }

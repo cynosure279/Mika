@@ -15,6 +15,7 @@ import com.wangzan101.mika.core.model.StreamingChatModel
 import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.net.ProxyFailure
 import kotlinx.coroutines.CancellationException
+import kotlin.random.Random
 
 /** 一次调用的失败该不该换成员、这个成员该冷却多久。 */
 object FailoverPolicy {
@@ -55,8 +56,8 @@ data class MemberHealth(
     /** 越小越优先;没有样本的成员排在后面,由策略的探索概率决定要不要试。 */
     fun score(): Double {
         if (latencySamples == 0) return Double.MAX_VALUE
-        val rate = if (calls == 0L) 0.0 else failures.toDouble() / calls
-        return ewmaLatencyMs * (1 + 2 * rate)
+        // 只用连续失败:成功一次就清零,一次早期的失败不会永久拉低分数
+        return ewmaLatencyMs * (1 + 2.0 * consecutiveFailures)
     }
 }
 
@@ -192,6 +193,7 @@ class GroupPool(
     private val stickyTable: StickyTable,
     private val stickyKey: String?,
     private val weightedWeights: MutableMap<MemberKey, Int> = HashMap(),
+    private val random: Random = Random.Default,
     private val now: () -> Long = System::currentTimeMillis,
 ) : ModelPool, ChatModel, StreamingChatModel {
 
@@ -224,7 +226,7 @@ class GroupPool(
         val first = stickyMember ?: when (group.strategy) {
             GroupStrategy.Failover -> pool.minWith(compareBy({ it.priority }, { orderIndex[it.key] ?: Int.MAX_VALUE }))
             GroupStrategy.Weighted -> weightedFirst(pool)
-            GroupStrategy.LeastLatency -> pool.minByOrNull { health.snapshot(it.key).score() } ?: pool.first()
+            GroupStrategy.LeastLatency -> leastLatencyFirst(pool)
             GroupStrategy.CostFirst -> pool.minWith(compareBy({ it.costRank ?: Int.MAX_VALUE }, { it.priority }))
         }
         val rest = pool.filter { it.key != first.key }
@@ -239,6 +241,13 @@ class GroupPool(
             (need.images == 0 || need.images <= caps.maxImages) &&
             (need.estimatedTokens == 0 || need.estimatedTokens <= caps.contextTokens) &&
             health.available(m.key)
+    }
+
+    /** 样本少于 3 的成员保留 10% 探索,其余按近期速度和连续失败排序。 */
+    private fun leastLatencyFirst(pool: List<PoolMember>): PoolMember {
+        val unsampled = pool.filter { health.snapshot(it.key).latencySamples < 3 }
+        if (unsampled.isNotEmpty() && random.nextDouble() < 0.1) return unsampled.random(random)
+        return pool.minByOrNull { health.snapshot(it.key).score() } ?: pool.first()
     }
 
     /** 平滑加权轮询:只在「新对话」选一次,选完由粘性固定。累计值按组共享,不同任务同时选也安全。 */

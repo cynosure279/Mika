@@ -906,7 +906,7 @@ object ModelsCopy {
             is RoleChoice.Model -> ui.configs.firstOrNull { it.id == choice.configId }?.let(::modelLine)
                 ?: RoleLine(UNSET, MAIN_PICK, unset = true)
             is RoleChoice.Group -> ui.groups.firstOrNull { it.id == choice.groupId }?.let { g ->
-                RoleLine(g.name, tr(R.string.models_group_members, g.enabledMembers.size), isModel = false)
+                RoleLine(g.name, ModelsCopy.groupCount(g.enabledMembers.size), isModel = false)
             } ?: RoleLine(UNSET, MAIN_PICK, unset = true)
         }
     }
