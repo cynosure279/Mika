@@ -474,10 +474,11 @@ class AgentLoop(
                     // 提议的调用尚未写进历史、也没有执行；重问一次，只给直接回答的机会。
                     val discussion = history + ctx.notice("conversation_intent",
                         "The user is discussing or reviewing this time. Answer this question directly, without reading or operating apps, websites or other outside content.")
-                    reply = try { caller.ask(discussion, emptyList(), step, using = model, onText = previewFor(step)) }
+                    val direct = try { caller.askRouted(discussion, emptyList(), step, onText = previewFor(step)) }
                     catch (e: CancellationException) { throw e }
                     catch (e: Exception) { return StopRules.modelFailed(e) }
-                    used = model
+                    reply = direct.first
+                    used = direct.second
                 }
             }
             val text = reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.trim()
@@ -498,6 +499,7 @@ class AgentLoop(
                 now(), step, RunEvent.clip(Redactor.text(text)), tool, argsJson,
                 reply.usage?.inputTokens, reply.usage?.outputTokens, reply.usage?.cachedInputTokens, latencyMs,
                 if (caller.recordRoles) used.name else null, if (caller.recordRoles) caller.roleOf(used) else null, retryWaitMs = retryWaitMs,
+                group = caller.groupOf(used),
                 repliedAtMs = repliedAtMs,
             ))
 

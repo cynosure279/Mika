@@ -87,6 +87,10 @@ internal fun userReason(e: ModelError): String = when (e) {
     is ModelError.SignInExpired -> "${e.account} 登录已失效,请在设置 › 模型里重新用 ${e.account} 登录。"
     is ModelError.AccountPlanNotAllowed ->
         "你的 ${e.account} 订阅档位不能用这个接口(HTTP 403)。${if (e.detail.isEmpty()) "" else "服务端说明:${quoted(e.detail)}。"}可以改用 ${e.account} 的 API Key,或在设置 › 模型里换一个模型。"
+    is ModelError.GroupUnavailable ->
+        "模型组「${e.group}」没有可用的模型${if (e.detail.isEmpty()) "" else "(${e.detail})"}。请到设置 › 模型检查组成员是否启用、能力是否符合,或稍后再试。"
+    is ModelError.GroupExhausted ->
+        "模型组「${e.group}」的模型都达到限额了${if (e.detail.isEmpty()) "" else "(${e.detail})"}。请稍后再试或调整组设置。"
 }
 
 /** 引在句中的服务端原话:去掉末尾一个句号(原话自带的),由引它的句子补上自己的「。」;省略号(截短的「…」、「...」)不动。 */

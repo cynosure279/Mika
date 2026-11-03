@@ -20,13 +20,16 @@ data class StepContext(
 /**
  * 实验开关 lightSteps 的分工:简单步给轻量模型,其余给主模型。
  * 轻量模型没配、不支持工具调用时恒用主模型。一步出了错误、守卫提示或画面没变,接下来 [TROUBLE_STEPS] 步强制主模型。
+ * 主模型、轻量模型都可以是模型组([ModelPool]);[pick] 返回的是池本身,池再按成员选,失败换成员。
  */
 class ModelRouter(private val main: ChatModel, private val light: ChatModel?) {
+    private val mainPool: ModelPool = main.asPool()
+    private val lightPool: ModelPool? = light?.asPool()
     private var forcedMain = 0
     private var disabled = false
 
     /** 轻量模型能不能接手机步;不能时 lightSteps 不生效。 */
-    val active: Boolean get() = !disabled && light != null && light.capabilities.toolCalls
+    val active: Boolean get() = !disabled && lightPool != null && lightPool.capabilities.toolCalls
 
     /** 轻量模型出了重试也没用的错(Key、额度、模型名、请求不对):余下都用主模型。一个 router 只服务一次任务。 */
     fun disable() { disabled = true }
@@ -45,7 +48,11 @@ class ModelRouter(private val main: ChatModel, private val light: ChatModel?) {
     /** 出了状况(含轻量模型调用失败、回复被改派给主模型):之后 [TROUBLE_STEPS] 步用主模型。 */
     fun noteTrouble() { forcedMain = TROUBLE_STEPS }
 
-    fun isLight(m: ChatModel): Boolean = light != null && m === light
+    /** 这个模型是不是轻量池里的成员(不是按对象相等:组里换过成员也要认得出)。 */
+    fun isLight(m: ChatModel): Boolean = lightPool?.owns(m) == true
+
+    /** 这个成员属于哪个模型组;单模型为 null。 */
+    fun groupOf(m: ChatModel): String? = (if (isLight(m)) lightPool else mainPool)?.groupName
 
     companion object {
         const val TROUBLE_STEPS = 2
