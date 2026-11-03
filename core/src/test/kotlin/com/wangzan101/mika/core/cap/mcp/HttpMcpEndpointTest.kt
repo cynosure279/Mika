@@ -160,6 +160,34 @@ class HttpMcpEndpointTest {
         assertTrue(sawToken)
     }
 
+    @Test fun streamingCallOutlivesTheClientReadTimeout() = runBlocking {
+        server.dispatcher = object : okhttp3.mockwebserver.Dispatcher() {
+            override fun dispatch(request: okhttp3.mockwebserver.RecordedRequest): MockResponse {
+                val message = kotlinx.serialization.json.Json
+                    .parseToJsonElement(request.body.readUtf8()).jsonObject
+                val id = message["id"] ?: return MockResponse().setResponseCode(202)
+                val method = message.getValue("method").jsonPrimitive.content
+                if (method == "tools/call") {
+                    return MockResponse().setHeader("Content-Type", "text/event-stream")
+                        .setBodyDelay(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+                        .setBody("data: {\"jsonrpc\":\"2.0\",\"id\":$id,\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"done\"}]}}\n\n")
+                }
+                val result = when (method) {
+                    "initialize" -> """{"protocolVersion":"2025-03-26","serverInfo":{"name":"slow"}}"""
+                    "tools/list" -> """{"tools":[${tool("run")}]}"""
+                    else -> "{}"
+                }
+                return json("""{"jsonrpc":"2.0","id":$id,"result":$result}""")
+            }
+        }
+        val slowClient = OkHttpClient.Builder()
+            .readTimeout(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+            .build()
+        val endpoint = HttpMcpEndpoint.connect("slow", server.url("/mcp").toString(), slowClient, timeoutSec = 5).getOrThrow()
+        val result = endpoint.call("run", buildJsonObject { }, onProgress = { })
+        assertEquals("done", result.text)
+    }
+
     @Test fun parsesSseResponses() = runBlocking {
         server.enqueue(sse("""{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26","serverInfo":{"name":"sse"}}}"""))
         server.enqueue(MockResponse().setResponseCode(202))

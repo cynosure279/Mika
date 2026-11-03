@@ -84,9 +84,11 @@ Paths are relative to the environment workspace. Absolute paths, `..` and escapi
 ## Security
 
 - Bare-metal execution is not isolated. The container wrapper is the recommended desktop default; it reduces blast radius but is not a complete sandbox.
-- Attach only directories you intend the agent to use. Do not expose all of shared storage.
+- `exec` runs as the same user as envd, so commands can read files that user can read, including the token file (`/run/secrets/envd_token` in Compose). Rotate tokens and use a container/VM when that matters.
+- Attach only directories you intend the agent to use. Do not expose all of shared storage; `-allow-root /` is the whole machine.
+- File tools reject escaping symlinks and files with multiple hard links at check time, but a concurrent process can still race the check. Use `-read-only`, a container or a dedicated user where this matters.
 - Windows support is best effort: Unix permissions, symlinks and hard-link protections are weaker.
-- Use a long random token, keep it out of shell history and logs, and terminate TLS in a reverse proxy.
+- Use a long random token (0600), keep it out of shell history and logs, and terminate TLS in a reverse proxy.
 - Do not expose the plain HTTP port to the internet.
 - Back up the data directory; managed `env_delete` is permanent.
 

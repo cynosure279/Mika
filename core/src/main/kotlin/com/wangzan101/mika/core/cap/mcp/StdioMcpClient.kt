@@ -62,7 +62,7 @@ class StdioMcpEndpoint private constructor(
     override fun resources(): List<McpResourceDescriptor> = resources
     override fun prompts(): List<McpPromptDescriptor> = prompts
 
-    override suspend fun call(name: String, arguments: JsonObject, onProgress: ((McpProgress) -> Unit)?): McpResult {
+    override suspend fun call(name: String, arguments: JsonObject): McpResult {
         if (tools.none { it.name == name }) return McpResult("unknown MCP tool: $name", isError = true)
         val result = try {
             rpc("tools/call", buildJsonObject {

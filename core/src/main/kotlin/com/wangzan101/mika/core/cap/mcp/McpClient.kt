@@ -28,7 +28,10 @@ import kotlinx.serialization.json.put
 interface McpEndpoint {
     val serverId: String
     fun tools(): List<McpToolDescriptor>
-    suspend fun call(name: String, arguments: JsonObject, onProgress: ((McpProgress) -> Unit)? = null): McpResult
+    suspend fun call(name: String, arguments: JsonObject): McpResult
+    /** 支持进度的传输覆盖它;默认忽略进度，旧实现不用改。 */
+    suspend fun call(name: String, arguments: JsonObject, onProgress: ((McpProgress) -> Unit)?): McpResult =
+        call(name, arguments)
 
     /** 连接时从服务端读到的资源目录;不支持就是空。 */
     fun resources(): List<McpResourceDescriptor> = emptyList()

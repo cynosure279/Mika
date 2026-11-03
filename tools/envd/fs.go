@@ -191,6 +191,9 @@ func readAnyFile(root, p string, maxBytes int) ([]byte, error) {
 	if !fi.Mode().IsRegular() {
 		return nil, fmt.Errorf("path is not a regular file")
 	}
+	if hasMultipleLinks(fi) {
+		return nil, fmt.Errorf("refusing to read a file with multiple hard links")
+	}
 	if fi.Size() > int64(maxBytes) {
 		return nil, fmt.Errorf("file is larger than %d bytes", maxBytes)
 	}
@@ -323,7 +326,7 @@ func searchFiles(root, p, pattern string, maxResults int) ([]searchMatch, int, e
 	var scanned int64
 	for _, file := range files {
 		info, err := os.Lstat(file)
-		if err != nil || !info.Mode().IsRegular() || info.Size() > 1<<20 {
+		if err != nil || !info.Mode().IsRegular() || info.Size() > 1<<20 || hasMultipleLinks(info) {
 			continue
 		}
 		scanned += info.Size()

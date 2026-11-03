@@ -159,6 +159,9 @@ func (s *Server) runExec(ctx context.Context, e *Environment, command, cwd strin
 	e.lock.RLock()
 	defer e.lock.RUnlock()
 
+	if err := s.store.ValidateRoot(e); err != nil {
+		return execOutput{}, err
+	}
 	root, err := canonicalRoot(e.Root(s.cfg.dataDir))
 	if err != nil {
 		return execOutput{}, err

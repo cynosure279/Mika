@@ -559,6 +559,92 @@ func TestExecStreamsProgress(t *testing.T) {
 	}
 }
 
+func TestManagedRootSymlinkEscapeIsRefused(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink test needs a Unix host")
+	}
+	ts, srv := newTestServer(t)
+	id := createEnv(t, ts, "swapped")
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret"), []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(srv.store.dataDir, "envs", id, "root")
+	if err := os.RemoveAll(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, root); err != nil {
+		t.Fatal(err)
+	}
+	if text, isErr := callTool(t, ts, "read_file", map[string]any{"env": id, "path": "secret"}); !isErr || !strings.Contains(text, "outside") {
+		t.Fatalf("read through swapped root: %s (isErr=%v)", text, isErr)
+	}
+	if text, isErr := callTool(t, ts, "exec", map[string]any{"env": id, "command": "pwd"}); !isErr || !strings.Contains(text, "outside") {
+		t.Fatalf("exec through swapped root: %s (isErr=%v)", text, isErr)
+	}
+}
+
+func TestAttachedRootSymlinkEscapeIsRefused(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink test needs a Unix host")
+	}
+	allowed := t.TempDir()
+	shared := filepath.Join(allowed, "shared")
+	if err := os.MkdirAll(shared, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	ts, _ := newTestServerWithRoots(t, config{maxExec: 1, maxOutput: 1 << 20}, false, allowed)
+	attached := callJSON[struct {
+		Environment struct {
+			ID string `json:"id"`
+		} `json:"environment"`
+	}](t, ts, "env_create", map[string]any{"name": "phone", "path": shared})
+	id := attached.Environment.ID
+
+	outside := t.TempDir()
+	if err := os.WriteFile(filepath.Join(outside, "secret"), []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(shared); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, shared); err != nil {
+		t.Fatal(err)
+	}
+	if text, isErr := callTool(t, ts, "read_file", map[string]any{"env": id, "path": "secret"}); !isErr || !strings.Contains(text, "outside") {
+		t.Fatalf("read through swapped attached root: %s (isErr=%v)", text, isErr)
+	}
+}
+
+func TestReadRejectsHardLinkedFile(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("hardlink test needs a Unix host")
+	}
+	ts, _ := newTestServer(t)
+	id := createEnv(t, ts, "hardlink")
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secret")
+	if err := os.WriteFile(secret, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	callJSON[struct{}](t, ts, "exec", map[string]any{"env": id, "command": fmt.Sprintf("ln %q hard", secret)})
+	for _, tool := range []string{"read_file", "download_file"} {
+		text, isErr := callTool(t, ts, tool, map[string]any{"env": id, "path": "hard"})
+		if !isErr || !strings.Contains(text, "hard links") {
+			t.Fatalf("%s hardlink: %s (isErr=%v)", tool, text, isErr)
+		}
+	}
+	found := callJSON[struct {
+		Matches []searchMatch `json:"matches"`
+	}](t, ts, "search", map[string]any{"env": id, "pattern": "secret"})
+	if len(found.Matches) != 0 {
+		t.Fatalf("search read a hardlinked file: %+v", found.Matches)
+	}
+	if text, isErr := callTool(t, ts, "env_clone", map[string]any{"source": id, "name": "copy"}); !isErr || !strings.Contains(text, "hard links") {
+		t.Fatalf("clone with hardlink: %s (isErr=%v)", text, isErr)
+	}
+}
+
 func TestAttachRequiresAllowRoot(t *testing.T) {
 	ts, _ := newTestServer(t)
 	dir := t.TempDir()

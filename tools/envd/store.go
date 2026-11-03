@@ -51,6 +51,29 @@ func (e *Environment) Root(dataDir string) string {
 
 func (e *Environment) Attached() bool { return e.RootPath != "" }
 
+// ValidateRoot re-checks the root at use time, so a directory swapped for a
+// symlink after creation cannot move the environment outside its allowed area.
+func (s *Store) ValidateRoot(e *Environment) error {
+	if e.Attached() {
+		if !s.rootAllowed(e.RootPath) {
+			return errOutside
+		}
+		return nil
+	}
+	root, err := canonicalRoot(e.Root(s.dataDir))
+	if err != nil {
+		return err
+	}
+	base, err := canonicalRoot(s.dataDir)
+	if err != nil {
+		return err
+	}
+	if !within(base, root) {
+		return errOutside
+	}
+	return nil
+}
+
 type storeFile struct {
 	Version      int            `json:"version"`
 	Environments []*Environment `json:"environments"`
@@ -119,6 +142,9 @@ func OpenStore(dataDir string, readOnly bool, allowedRoots ...string) (*Store, e
 			return nil, fmt.Errorf("create environment %s: %w", e.ID, err)
 		}
 		s.envs[e.ID] = e
+		if err := s.ValidateRoot(e); err != nil {
+			return nil, fmt.Errorf("environment %s root is unsafe: %w", e.ID, err)
+		}
 	}
 	return s, nil
 }
@@ -232,6 +258,9 @@ func (s *Store) Clone(sourceID, name string) (*Environment, error) {
 	// Block commands in the source while copying, so the copy is consistent.
 	src.lock.Lock()
 	defer src.lock.Unlock()
+	if err := s.ValidateRoot(src); err != nil {
+		return nil, err
+	}
 
 	dstRoot := filepath.Join(s.dataDir, "envs", id, "root")
 	if err := os.MkdirAll(dstRoot, 0o750); err != nil {
@@ -457,6 +486,9 @@ func copyTree(src, dst string) error {
 		case info.IsDir():
 			return os.MkdirAll(target, 0o750)
 		case info.Mode().IsRegular():
+			if hasMultipleLinks(info) {
+				return fmt.Errorf("refusing to clone a file with multiple hard links: %s", rel)
+			}
 			total += info.Size()
 			if total > maxCloneBytes {
 				return fmt.Errorf("environment is too large to clone")

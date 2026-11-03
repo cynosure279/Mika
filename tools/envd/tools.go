@@ -211,6 +211,10 @@ func (s *Server) environment(id string) (*Environment, error) {
 // workspace, so clone/delete cannot remove the tree mid-operation.
 func (s *Server) envRoot(e *Environment) (string, func(), error) {
 	e.lock.RLock()
+	if err := s.store.ValidateRoot(e); err != nil {
+		e.lock.RUnlock()
+		return "", func() {}, err
+	}
 	root, err := canonicalRoot(e.Root(s.cfg.dataDir))
 	if err != nil {
 		e.lock.RUnlock()

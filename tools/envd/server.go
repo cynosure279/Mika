@@ -230,12 +230,16 @@ func (s *Server) handleStreamingToolCall(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
 	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
 	stream := &sseProgress{w: w, flusher: flusher, token: progressToken(req.Params)}
+	stop := make(chan struct{})
+	defer close(stop)
+	go stream.keepalive(stop)
 	result, rpcErr := s.toolsCallWithProgress(r.Context(), req.Params, stream.send)
 	resp := rpcResponse{JSONRPC: "2.0", ID: req.ID}
 	if rpcErr != nil {
@@ -264,7 +268,7 @@ func (s *sseProgress) send(text string) {
 		return
 	}
 	if len(text) > 240 {
-		text = text[:240]
+		text = string([]rune(text)[:240])
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -299,6 +303,35 @@ func (s *sseProgress) final(resp rpcResponse) {
 	}
 	_ = writeSSE(s.w, s.flusher, resp)
 	s.closed = true
+}
+
+// keepalive writes an SSE comment while the command is silent, so proxies and
+// clients do not treat the stream as idle.
+func (s *sseProgress) keepalive(stop <-chan struct{}) {
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			s.mu.Lock()
+			if s.closed {
+				s.mu.Unlock()
+				return
+			}
+			_, err := fmt.Fprint(s.w, ": keepalive\n\n")
+			if err == nil {
+				s.flusher.Flush()
+			} else {
+				s.closed = true
+			}
+			s.mu.Unlock()
+			if err != nil {
+				return
+			}
+		}
+	}
 }
 
 func writeSSE(w http.ResponseWriter, flusher http.Flusher, value any) error {

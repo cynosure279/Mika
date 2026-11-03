@@ -89,6 +89,8 @@ class HttpMcpEndpoint private constructor(
         McpResult("MCP server request failed: ${e.message ?: e.javaClass.simpleName}", isError = true)
     }
 
+    override suspend fun call(name: String, arguments: JsonObject): McpResult = call(name, arguments, null)
+
     override suspend fun call(name: String, arguments: JsonObject, onProgress: ((McpProgress) -> Unit)?): McpResult {
         if (tools.none { it.name == name }) return McpResult("unknown MCP tool: $name", isError = true)
         val params = buildJsonObject {
@@ -213,7 +215,13 @@ class HttpMcpEndpoint private constructor(
             .header("MCP-Protocol-Version", protocolVersion)
         sessionId?.let { builder.header("MCP-Session-Id", it) }
         headers.forEach { (k, v) -> if (!k.equals("Content-Type", true) && !k.equals("Accept", true)) builder.header(k, v) }
-        val call = client.newCall(builder.post(body.toRequestBody(JSON_MEDIA)).build())
+        // 流式 exec 可能长时间没有输出；OkHttp 默认的 10 秒读超时会把静默命令掐断。
+        // 这里不设读/总超时，由服务端的 exec 超时和任务取消来收尾。
+        val streamingClient = client.newBuilder()
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .callTimeout(0, TimeUnit.MILLISECONDS)
+            .build()
+        val call = streamingClient.newCall(builder.post(body.toRequestBody(JSON_MEDIA)).build())
         val handle = coroutineContext[Job]?.invokeOnCompletion { call.cancel() }
         try {
             call.execute().use { response ->

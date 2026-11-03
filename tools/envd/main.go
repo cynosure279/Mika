@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -112,6 +113,9 @@ func main() {
 }
 
 func readToken(path string) (string, error) {
+	if fi, err := os.Stat(path); err == nil && runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0 {
+		log.Printf("warning: token file %s is readable by group/others; chmod 600 it", path)
+	}
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("read token file: %w", err)
