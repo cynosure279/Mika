@@ -163,6 +163,18 @@ class ProviderStoreGroupTest {
         assertEquals(RoleChoice.Off, store().roles.value.vision)
     }
 
+    @Test
+    fun groundingToggleUpdatesEveryVisionGroupMember() {
+        val s = store()
+        val p = s.connectOne(models = arrayOf("eye", "eye2"))
+        val a = s.member(p, "eye", vision = true)
+        val b = s.member(p, "eye2", vision = true)
+        assertTrue(s.saveGroup(ModelGroup("v", "v", members = listOf(GroupMember(a), GroupMember(b)))))
+        assertTrue(s.choose(ModelRole.Vision, RoleChoice.Group("v")))
+        s.setVisionGroundingVerified(true)
+        assertTrue(s.configs.value.filter { it.id in setOf(a, b) }.all { it.capabilities.groundingVerified })
+    }
+
     private class FakeModel(override val name: String, override val capabilities: Capabilities) : ChatModel {
         override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply =
             ModelReply(emptyList(), StopReason.EndTurn, Usage(3, 2))

@@ -95,8 +95,12 @@ internal class ModelCaller(
 
     fun roleOf(m: ChatModel) = if (router?.isLight(m) == true) ROLE_LIGHT else ROLE_MAIN
 
-    /** 这次调用用的成员属于哪个模型组;单模型为 null。 */
-    fun groupOf(m: ChatModel): String? = router?.groupOf(m)
+    /** 这次调用用的成员属于哪个模型组;单模型为 null。子任务没有 router 时回退到主池。 */
+    fun groupOf(m: ChatModel): String? {
+        router?.groupOf(m)?.let { return it }
+        val mainPool = model.asPool()
+        return if (mainPool === m || mainPool.owns(m)) mainPool.groupName else null
+    }
 
     /**
      * 按 [router] 选模型。轻量模型出错、没调工具(不带调用的回复是最终回答,只由主模型给),或要放弃、确认、接管、追问、做不可逆的事,
@@ -189,7 +193,8 @@ internal class ModelCaller(
     ): Pair<ModelReply, ChatModel> {
         val began = now()
         lastRetryWaitMs = 0
-        val candidates = pool.ordered(needOf(history, specs))
+        // 单模型池不看选择条件:不必为它整份估算历史(长对话下这一步很贵)
+        val candidates = if (pool is SingleMemberPool) pool.members else pool.ordered(needOf(history, specs))
         if (candidates.isEmpty()) throw ModelError.GroupUnavailable(pool.groupName ?: "", "没有可用成员")
         var last: Throwable? = null
         for ((index, member) in candidates.withIndex()) {

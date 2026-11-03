@@ -86,8 +86,10 @@ class ModelHealthRegistry(private val now: () -> Long = System::currentTimeMilli
     @Synchronized
     fun noteFailure(key: MemberKey, error: Throwable) {
         val old = states[key] ?: MemberHealth()
-        val failures = old.consecutiveFailures + 1
-        val cooldown = if (FailoverPolicy.canFailover(error)) now() + FailoverPolicy.cooldownMs(error, failures) else old.cooldownUntilMs
+        val unhealthy = FailoverPolicy.canFailover(error)
+        // 内容拒绝、上下文超长、请求本身不对不代表这个成员坏了:只记次数,不计入连续失败/冷却/延迟评分
+        val failures = if (unhealthy) old.consecutiveFailures + 1 else old.consecutiveFailures
+        val cooldown = if (unhealthy) now() + FailoverPolicy.cooldownMs(error, failures) else old.cooldownUntilMs
         states[key] = old.copy(
             consecutiveFailures = failures, calls = old.calls + 1, failures = old.failures + 1,
             cooldownUntilMs = cooldown, lastError = error::class.simpleName,
@@ -203,7 +205,8 @@ class GroupPool(
 
     override val capabilities: Capabilities = Capabilities(
         toolCalls = members.isNotEmpty() && members.all { it.model.capabilities.toolCalls },
-        vision = members.any { it.model.capabilities.vision },
+        // 提示词的形状由排在最前的成员决定:主成员看不了图就不开截图,避免第一张图之后永久换到备用成员
+        vision = (members.minByOrNull { it.priority })?.model?.capabilities?.vision == true,
         contextTokens = members.minOfOrNull { it.model.capabilities.contextTokens } ?: 0,
         reasoning = members.any { it.model.capabilities.reasoning },
         groundingVerified = members.isNotEmpty() && members.all { it.model.capabilities.groundingVerified },
@@ -216,20 +219,23 @@ class GroupPool(
     private val lock = Any()
 
     override fun ordered(need: ModelNeed): List<PoolMember> = synchronized(lock) {
+        // 窗口不够的成员不直接排除:ModelCaller 会先压缩再发。粘性成员尤其要保留,
+        // 否则长对话会静默从主成员切到一个窗口更大的备用成员。
+        val relaxed = eligible(need.copy(estimatedTokens = 0))
+        if (relaxed.isEmpty()) return emptyList()
         val strict = eligible(need)
-        // 上下文不够时先放宽窗口限制,交给 ModelCaller 压缩;工具/看图不够不能放宽
-        val pool = if (strict.isNotEmpty()) strict else eligible(need.copy(estimatedTokens = 0))
-        if (pool.isEmpty()) return emptyList()
         val stickyMember = if (group.sticky && stickyKey != null) {
-            pool.firstOrNull { it.key == stickyTable.get(stickyKey) }
+            relaxed.firstOrNull { it.key == stickyTable.get(stickyKey) }
         } else null
+        val pool = if (stickyMember != null) relaxed else if (strict.isNotEmpty()) strict else relaxed
         val first = stickyMember ?: when (group.strategy) {
             GroupStrategy.Failover -> pool.minWith(compareBy({ it.priority }, { orderIndex[it.key] ?: Int.MAX_VALUE }))
             GroupStrategy.Weighted -> weightedFirst(pool)
             GroupStrategy.LeastLatency -> leastLatencyFirst(pool)
             GroupStrategy.CostFirst -> pool.minWith(compareBy({ it.costRank ?: Int.MAX_VALUE }, { it.priority }))
         }
-        val rest = pool.filter { it.key != first.key }
+        val firstIndex = pool.indexOfFirst { it === first }
+        val rest = pool.filterIndexed { i, _ -> i != firstIndex }
             .sortedWith(compareBy({ it.priority }, { orderIndex[it.key] ?: Int.MAX_VALUE }))
         listOf(first) + rest
     }
@@ -311,7 +317,7 @@ class GroupPool(
                 return reply
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Throwable) {
+            } catch (e: Exception) {
                 noteResult(member, now() - started, e)
                 last = e
                 onText?.invoke("")

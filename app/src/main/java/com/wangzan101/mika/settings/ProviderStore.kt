@@ -229,9 +229,6 @@ data class RoleChoices(
     /** 有用途在用的配置 id;其余的配置没人用,会被删掉。 */
     val referenced: Set<String> get() = ModelRole.entries.mapNotNull(::resolveConfig).toSet()
 
-    /** 有用途在用的组 id。 */
-    val referencedGroups: Set<String> get() = ModelRole.entries.mapNotNull(::resolveGroup).toSet()
-
     /** 改一个用途;这个用途不接受的选择(主模型只能是具体模型或组,轻量不能不用)返回 null。 */
     fun with(role: ModelRole, choice: RoleChoice): RoleChoices? = (when (role) {
         ModelRole.Main -> when (choice) {
@@ -664,9 +661,12 @@ class ProviderStore(
     /** 看图模型的「看图定位已验证」(开发者选项里改);看图用主模型时改的是主模型那条配置。没有看图模型时不动。 */
     @Synchronized
     fun setVisionGroundingVerified(verified: Boolean) {
-        val id = _roles.value.resolve(ModelRole.Vision) ?: return
+        // 看图是具体模型时改那一条;是组(含「用主模型」跟到主组)时改组里所有启用成员
+        val ids = _roles.value.resolveConfig(ModelRole.Vision)?.let { setOf(it) }
+            ?: groupFor(ModelRole.Vision)?.enabledMembers?.map { it.configId }?.toSet()
+            ?: return
         _configs.value = _configs.value.map { c ->
-            if (c.id == id) c.copy(capabilities = c.capabilities.copy(groundingVerified = verified)) else c
+            if (c.id in ids) c.copy(capabilities = c.capabilities.copy(groundingVerified = verified)) else c
         }
         writeConfig()
     }
