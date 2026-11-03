@@ -112,4 +112,26 @@ class PermissionStoreTest {
             assertEquals(resource, permissionResourceOf(resource.label()))
         }
     }
+
+    private fun tool(name: String, verb: com.wangzan101.mika.core.tool.Verb, capability: String? = null) =
+        object : com.wangzan101.mika.core.tool.ToolInfo {
+            override val name = name
+            override val verb = verb
+            override val capability = capability
+            override val batchable = false
+            override val routable = false
+            override val label = null
+        }
+
+    @Test fun theGateOnlyClosesExplicitDeniesAndFailsClosedForUnknownTools() {
+        val store = PermissionStore(file())
+        store.addGlobal(Grant(PermissionCatalog.PHONE_OBSERVE, access = Access.Deny, scope = GrantScope.Global))
+        val gate = store.gateFor(context())
+        val denied = gate.verdict(tool("phone_observe", com.wangzan101.mika.core.tool.Verb.Observe, "phone"))
+        assertEquals("permission_denied", (denied as PermissionVerdict.Deny).code)
+        assertEquals(PermissionVerdict.Ask("Share text to one app"),
+            gate.verdict(tool("phone_share_text", com.wangzan101.mika.core.tool.Verb.ShareText, "phone")))
+        assertEquals("permission_unknown",
+            (gate.verdict(tool("mystery", com.wangzan101.mika.core.tool.Verb.Interact, "unknown")) as PermissionVerdict.Deny).code)
+    }
 }

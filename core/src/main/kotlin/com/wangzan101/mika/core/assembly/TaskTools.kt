@@ -166,6 +166,8 @@ fun toolDispatcher(
     pluginScriptRunner: ScriptRunner? = null,
     /** 插件脚本参数临时文件放哪;App 用 cacheDir,JVM 测试用 java.io.tmpdir。 */
     pluginArgsDir: File = File(System.getProperty("java.io.tmpdir"), "mika-plugin-args"),
+    /** 执行层的权限闸门;为 null 时只观察、不拦。 */
+    permissionGate: com.wangzan101.mika.core.permission.PermissionGate? = null,
 ): ToolDispatcher {
     val screenshotStore = sandbox?.takeIf {
         it.status() !is com.wangzan101.mika.core.cap.sandbox.SandboxStatus.Unsupported &&
@@ -231,7 +233,7 @@ fun toolDispatcher(
             override fun open(spec: RunSpec) = PluginCapability(pluginTools.map { PluginScriptTool(it, runner, pluginArgsDir) })
         }
     }) + mcpServers.map(::McpClientProvider)
-    return RunAssembler(providers).assemble(runSpec, config, stableRefs, FORMER_PREFIX, RENAMED, RETIRED, MOVED)
+    return RunAssembler(providers).assemble(runSpec, config, stableRefs, FORMER_PREFIX, RENAMED, RETIRED, MOVED, permissionGate)
 }
 
 /** 改名前各能力工具名的前缀:手机的没有前缀,网页的是 browser_。 */

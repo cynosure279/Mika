@@ -631,6 +631,8 @@ class TaskRun(
                 KnowledgeStore(KnowledgeStore.loadBundled(), userNotes, learnedNotes) to GuideCatalog.loadBundled()
             }
             val appAccess = (service.application as MikaApp).appAccess
+            // 权限授权:主任务和子任务共用同一份;Phase 2a 只拦明确拒绝
+            val permissionStore = (service.application as MikaApp).permissions
             // 应用访问边界:工具和预览画面共用一份(下面接手机端口时建),窗口没变时核对结果直接沿用,预览不必每一帧都问窗口
             var accessGuard: com.wangzan101.mika.core.uistate.AppAccessScreenPort? = null
             var smsPrivacy: com.wangzan101.mika.core.cap.phone.sms.SmsPrivateScreen? = null
@@ -917,6 +919,10 @@ class TaskRun(
                 priorTurns,
                 provenance, if (conditionCheck) setOf("web", "sandbox") else null, readOnly = conditionCheck,
                 stepBudget = stepLimit, tokenBudget = tokenBudget)
+            // 权限评估跟着这次运行走;子任务沿用父任务的上下文和授权
+            val permissionGate = permissionStore.gateFor(
+                com.wangzan101.mika.core.permission.PermissionContext(RunId(key), conversationId, provenance),
+            )
             // 外部 MCP server 只在主任务接;子任务/条件检查/评测不接,避免绕过父任务审批、影响评测可复现
             if (!conditionCheck) {
                 // 连上的当场归 resources:收尾(含取消、失败、连到一半被停)关作用域时一起关,stdio server 的进程和沙箱租约跟着放掉
@@ -955,7 +961,7 @@ class TaskRun(
                         appPacing = { pace.appPacing() }, appTempo = { pace.of(it).tempo }, appCapped = { pace.capped(it) }, appIdleScroll = { IdleScroll(Random.Default) },
                         sandbox = sandbox, workspace = { workspaceKey.wire }, runSpec = childSpec,
                         conversationId = conversationId, inlineScreen = speed.inlineScreen,
-                        adaptiveVision = speed.adaptiveVision)
+                        adaptiveVision = speed.adaptiveVision, permissionGate = permissionGate)
                     AgentLoop(model, childTools, basePrompt, maxSteps = childSpec.stepBudget ?: AgentLoop.UNLIMITED_STEPS,
                         // 子任务跟着询问 / 自主;询问时它也过关卡,子任务里花钱的一步一律不做
                         confirmations = runApproval.gate(), approvals = runApproval, autonomous = runApproval.startedAutonomous,
@@ -1038,7 +1044,7 @@ class TaskRun(
                 notices = if (provenance.origin == RunOrigin.Ui && !conditionCheck && FeatureFlags.get(service).proactive()) {
                     (service.application as MikaApp).proactive.noticeSource()
                 } else null,
-                mcpServers = mcpEndpoints(),
+                mcpServers = mcpEndpoints(), permissionGate = permissionGate,
                 // 仅用户明确配置并启用时提供通用搜索;否则继续用浏览器搜索。
                 webSearch = com.wangzan101.mika.settings.WebSearchSettings.get(service).service(),
                 // 已 root 的手机上用户打开了「允许 Mika 执行 root 命令」才登记 root 工具(子任务、条件检查不给)
