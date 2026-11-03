@@ -16,6 +16,7 @@
     <string name="export_redact_pii">Ocultar também telefones, e-mails e caminhos</string>
     <string name="export_bundle_note">Anexos ou capturas incluídos, então o arquivo é um zip.</string>
     <string name="export_button">Exportar</string>
+    <string name="export_preview">Prévia</string>
     <string name="export_cancel">Cancelar</string>
     <string name="export_close">Fechar</string>
     <string name="export_preparing">Preparando…</string>

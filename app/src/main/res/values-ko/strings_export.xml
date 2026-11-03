@@ -16,6 +16,7 @@
     <string name="export_redact_pii">전화번호, 이메일, 경로도 숨기기</string>
     <string name="export_bundle_note">첨부 파일이나 스크린샷이 포함되어 zip으로 내보냅니다.</string>
     <string name="export_button">내보내기</string>
+    <string name="export_preview">미리보기</string>
     <string name="export_cancel">취소</string>
     <string name="export_close">닫기</string>
     <string name="export_preparing">준비 중…</string>

@@ -16,6 +16,7 @@
     <string name="export_redact_pii">同時隱藏手機號碼、電子郵件和路徑</string>
     <string name="export_bundle_note">包含附件或螢幕截圖，將匯出為 zip。</string>
     <string name="export_button">匯出</string>
+    <string name="export_preview">預覽</string>
     <string name="export_cancel">取消</string>
     <string name="export_close">關閉</string>
     <string name="export_preparing">正在準備…</string>

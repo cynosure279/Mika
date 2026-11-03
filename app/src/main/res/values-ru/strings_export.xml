@@ -16,6 +16,7 @@
     <string name="export_redact_pii">Скрыть также телефоны, email и пути</string>
     <string name="export_bundle_note">Вложение или снимки включены, поэтому файл будет zip.</string>
     <string name="export_button">Экспорт</string>
+    <string name="export_preview">Предпросмотр</string>
     <string name="export_cancel">Отмена</string>
     <string name="export_close">Закрыть</string>
     <string name="export_preparing">Подготовка…</string>

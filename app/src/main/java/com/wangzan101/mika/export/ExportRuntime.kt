@@ -6,6 +6,7 @@ import com.wangzan101.mika.BuildConfig
 import com.wangzan101.mika.core.export.DirectoryExportSink
 import com.wangzan101.mika.core.export.ExportBlock
 import com.wangzan101.mika.core.export.ExportContent
+import com.wangzan101.mika.core.export.ExportDocument
 import com.wangzan101.mika.core.export.ExportDocumentBuilder
 import com.wangzan101.mika.core.export.ExportFormat
 import com.wangzan101.mika.core.export.ExportManifest
@@ -41,6 +42,12 @@ data class ExportOutcome(
     val entryCount: Int,
     val bytes: Long,
 )
+
+/** 预览结果:文本预览直接给字符串;HTML 预览保留暂存目录给 WebViewAssetLoader,由调用方关闭时删除。 */
+sealed interface ExportPreview {
+    data class Text(val formatId: String, val text: String, val warnings: List<ExportWarning>) : ExportPreview
+    data class Html(val directory: File, val warnings: List<ExportWarning>) : ExportPreview
+}
 
 /**
  * P1 的导出执行器:构建文档 → 后端渲染到 cache 暂存 → 复制资产 → 打包 → 写到 SAF。
@@ -85,41 +92,7 @@ class ExportRuntime(private val context: Context) {
             backend.render(document, presentation, source, DirectoryExportSink(staging), onProgress)
 
             val warnings = document.warnings.toMutableList()
-            val sink = DirectoryExportSink(staging)
-            var totalAssets = 0L
-            document.assets.forEachIndexed { index, asset ->
-                currentCoroutineContext().ensureActive()
-                onProgress(ExportProgress(ExportPhase.Packaging, index, document.assets.size))
-                if (asset.sizeBytes > MAX_ASSET_BYTES) {
-                    warnings += ExportWarning("asset_too_large", asset.fileName)
-                    return@forEachIndexed
-                }
-                val remaining = MAX_TOTAL_ASSETS - totalAssets
-                if (remaining <= 0) {
-                    warnings += ExportWarning("asset_total_too_large", asset.fileName)
-                    return@forEachIndexed
-                }
-                val target = File(staging, "assets/${asset.fileName}")
-                try {
-                    val input = source.open(asset)
-                    if (input == null) {
-                        warnings += ExportWarning("asset_missing", asset.fileName)
-                        return@forEachIndexed
-                    }
-                    totalAssets += input.use { from ->
-                        sink.open("assets/${asset.fileName}").use { to -> copyLimited(from, to, minOf(MAX_ASSET_BYTES, remaining)) }
-                    }
-                } catch (e: CancellationException) {
-                    target.delete()
-                    throw e
-                } catch (e: AssetTooLarge) {
-                    target.delete()
-                    warnings += ExportWarning("asset_too_large", asset.fileName)
-                } catch (e: Exception) {
-                    target.delete()
-                    warnings += ExportWarning("asset_unreadable", asset.fileName)
-                }
-            }
+            copyAssets(document, source, staging, warnings, onProgress)
 
             val entries = ExportPackage.contentEntries(staging)
             val asBundle = bundle || entries.size > 1 || document.assets.isNotEmpty()
@@ -138,6 +111,91 @@ class ExportRuntime(private val context: Context) {
         } finally {
             staging.deleteRecursively()
             temp.delete()
+        }
+    }
+
+    /**
+     * 只构建和渲染,不写目的地。文本格式返回字符串;HTML 返回暂存目录,调用方用 WebViewAssetLoader 打开,
+     * 关闭预览时负责删除目录。
+     */
+    suspend fun preview(
+        title: String,
+        selection: ExportSelection,
+        content: ExportContent,
+        presentation: ExportPresentation,
+        formatId: String,
+        onProgress: (ExportProgress) -> Unit,
+    ): ExportPreview = withContext(Dispatchers.IO) {
+        registry.format(formatId) ?: throw IOException("unknown format: $formatId")
+        val backend = registry.defaultBackend(formatId)
+        val source = ConversationExportSource(context, selection.conversationId)
+        val staging = File(context.cacheDir, "exports/preview/${UUID.randomUUID()}")
+        try {
+            onProgress(ExportProgress(ExportPhase.Preparing, 0, 0))
+            val document = ExportDocumentBuilder(source, labels, BuildConfig.VERSION_NAME, language()).build(
+                conversationId = selection.conversationId,
+                title = title,
+                selection = selection,
+                content = content,
+            )
+            backend.render(document, presentation, source, DirectoryExportSink(staging), onProgress)
+            val warnings = document.warnings.toMutableList()
+            if (formatId == "html") {
+                copyAssets(document, source, staging, warnings, onProgress)
+                ExportPreview.Html(staging, warnings)
+            } else {
+                val name = if (formatId == "json") "document.json" else "document.md"
+                val text = File(staging, name).readText()
+                staging.deleteRecursively()
+                ExportPreview.Text(formatId, text, warnings)
+            }
+        } catch (e: Throwable) {
+            staging.deleteRecursively()
+            throw e
+        }
+    }
+
+    private suspend fun copyAssets(
+        document: ExportDocument,
+        source: ConversationExportSource,
+        staging: File,
+        warnings: MutableList<ExportWarning>,
+        onProgress: (ExportProgress) -> Unit,
+    ) {
+        val sink = DirectoryExportSink(staging)
+        var totalAssets = 0L
+        document.assets.forEachIndexed { index, asset ->
+            currentCoroutineContext().ensureActive()
+            onProgress(ExportProgress(ExportPhase.Packaging, index, document.assets.size))
+            if (asset.sizeBytes > MAX_ASSET_BYTES) {
+                warnings += ExportWarning("asset_too_large", asset.fileName)
+                return@forEachIndexed
+            }
+            val remaining = MAX_TOTAL_ASSETS - totalAssets
+            if (remaining <= 0) {
+                warnings += ExportWarning("asset_total_too_large", asset.fileName)
+                return@forEachIndexed
+            }
+            val target = File(staging, "assets/${asset.fileName}")
+            try {
+                val input = source.open(asset)
+                if (input == null) {
+                    warnings += ExportWarning("asset_missing", asset.fileName)
+                    return@forEachIndexed
+                }
+                totalAssets += input.use { from ->
+                    sink.open("assets/${asset.fileName}").use { to -> copyLimited(from, to, minOf(MAX_ASSET_BYTES, remaining)) }
+                }
+            } catch (e: CancellationException) {
+                target.delete()
+                throw e
+            } catch (e: AssetTooLarge) {
+                target.delete()
+                warnings += ExportWarning("asset_too_large", asset.fileName)
+            } catch (e: Exception) {
+                target.delete()
+                warnings += ExportWarning("asset_unreadable", asset.fileName)
+            }
         }
     }
 

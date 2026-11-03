@@ -16,6 +16,7 @@
     <string name="export_redact_pii">Also hide phone numbers, emails and paths</string>
     <string name="export_bundle_note">Attachments or screenshots are included, so the file is a zip.</string>
     <string name="export_button">Export</string>
+    <string name="export_preview">Preview</string>
     <string name="export_cancel">Cancel</string>
     <string name="export_close">Close</string>
     <string name="export_preparing">Preparing…</string>

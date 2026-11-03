@@ -3,26 +3,35 @@ package com.wangzan101.mika.export
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,8 +43,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewClientCompat
 import com.wangzan101.mika.R
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.core.agent.AttachmentLines
@@ -52,11 +67,13 @@ import com.wangzan101.mika.core.export.RedactionLevel
 import com.wangzan101.mika.core.userscreen.UserScreenMessage
 import com.wangzan101.mika.ui.AttachmentMessage
 import com.wangzan101.mika.ui.ScreenCopy
+import com.wangzan101.mika.ui.theme.MikaTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -101,6 +118,9 @@ internal fun ExportConversationDialog(
     var outcome by remember { mutableStateOf<ExportOutcome?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
     var job by remember { mutableStateOf<Job?>(null) }
+    var previewing by remember { mutableStateOf(false) }
+    var previewJob by remember { mutableStateOf<Job?>(null) }
+    var preview by remember { mutableStateOf<ExportPreview?>(null) }
     var fileAssets by remember { mutableStateOf(false) }
     var screenAssets by remember { mutableStateOf(false) }
 
@@ -171,18 +191,51 @@ internal fun ExportConversationDialog(
         }
     }
 
+    fun startPreview() {
+        val opts = options.value
+        previewing = true
+        failure = null
+        progress = null
+        previewJob = scope.launch {
+            try {
+                preview = ExportRuntime(context).preview(
+                    title = title,
+                    selection = ExportSelection(conversationId, opts.selected, allSelected = opts.selected.size == all.size),
+                    content = ExportContent(
+                        includeToolSteps = opts.toolSteps,
+                        includeAttachments = opts.attachments,
+                        includeScreens = opts.screens,
+                        includeTimestamps = opts.timestamps,
+                        includeModel = opts.model,
+                        redaction = if (opts.pii) RedactionLevel.SecretsAndPii else RedactionLevel.Secrets,
+                    ),
+                    presentation = ExportPresentation(),
+                    formatId = opts.format,
+                ) { p -> handler.post { progress = p } }
+            } catch (e: CancellationException) {
+                // 关闭面板会取消预览;暂存由 runtime 清理
+            } catch (e: Exception) {
+                failure = e.message ?: e.javaClass.simpleName
+            } finally {
+                previewing = false
+                previewJob = null
+            }
+        }
+    }
+
     val md = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri -> uri?.let(::start) }
     val json = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(::start) }
+    val html = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/html")) { uri -> uri?.let(::start) }
     val zip = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> uri?.let(::start) }
     val suggested = suggestedName(title, bundle, format, context.getString(R.string.export_filename_fallback), pii)
 
     AlertDialog(
-        onDismissRequest = { if (!running) onDismiss() },
+        onDismissRequest = { if (!running && !previewing) onDismiss() },
         title = { Text(stringResource(R.string.export_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 when {
-                    running -> {
+                    running || previewing -> {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             CircularProgressIndicator(Modifier.heightIn(max = 24.dp))
                             Text(progressText(progress))
@@ -254,25 +307,104 @@ internal fun ExportConversationDialog(
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.export_close)) }
             } else if (running) {
                 TextButton(onClick = { job?.cancel() }) { Text(stringResource(R.string.export_cancel)) }
+            } else if (previewing) {
+                TextButton(onClick = { previewJob?.cancel() }) { Text(stringResource(R.string.export_cancel)) }
             } else {
-                TextButton(
-                    enabled = selected.isNotEmpty() && all.isNotEmpty(),
-                    onClick = {
-                        when {
-                            bundle -> zip.launch(suggested)
-                            format == "json" -> json.launch(suggested)
-                            else -> md.launch(suggested)
-                        }
-                    },
-                ) { Text(stringResource(R.string.export_button)) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(
+                        enabled = selected.isNotEmpty() && all.isNotEmpty(),
+                        onClick = ::startPreview,
+                    ) { Text(stringResource(R.string.export_preview)) }
+                    TextButton(
+                        enabled = selected.isNotEmpty() && all.isNotEmpty(),
+                        onClick = {
+                            when {
+                                bundle -> zip.launch(suggested)
+                                format == "json" -> json.launch(suggested)
+                                format == "html" -> html.launch(suggested)
+                                else -> md.launch(suggested)
+                            }
+                        },
+                    ) { Text(stringResource(R.string.export_button)) }
+                }
             }
         },
         dismissButton = {
-            if (!running && outcome == null && failure == null) {
+            if (!running && !previewing && outcome == null && failure == null) {
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.export_cancel)) }
             }
         },
     )
+    preview?.let { p ->
+        ExportPreviewDialog(p) {
+            if (p is ExportPreview.Html) p.directory.deleteRecursively()
+            preview = null
+        }
+    }
+    DisposableEffect(preview) {
+        onDispose { (preview as? ExportPreview.Html)?.directory?.deleteRecursively() }
+    }
+}
+
+@Composable
+private fun ExportPreviewDialog(preview: ExportPreview, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize(), color = MikaTheme.colors.bg) {
+            Column(Modifier.fillMaxSize().padding(16.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.export_preview), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.export_close)) }
+                }
+                when (preview) {
+                    is ExportPreview.Text -> SelectionContainer {
+                        Text(
+                            preview.text,
+                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    is ExportPreview.Html -> HtmlPreview(preview.directory)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HtmlPreview(directory: File) {
+    val context = LocalContext.current
+    var webView by remember { mutableStateOf<WebView?>(null) }
+    val loader = remember(directory) {
+        WebViewAssetLoader.Builder()
+            .addPathHandler("/", WebViewAssetLoader.InternalStoragePathHandler(context, directory))
+            .build()
+    }
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { ctx ->
+            WebView(ctx).apply {
+                settings.javaScriptEnabled = false
+                settings.allowFileAccess = false
+                settings.allowContentAccess = false
+                settings.domStorageEnabled = false
+                webViewClient = object : WebViewClientCompat() {
+                    override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                        loader.shouldInterceptRequest(request.url)
+
+                    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = true
+                }
+                loadUrl("https://appassets.androidplatform.net/document.html")
+                webView = this
+            }
+        },
+    )
+    DisposableEffect(webView) {
+        onDispose {
+            webView?.stopLoading()
+            webView?.destroy()
+        }
+    }
 }
 
 @Composable
