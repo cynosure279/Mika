@@ -31,6 +31,8 @@ type config struct {
 	rateLimit  int
 	authLimit  int
 	trustProxy bool
+	publicURL  string
+	maxUpload  int64
 	allowRoots []string
 	tlsCert    string
 	tlsKey     string
@@ -59,6 +61,8 @@ func main() {
 	flag.IntVar(&cfg.rateLimit, "rate-limit", 120, "requests per minute per caller (0 disables)")
 	flag.IntVar(&cfg.authLimit, "auth-limit", 5, "failed authentications per minute before a 60s block (0 disables)")
 	flag.BoolVar(&cfg.trustProxy, "trust-proxy", false, "use the last X-Forwarded-For address as the caller")
+	flag.StringVar(&cfg.publicURL, "public-url", "", "base URL for signed file links, e.g. https://env.example.com")
+	flag.Int64Var(&cfg.maxUpload, "max-upload", 1<<30, "maximum upload bytes (default 1 GiB)")
 	flag.Var((*stringList)(&cfg.allowRoots), "allow-root", "existing directory that env_create may attach with path (repeatable)")
 	flag.StringVar(&cfg.tlsCert, "tls-cert", "", "TLS certificate (optional; otherwise terminate TLS in a reverse proxy)")
 	flag.StringVar(&cfg.tlsKey, "tls-key", "", "TLS private key")
@@ -75,6 +79,12 @@ func main() {
 	}
 	if cfg.rateLimit < 0 || cfg.authLimit < 0 {
 		log.Fatal("-rate-limit and -auth-limit must be >= 0")
+	}
+	if cfg.maxUpload <= 0 || cfg.maxUpload > 8<<30 {
+		log.Fatal("-max-upload must be 1..8589934592")
+	}
+	if cfg.publicURL != "" && !strings.HasPrefix(cfg.publicURL, "http://") && !strings.HasPrefix(cfg.publicURL, "https://") {
+		log.Fatal("-public-url must start with http:// or https://")
 	}
 	if cfg.execUser >= 0 && cfg.execGroup < 0 {
 		cfg.execGroup = cfg.execUser

@@ -142,6 +142,17 @@ func toolDefs() []toolDef {
 			Annotations: annotations(true, false),
 		},
 		{
+			Name:        "file_link",
+			Description: "Create a short-lived signed URL to download or upload one file in an environment. The URL carries its own capability and does not contain the main token.",
+			InputSchema: objectSchema(map[string]any{
+				"env":       env,
+				"path":      strProp("File path relative to the environment workspace."),
+				"direction": strProp("download (default) or upload."),
+				"ttlSec":    intProp("Link lifetime in seconds, 30-3600 (default 300).", 30, 3600),
+			}, "env", "path"),
+			Annotations: annotations(false, false),
+		},
+		{
 			Name:        "list_dir",
 			Description: "List a directory in an environment.",
 			InputSchema: objectSchema(map[string]any{
@@ -234,6 +245,8 @@ func (s *Server) callTool(ctx context.Context, name string, raw json.RawMessage,
 			"readOnly":      s.cfg.readOnly,
 			"backend":       envKindWorkspace,
 			"attachEnabled": len(s.store.allowedRoots) > 0,
+			"publicUrl":     s.cfg.publicURL != "",
+			"maxUpload":     s.cfg.maxUpload,
 			"limits": map[string]any{
 				"maxExec":          s.cfg.maxExec,
 				"maxOutput":        s.cfg.maxOutput,
@@ -413,6 +426,9 @@ func (s *Server) callTool(ctx context.Context, name string, raw json.RawMessage,
 			return toolError(err)
 		}
 		return jsonOK(map[string]any{"ok": true, "path": a.Path, "bytes": n})
+
+	case "file_link":
+		return s.fileLink(raw)
 
 	case "download_file":
 		var a struct {

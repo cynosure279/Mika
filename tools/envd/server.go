@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
@@ -53,9 +54,11 @@ type Server struct {
 	execSem    chan struct{}
 	limiter    *limiter
 	trustProxy bool
+	linkKey    []byte
 }
 
 func NewServer(cfg config, token string, store *Store) *Server {
+	key := sha256.Sum256([]byte("mika-envd-file-link:" + token))
 	return &Server{
 		cfg:        cfg,
 		token:      token,
@@ -63,11 +66,14 @@ func NewServer(cfg config, token string, store *Store) *Server {
 		execSem:    make(chan struct{}, cfg.maxExec),
 		limiter:    newLimiter(cfg.rateLimit, cfg.authLimit),
 		trustProxy: cfg.trustProxy,
+		linkKey:    key[:],
 	}
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/mcp" {
+	switch r.URL.Path {
+	case "/mcp", "/files/download", "/files/upload":
+	default:
 		http.NotFound(w, r)
 		return
 	}
@@ -81,7 +87,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "too many requests", http.StatusTooManyRequests)
 		return
 	}
-	if !s.authorized(r) {
+	signed := r.URL.Path != "/mcp" && s.validFileLink(r)
+	if !s.authorized(r) && !signed {
 		if s.limiter != nil {
 			s.limiter.authFailed(key)
 		}
@@ -91,6 +98,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if s.limiter != nil {
 		s.limiter.authOK(key)
+	}
+	if r.URL.Path != "/mcp" {
+		s.handleFiles(w, r)
+		return
 	}
 	switch r.Method {
 	case http.MethodPost:

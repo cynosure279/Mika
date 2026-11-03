@@ -74,7 +74,8 @@ Mika sends `Authorization: Bearer <token>`. After a successful test, the task ge
 | `env_info`, `env_list` | Server and environment information |
 | `env_create` (`name`, optional `path`), `env_clone`, `env_delete` | Workspace lifecycle and attached directories |
 | `exec` | Run the platform shell (`/bin/sh -c` or `cmd.exe /C`) in an environment; with a progressToken it streams stdout/stderr over SSE |
-| `read_file`, `write_file`, `upload_file`, `download_file` | Files |
+| `read_file`, `write_file`, `upload_file`, `download_file` | Small files over MCP |
+| `file_link` | Short-lived signed URL to download or upload one file over HTTPS |
 | `list_dir`, `search` | Directory listing and literal search |
 
 Paths are relative to the environment workspace. Absolute paths, `..` and escaping symlinks are rejected. `exec` runs as the envd user; treat output as untrusted.
@@ -83,7 +84,8 @@ Paths are relative to the environment workspace. Absolute paths, `..` and escapi
 
 - `exec`: 60 s default, 600 s maximum; `-max-exec` concurrent commands (default 4).
 - Output: `-max-output` bytes per stream (default 1 MiB); the rest is dropped and marked `truncated`.
-- Text files: 1 MiB; transfers: 1 MiB; search: 5000 files / 32 MiB; `list_dir` returns at most 5000 entries and sets `truncated`.
+- Text files: 1 MiB; MCP transfers: 1 MiB; search: 5000 files / 32 MiB; `list_dir` returns at most 5000 entries and sets `truncated`.
+- Large files: start envd with `-public-url https://your-host` and call `file_link`; the returned signed URL is valid for 30–3600 seconds (default 300) and is scoped to one environment, path and direction. Uploads are capped by `-max-upload` (default 1 GiB).
 - HTTP: `-rate-limit` requests/minute per caller (default 120), `-auth-limit` failed authentications/minute before a 60 s block (default 5); `-trust-proxy` uses the last `X-Forwarded-For` address.
 - `-read-only` disables exec, writes, create, clone and delete.
 
@@ -93,6 +95,7 @@ Paths are relative to the environment workspace. Absolute paths, `..` and escapi
 - `exec` runs as uid 10002/group 10001 in the container; the token is in `ENVD_TOKEN` and is not inherited by commands. Bare metal without `-exec-user` runs commands as the envd user, which can read the token file.
 - Attach only directories you intend the agent to use. Do not expose all of shared storage; `-allow-root /` is the whole machine.
 - File tools use `os.Root` on every operation, reject escaping symlinks and files with multiple hard links, and bind the root to a directory handle, so a concurrent process cannot redirect them outside the workspace. `exec` itself intentionally has the command user's full access.
+- `file_link` URLs are capability URLs: anyone holding one can read/write that one file until it expires. Don't log them; use HTTPS and short TTLs.
 - Windows support is best effort: Unix permissions, symlinks and hard-link protections are weaker.
 - Use a long random token (0600), keep it out of shell history and logs, and terminate TLS in a reverse proxy.
 - Do not expose the plain HTTP port to the internet.

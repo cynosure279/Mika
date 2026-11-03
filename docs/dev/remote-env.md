@@ -73,6 +73,7 @@ envd 是一个静态二进制，Linux、macOS、Windows 和 Termux（linux-arm64
 | `write_file` | `env`、`path`、`content`、`append?` | 写文本文件，原子替换 | 写 |
 | `upload_file` | `env`、`path`、`contentBase64` | 上传小文件（≤ 1 MiB 解码后） | 写 |
 | `download_file` | `env`、`path`、`maxBytes?` | 下载小文件，返回 base64（≤ 1 MiB） | readOnly |
+| `file_link` | `env`、`path`、`direction?`、`ttlSec?` | 生成一个短时签名的 HTTPS 上传/下载链接；链接只对这一个环境、路径和方向有效 | 写 |
 | `list_dir` | `env`、`path?` | 列目录，返回名字、类型、大小 | readOnly |
 | `search` | `env`、`path?`、`pattern`、`maxResults?` | 字面量搜索，跳过二进制和大于 1 MiB 的文件 | readOnly |
 
@@ -84,6 +85,7 @@ envd 是一个静态二进制，Linux、macOS、Windows 和 Termux（linux-arm64
 - `read_file` 默认 256 KiB，最多 1 MiB；`write_file` 最多 1 MiB；上传/下载最多 1 MiB。
 - `search` 最多扫描 5000 个文件、32 MiB，默认返回 100 条匹配。
 - `list_dir` 最多返回 5000 项，超出时 `truncated: true`。
+- 大文件：启动时给 `-public-url https://your-host`，`file_link` 生成 30–3600 秒（默认 300）的签名 URL；URL 只对一个环境、路径和方向有效，不包含主 token。上传大小由 `-max-upload` 限制（默认 1 GiB）。
 - HTTP 限流：默认每个调用方每分钟 120 个请求，连续 5 次认证失败封 60 秒（`-rate-limit`、`-auth-limit`）；放在反向代理后面时用 `-trust-proxy` 取最后一个 `X-Forwarded-For`。
 - 客户端 SSE 单行上限 8 MiB；超过即报错，不无限读入内存。
 
@@ -120,6 +122,7 @@ envd 是一个静态二进制，Linux、macOS、Windows 和 Termux（linux-arm64
 - **桌面端推荐用容器包装**：仓库里的 Dockerfile / compose 以 root + 只读根 + `cap_drop: ALL` + 只补 `SETUID`/`SETGID` + `no-new-privileges` 运行，默认只发布到回环。它缩小影响面，但不是完整沙箱，也不隔离网络或每个环境。
 - **挂载已有目录必须显式开启**：`-allow-root` 可重复；`env_create` 的 `path` 必须落在其中一个根下。默认不挂任何外部目录，不能挂整盘；`-allow-root /` 等于把整机交给命令。
 - 文件工具用 Go 1.25 的 `os.Root` 固定根目录句柄：每次读写/列目录/搜索/克隆都在同一个已打开的根下完成，拒绝逃逸符号链接和多硬链接文件；启动和调用时还会重新核对环境根仍在 data 目录或 `-allow-root` 内。`exec` 的 cwd 仍按路径检查，但命令本身有意拥有命令用户的完整权限。
+- `file_link` 生成的是能力 URL：持有链接的人在该文件、该方向、到期前都能访问；不要写日志，必须走 HTTPS，TTL 尽量短。上传会原子替换目标文件，大小受 `-max-upload` 限制。
 - 没有限流/失败冷却的问题已补：默认每调用方 120 请求/分钟、5 次认证失败封 60 秒；反向代理后可用 `-trust-proxy`。更严格的限流仍建议放在反向代理。
 - token 文件权限应为 0600；envd 发现组/其他用户可读时会打警告。反向代理不要记录 `Authorization`；Compose 的 `ENVD_TOKEN` 对 Docker 管理员/`docker inspect` 可见。
 - Windows 支持是 best-effort：Unix 权限和硬链接保护不完整；`os.Root` 仍能防止路径逃逸。
