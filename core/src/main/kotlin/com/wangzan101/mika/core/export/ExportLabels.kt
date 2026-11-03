@@ -21,6 +21,7 @@ data class ExportLabels(
     val warnings: String,
     val truncated: String,
     val missingAsset: String,
+    val tooLarge: String,
     val runRecordMissing: String,
     val unverified: String,
     val notDone: String,
@@ -34,7 +35,7 @@ data class ExportLabels(
             user = "User", mika = "Mika", steer = "Message during the task", answer = "Answer",
             toolSteps = "Tool steps", attachments = "Attachments", screens = "Screenshots", files = "Files",
             quote = "Quoted", page = "From page", exportedAt = "Exported", model = "Model", unknown = "Unknown",
-            warnings = "Warnings", truncated = "truncated, original length %d", missingAsset = "Missing: %s", runRecordMissing = "Run record no longer available",
+            warnings = "Warnings", truncated = "truncated, original length %d", missingAsset = "Missing: %s", tooLarge = "Too large: %s", runRecordMissing = "Run record no longer available",
             unverified = "Not verified: %s", notDone = "Not done: %s", cancelled = "Cancelled", toolError = "Error",
             step = "Step %d",
         )

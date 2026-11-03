@@ -44,6 +44,7 @@
     <string name="export_label_warnings">Warnings</string>
     <string name="export_label_truncated">truncated, original length %1$d</string>
     <string name="export_label_missing_asset">Missing: %1$s</string>
+    <string name="export_label_too_large">Too large: %1$s</string>
     <string name="export_label_run_record_missing">Run record no longer available</string>
     <string name="export_label_unverified">Not verified: %1$s</string>
     <string name="export_label_not_done">Not done: %1$s</string>

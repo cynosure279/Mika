@@ -43,6 +43,7 @@
     <string name="export_label_warnings">Предупреждения</string>
     <string name="export_label_truncated">сокращено, исходная длина %1$d</string>
     <string name="export_label_missing_asset">Отсутствует: %1$s</string>
+    <string name="export_label_too_large">Слишком большой: %1$s</string>
     <string name="export_label_run_record_missing">Запись выполнения больше недоступна</string>
     <string name="export_label_unverified">Не проверено: %1$s</string>
     <string name="export_label_not_done">Не выполнено: %1$s</string>

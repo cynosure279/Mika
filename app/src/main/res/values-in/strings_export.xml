@@ -43,6 +43,7 @@
     <string name="export_label_warnings">Peringatan</string>
     <string name="export_label_truncated">dipotong, panjang asli %1$d</string>
     <string name="export_label_missing_asset">Tidak ada: %1$s</string>
+    <string name="export_label_too_large">Terlalu besar: %1$s</string>
     <string name="export_label_run_record_missing">Catatan eksekusi tidak tersedia lagi</string>
     <string name="export_label_unverified">Belum diverifikasi: %1$s</string>
     <string name="export_label_not_done">Belum selesai: %1$s</string>

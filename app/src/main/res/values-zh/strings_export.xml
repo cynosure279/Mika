@@ -44,6 +44,7 @@
     <string name="export_label_warnings">提示</string>
     <string name="export_label_truncated">已截短，原长 %1$d 字</string>
     <string name="export_label_missing_asset">缺失：%1$s</string>
+    <string name="export_label_too_large">过大：%1$s</string>
     <string name="export_label_run_record_missing">运行记录已清理</string>
     <string name="export_label_unverified">未能核实：%1$s</string>
     <string name="export_label_not_done">没有办成：%1$s</string>

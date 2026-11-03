@@ -22,6 +22,7 @@ object ExportLabelsUi {
         warnings = context.getString(R.string.export_label_warnings),
         truncated = context.getString(R.string.export_label_truncated),
         missingAsset = context.getString(R.string.export_label_missing_asset),
+        tooLarge = context.getString(R.string.export_label_too_large),
         runRecordMissing = context.getString(R.string.export_label_run_record_missing),
         unverified = context.getString(R.string.export_label_unverified),
         notDone = context.getString(R.string.export_label_not_done),

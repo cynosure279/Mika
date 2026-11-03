@@ -43,6 +43,7 @@
     <string name="export_label_warnings">注意</string>
     <string name="export_label_truncated">切り詰めました（元の長さ %1$d 文字）</string>
     <string name="export_label_missing_asset">見つかりません：%1$s</string>
+    <string name="export_label_too_large">大きすぎます：%1$s</string>
     <string name="export_label_run_record_missing">実行記録は削除されました</string>
     <string name="export_label_unverified">未確認：%1$s</string>
     <string name="export_label_not_done">未完了：%1$s</string>

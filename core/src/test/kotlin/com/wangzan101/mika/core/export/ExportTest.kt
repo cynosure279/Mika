@@ -204,7 +204,9 @@ class ExportTest {
                         listOf(asset), emptyList(), null,
                     ),
                     ExportBlock.Answer(
-                        ExportIds.answer(0), "hello <script>alert(1)</script>", AnswerOutcome.Succeeded, null, null,
+                        ExportIds.answer(0),
+                        "hello <script>alert(1)</script>\n\n`List<String>`\n\n    ```\n<script>indented</script>",
+                        AnswerOutcome.Succeeded, null, null,
                         listOf(ToolStep(1, null, "tool", null, "````\n<script>", false, 0, null)), emptyList(),
                     ),
                 ),
@@ -218,6 +220,9 @@ class ExportTest {
             assertFalse(Regex("""(?<!\\)<img""").containsMatchIn(text))
             assertTrue(text.contains("\\[x\\]"))
             assertTrue(text.contains("&lt;script>"))
+            assertTrue(text.contains("`List<String>`"))
+            assertTrue(text.contains("&lt;script>indented"))
+            assertFalse(text.substringBefore("### Tool steps").contains("<script>indented"))
             assertTrue(text.contains("`````text"))
         } finally {
             root.deleteRecursively()
@@ -257,6 +262,32 @@ class ExportTest {
         assertTrue(url.contains("token=***"))
         assertFalse(document.meta.title.contains("sk-1234567890abcdef"))
         assertFalse(user.attachments.single().fileName.contains("@"))
+    }
+
+    @Test fun markdownWarningsUseLocalizedLabels() = kotlinx.coroutines.runBlocking {
+        val source = object : ExportSource {
+            override suspend fun turns(conversationId: String) = listOf(
+                ExportTurnRecord(
+                    0, AttachmentLines.compose("看", listOf("/workspace/inbox/gone.txt" to "1 KB")),
+                    "好了", "succeeded",
+                ),
+            )
+            override suspend fun run(runId: String) = null
+            override suspend fun resolve(request: AssetRequest): ExportAsset? = null
+        }
+        val document = ExportDocumentBuilder(source, labels, "test", "en") { 1L }.build(
+            "c1", "t", ExportSelection("c1"), ExportContent(),
+        )
+        val root = createTempDir()
+        try {
+            MarkdownExportBackend(labels).render(document, ExportPresentation(), Reader, DirectoryExportSink(root)) {}
+            val text = File(root, "document.md").readText()
+            assertTrue(text.contains("> Warnings:"))
+            assertTrue(text.contains("Missing: gone.txt"))
+            assertFalse(text.contains("asset_missing"))
+        } finally {
+            root.deleteRecursively()
+        }
     }
 
     private class Source : ExportSource {

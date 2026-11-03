@@ -43,6 +43,7 @@
     <string name="export_label_warnings">경고</string>
     <string name="export_label_truncated">잘렸습니다, 원래 길이 %1$d</string>
     <string name="export_label_missing_asset">없음: %1$s</string>
+    <string name="export_label_too_large">너무 큼: %1$s</string>
     <string name="export_label_run_record_missing">실행 기록이 삭제되었습니다</string>
     <string name="export_label_unverified">확인되지 않음: %1$s</string>
     <string name="export_label_not_done">완료되지 않음: %1$s</string>

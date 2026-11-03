@@ -63,7 +63,9 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
                 document.warnings.forEach {
                     val line = when (it.code) {
                         "run_record_missing" -> labels.runRecordMissing
-                        "asset_missing", "asset_unreadable", "asset_too_large", "asset_total_too_large" -> labels.missingAsset.format(it.detail)
+                        "asset_missing", "asset_unreadable" -> labels.missingAsset.format(it.detail)
+                        "asset_too_large", "asset_total_too_large" -> labels.tooLarge.format(it.detail)
+                        "timestamp_unknown" -> "${labels.unknown}: ${it.detail}"
                         else -> it.detail
                     }
                     out.appendLine("> - ${MarkdownText.plain(line)}")
@@ -80,7 +82,7 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
             out.appendLine()
         }
         block.page?.let { p ->
-            val title = MarkdownText.plain(p.title.ifBlank { p.url })
+            val title = MarkdownText.plain(oneLine(p.title.ifBlank { p.url }))
             val destination = MarkdownText.destination(p.url)
             out.appendLine(if (destination != null) "> ${labels.page}: [$title]($destination)" else "> ${labels.page}: $title")
             p.selection?.takeIf { it.isNotBlank() }?.lines()?.forEach { out.appendLine("> | ${MarkdownText.plain(it)}") }
@@ -139,7 +141,7 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
     }
 
     private fun step(out: Appendable, step: ToolStep) {
-        val tool = step.tool?.takeIf { it.isNotBlank() }?.let { " `${MarkdownText.inlineCode(it)}`" }.orEmpty()
+        val tool = step.tool?.takeIf { it.isNotBlank() }?.let { " ${MarkdownText.codeSpan(it)}" }.orEmpty()
         val duration = if (step.durationMs > 0) " (${step.durationMs} ms)" else ""
         val error = if (step.isError) " · ${labels.toolError}" else ""
         out.appendLine("**${String.format(Locale.ROOT, labels.step, step.step)}**$tool$duration$error")

@@ -43,6 +43,7 @@
     <string name="export_label_warnings">تنبيهات</string>
     <string name="export_label_truncated">مقتطع، الطول الأصلي %1$d</string>
     <string name="export_label_missing_asset">مفقود: %1$s</string>
+    <string name="export_label_too_large">كبير جدًا: %1$s</string>
     <string name="export_label_run_record_missing">سجل التشغيل لم يعد متاحًا</string>
     <string name="export_label_unverified">غير مُتحقَّق منه: %1$s</string>
     <string name="export_label_not_done">لم يكتمل: %1$s</string>

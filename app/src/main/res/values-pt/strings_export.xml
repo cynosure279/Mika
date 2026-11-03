@@ -43,6 +43,7 @@
     <string name="export_label_warnings">Avisos</string>
     <string name="export_label_truncated">truncado, comprimento original %1$d</string>
     <string name="export_label_missing_asset">Ausente: %1$s</string>
+    <string name="export_label_too_large">Grande demais: %1$s</string>
     <string name="export_label_run_record_missing">O registro de execução não está mais disponível</string>
     <string name="export_label_unverified">Não verificado: %1$s</string>
     <string name="export_label_not_done">Não concluído: %1$s</string>
