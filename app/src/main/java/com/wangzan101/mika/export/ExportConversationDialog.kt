@@ -220,7 +220,6 @@ internal fun ExportConversationDialog(
                                 }
                             }
                         }
-                        Text(stringResource(R.string.export_current_turn), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
