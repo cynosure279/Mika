@@ -7,6 +7,7 @@
     <string name="export_format">التنسيق</string>
     <string name="export_format_markdown">Markdown</string>
     <string name="export_format_json">JSON</string>
+    <string name="export_format_html">HTML</string>
     <string name="export_include_tool_steps">خطوات الأدوات</string>
     <string name="export_include_attachments">المرفقات</string>
     <string name="export_include_screens">لقطات الشاشة</string>

@@ -23,6 +23,7 @@ import com.wangzan101.mika.core.export.ManifestSelection
 import com.wangzan101.mika.core.export.ManifestWarning
 import com.wangzan101.mika.core.export.markdown.MarkdownExportBackend
 import com.wangzan101.mika.core.export.json.JsonExportBackend
+import com.wangzan101.mika.export.html.HtmlExportBackend
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -51,8 +52,9 @@ class ExportRuntime(private val context: Context) {
         formats = listOf(
             ExportFormat("markdown", "export_format_markdown", "text/markdown", "md"),
             ExportFormat("json", "export_format_json", "application/json", "json"),
+            ExportFormat("html", "export_format_html", "text/html", "html"),
         ),
-        backends = listOf(MarkdownExportBackend(labels), JsonExportBackend()),
+        backends = listOf(MarkdownExportBackend(labels), JsonExportBackend(), HtmlExportBackend(labels)),
     )
 
     fun formats() = registry.formats()

@@ -201,6 +201,8 @@ internal fun ExportConversationDialog(
                             Text(stringResource(R.string.export_format_markdown))
                             RadioButton(selected = format == "json", onClick = { format = "json" })
                             Text(stringResource(R.string.export_format_json))
+                            RadioButton(selected = format == "html", onClick = { format = "html" })
+                            Text(stringResource(R.string.export_format_html))
                         }
                         OptionRow(stringResource(R.string.export_include_tool_steps), toolSteps) { toolSteps = it }
                         OptionRow(stringResource(R.string.export_include_attachments), attachments) { attachments = it }
@@ -300,6 +302,10 @@ private fun suggestedName(title: String, bundle: Boolean, format: String, fallba
     val safeTitle = ExportRedactor.apply(title, level)
     val base = ExportNames.safeFileName(safeTitle.ifBlank { fallback }, fallback)
     val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
-    val ext = if (bundle) "zip" else if (format == "json") "json" else "md"
+    val ext = if (bundle) "zip" else when (format) {
+        "json" -> "json"
+        "html" -> "html"
+        else -> "md"
+    }
     return ExportNames.fit("$base-$stamp.$ext")
 }

@@ -7,6 +7,7 @@
     <string name="export_format">Формат</string>
     <string name="export_format_markdown">Markdown</string>
     <string name="export_format_json">JSON</string>
+    <string name="export_format_html">HTML</string>
     <string name="export_include_tool_steps">Шаги инструментов</string>
     <string name="export_include_attachments">Вложения</string>
     <string name="export_include_screens">Снимки экрана</string>

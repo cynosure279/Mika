@@ -7,6 +7,7 @@
     <string name="export_format">형식</string>
     <string name="export_format_markdown">Markdown</string>
     <string name="export_format_json">JSON</string>
+    <string name="export_format_html">HTML</string>
     <string name="export_include_tool_steps">도구 단계</string>
     <string name="export_include_attachments">첨부 파일</string>
     <string name="export_include_screens">스크린샷</string>
