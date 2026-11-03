@@ -19,9 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -155,6 +153,18 @@ internal fun ExportConversationDialog(
     val all = candidates.orEmpty()
     val bundle = (attachments && fileAssets) || (screens && screenAssets)
 
+    fun selectionOf(opts: ExportUiOptions) =
+        ExportSelection(conversationId, opts.selected, allSelected = opts.selected.size == all.size)
+
+    fun contentOf(opts: ExportUiOptions) = ExportContent(
+        includeToolSteps = opts.toolSteps,
+        includeAttachments = opts.attachments,
+        includeScreens = opts.screens,
+        includeTimestamps = opts.timestamps,
+        includeModel = opts.model,
+        redaction = if (opts.pii) RedactionLevel.SecretsAndPii else RedactionLevel.Secrets,
+    )
+
     fun start(uri: Uri) {
         val opts = options.value
         running = true
@@ -165,15 +175,8 @@ internal fun ExportConversationDialog(
             try {
                 val result = ExportRuntime(context).export(
                     title = title,
-                    selection = ExportSelection(conversationId, opts.selected, allSelected = opts.selected.size == all.size),
-                    content = ExportContent(
-                        includeToolSteps = opts.toolSteps,
-                        includeAttachments = opts.attachments,
-                        includeScreens = opts.screens,
-                        includeTimestamps = opts.timestamps,
-                        includeModel = opts.model,
-                        redaction = if (opts.pii) RedactionLevel.SecretsAndPii else RedactionLevel.Secrets,
-                    ),
+                    selection = selectionOf(opts),
+                    content = contentOf(opts),
                     presentation = ExportPresentation(),
                     formatId = opts.format,
                     destination = uri,
@@ -200,15 +203,8 @@ internal fun ExportConversationDialog(
             try {
                 preview = ExportRuntime(context).preview(
                     title = title,
-                    selection = ExportSelection(conversationId, opts.selected, allSelected = opts.selected.size == all.size),
-                    content = ExportContent(
-                        includeToolSteps = opts.toolSteps,
-                        includeAttachments = opts.attachments,
-                        includeScreens = opts.screens,
-                        includeTimestamps = opts.timestamps,
-                        includeModel = opts.model,
-                        redaction = if (opts.pii) RedactionLevel.SecretsAndPii else RedactionLevel.Secrets,
-                    ),
+                    selection = selectionOf(opts),
+                    content = contentOf(opts),
                     presentation = ExportPresentation(),
                     formatId = opts.format,
                 ) { p -> handler.post { progress = p } }
@@ -336,13 +332,14 @@ internal fun ExportConversationDialog(
         },
     )
     preview?.let { p ->
-        ExportPreviewDialog(p) {
-            if (p is ExportPreview.Html) p.directory.deleteRecursively()
-            preview = null
-        }
+        ExportPreviewDialog(p) { preview = null }
     }
     DisposableEffect(preview) {
-        onDispose { (preview as? ExportPreview.Html)?.directory?.deleteRecursively() }
+        val current = preview
+        onDispose {
+            // 捕获当前值:state 在 dispose 时已经变了,不能回头读 preview。
+            (current as? ExportPreview.Html)?.directory?.let { dir -> Thread { dir.deleteRecursively() }.start() }
+        }
     }
 }
 
@@ -355,16 +352,25 @@ private fun ExportPreviewDialog(preview: ExportPreview, onDismiss: () -> Unit) {
                     Text(stringResource(R.string.export_preview), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.export_close)) }
                 }
+                val warnings = when (preview) {
+                    is ExportPreview.Text -> preview.warnings
+                    is ExportPreview.Html -> preview.warnings
+                }
+                if (warnings.isNotEmpty()) {
+                    Text(stringResource(R.string.export_warnings, warnings.size), style = MaterialTheme.typography.bodySmall)
+                }
                 when (preview) {
-                    is ExportPreview.Text -> SelectionContainer {
-                        Text(
-                            preview.text,
-                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                            fontFamily = FontFamily.Monospace,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
+                    is ExportPreview.Text -> SelectionContainer(Modifier.weight(1f).fillMaxWidth()) {
+                        val chunks = remember(preview.text) {
+                            preview.text.lineSequence().chunked(200).map { it.joinToString("\n") }.toList()
+                        }
+                        LazyColumn(Modifier.fillMaxSize()) {
+                            items(chunks) { chunk ->
+                                Text(chunk, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
                     }
-                    is ExportPreview.Html -> HtmlPreview(preview.directory)
+                    is ExportPreview.Html -> HtmlPreview(preview.directory, preview.entry, Modifier.weight(1f).fillMaxWidth())
                 }
             }
         }
@@ -372,7 +378,7 @@ private fun ExportPreviewDialog(preview: ExportPreview, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun HtmlPreview(directory: File) {
+private fun HtmlPreview(directory: File, entry: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     var webView by remember { mutableStateOf<WebView?>(null) }
     val loader = remember(directory) {
@@ -381,7 +387,7 @@ private fun HtmlPreview(directory: File) {
             .build()
     }
     AndroidView(
-        modifier = Modifier.fillMaxSize(),
+        modifier = modifier,
         factory = { ctx ->
             WebView(ctx).apply {
                 settings.javaScriptEnabled = false
@@ -394,7 +400,7 @@ private fun HtmlPreview(directory: File) {
 
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = true
                 }
-                loadUrl("https://appassets.androidplatform.net/document.html")
+                loadUrl("https://appassets.androidplatform.net/$entry")
                 webView = this
             }
         },

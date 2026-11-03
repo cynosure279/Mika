@@ -46,7 +46,7 @@ data class ExportOutcome(
 /** 预览结果:文本预览直接给字符串;HTML 预览保留暂存目录给 WebViewAssetLoader,由调用方关闭时删除。 */
 sealed interface ExportPreview {
     data class Text(val formatId: String, val text: String, val warnings: List<ExportWarning>) : ExportPreview
-    data class Html(val directory: File, val warnings: List<ExportWarning>) : ExportPreview
+    data class Html(val directory: File, val entry: String, val warnings: List<ExportWarning>) : ExportPreview
 }
 
 /**
@@ -77,20 +77,11 @@ class ExportRuntime(private val context: Context) {
         onProgress: (ExportProgress) -> Unit,
     ): ExportOutcome = withContext(Dispatchers.IO) {
         val format = registry.format(formatId) ?: throw IOException("unknown format: $formatId")
-        val backend = registry.defaultBackend(formatId)
         val source = ConversationExportSource(context, selection.conversationId)
         val staging = File(context.cacheDir, "exports/staging/${UUID.randomUUID()}")
         val temp = File(context.cacheDir, "exports/${UUID.randomUUID()}.${format.extension}")
         try {
-            onProgress(ExportProgress(ExportPhase.Preparing, 0, 0))
-            val document = ExportDocumentBuilder(source, labels, BuildConfig.VERSION_NAME, language()).build(
-                conversationId = selection.conversationId,
-                title = title,
-                selection = selection,
-                content = content,
-            )
-            backend.render(document, presentation, source, DirectoryExportSink(staging), onProgress)
-
+            val document = buildAndRender(source, staging, title, selection, content, presentation, formatId, onProgress)
             val warnings = document.warnings.toMutableList()
             copyAssets(document, source, staging, warnings, onProgress)
 
@@ -126,26 +117,18 @@ class ExportRuntime(private val context: Context) {
         formatId: String,
         onProgress: (ExportProgress) -> Unit,
     ): ExportPreview = withContext(Dispatchers.IO) {
-        registry.format(formatId) ?: throw IOException("unknown format: $formatId")
-        val backend = registry.defaultBackend(formatId)
+        val format = registry.format(formatId) ?: throw IOException("unknown format: $formatId")
         val source = ConversationExportSource(context, selection.conversationId)
         val staging = File(context.cacheDir, "exports/preview/${UUID.randomUUID()}")
         try {
-            onProgress(ExportProgress(ExportPhase.Preparing, 0, 0))
-            val document = ExportDocumentBuilder(source, labels, BuildConfig.VERSION_NAME, language()).build(
-                conversationId = selection.conversationId,
-                title = title,
-                selection = selection,
-                content = content,
-            )
-            backend.render(document, presentation, source, DirectoryExportSink(staging), onProgress)
+            val entry = "document.${format.extension}"
+            val document = buildAndRender(source, staging, title, selection, content, presentation, formatId, onProgress)
             val warnings = document.warnings.toMutableList()
             if (formatId == "html") {
                 copyAssets(document, source, staging, warnings, onProgress)
-                ExportPreview.Html(staging, warnings)
+                ExportPreview.Html(staging, entry, warnings)
             } else {
-                val name = if (formatId == "json") "document.json" else "document.md"
-                val text = File(staging, name).readText()
+                val text = File(staging, entry).readText()
                 staging.deleteRecursively()
                 ExportPreview.Text(formatId, text, warnings)
             }
@@ -153,6 +136,27 @@ class ExportRuntime(private val context: Context) {
             staging.deleteRecursively()
             throw e
         }
+    }
+
+    private suspend fun buildAndRender(
+        source: ConversationExportSource,
+        staging: File,
+        title: String,
+        selection: ExportSelection,
+        content: ExportContent,
+        presentation: ExportPresentation,
+        formatId: String,
+        onProgress: (ExportProgress) -> Unit,
+    ): ExportDocument {
+        onProgress(ExportProgress(ExportPhase.Preparing, 0, 0))
+        val document = ExportDocumentBuilder(source, labels, BuildConfig.VERSION_NAME, language()).build(
+            conversationId = selection.conversationId,
+            title = title,
+            selection = selection,
+            content = content,
+        )
+        registry.defaultBackend(formatId).render(document, presentation, source, DirectoryExportSink(staging), onProgress)
+        return document
     }
 
     private suspend fun copyAssets(
