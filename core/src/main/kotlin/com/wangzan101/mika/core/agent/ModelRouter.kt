@@ -41,8 +41,8 @@ class ModelRouter(
     val currentLight: ChatModel? get() = lightChain.getOrNull(lightIndex)
     private val currentPool: ModelPool? get() = lightPools.getOrNull(lightIndex)
 
-    /** 轻量模型能不能接手机步;不能时 lightSteps 不生效。 */
-    val active: Boolean get() = !disabled && currentPool?.capabilities?.toolCalls == true
+    /** 轻量模型能不能接手机步;不能时 lightSteps 不生效。组里只要有一个支持工具的成员就行,具体到每一步再按 need 过滤。 */
+    val active: Boolean get() = !disabled && currentPool?.members?.any { it.model.capabilities.toolCalls } == true
 
     /**
      * 轻量模型出了重试也没用的错(Key、额度、模型名、请求不对):
@@ -78,8 +78,8 @@ class ModelRouter(
     /** 出了状况(含轻量模型调用失败、回复被改派给主模型):之后 [TROUBLE_STEPS] 步用主模型。 */
     fun noteTrouble() { forcedMain = TROUBLE_STEPS }
 
-    /** 这个模型是不是轻量侧(含备援)的成员(不是按对象相等:组里换过成员也要认得出)。 */
-    fun isLight(m: ChatModel): Boolean = lightPools.any { it.owns(m) }
+    /** 这个模型是不是轻量侧(含备援)的成员(不是按对象相等:组里换过成员也要认得出);轻量池本身也算。 */
+    fun isLight(m: ChatModel): Boolean = lightChain.any { it === m } || lightPools.any { it.owns(m) }
 
     /** 这个成员属于哪个模型组;单模型为 null。 */
     fun groupOf(m: ChatModel): String? =

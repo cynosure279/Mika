@@ -167,6 +167,13 @@ class ModelGroupTest {
     }
 
     @Test
+    fun scoreUsesConsecutiveFailuresNotLifetimeRate() {
+        val healthyAgain = MemberHealth(calls = 10, failures = 9, consecutiveFailures = 0, latencySamples = 1, ewmaLatencyMs = 100.0)
+        assertEquals(100.0, healthyAgain.score(), 0.001)
+        assertEquals(500.0, healthyAgain.copy(consecutiveFailures = 2).score(), 0.001)
+    }
+
+    @Test
     fun emptyGroupReportsUnavailable() = runTest {
         val pool = GroupPool(group(), emptyList(), ModelHealthRegistry(), StickyTable(), "g/s")
         val error = runCatching { pool.complete("s", emptyList(), emptyList()) }.exceptionOrNull()

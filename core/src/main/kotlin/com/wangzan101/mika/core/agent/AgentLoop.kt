@@ -1051,8 +1051,8 @@ class AgentLoop(
             appendRuntimeState(history, place, labels, step, progress.pending(step))
             _state.value = TaskState.Running(step, "", progress = progress.state(step))
             val asked = now()
-            val reply = try {
-                caller.ask(history, TurnPolicy.finalTools(specs, tools::verb), step, onText = previewFor(step))
+            val (reply, used) = try {
+                caller.askRouted(history, TurnPolicy.finalTools(specs, tools::verb), step, onText = previewFor(step))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ModelError.TaskBudgetExceeded) {
@@ -1068,7 +1068,7 @@ class AgentLoop(
             acceptProgress(parsed)
             val text = parsed.text
             history += Message(Role.Assistant, cleanReplyParts(reply.parts, text), Author.Mika)
-                .also { caller.noteReply(it, caller.lastMainUsed, reply.usage) }
+                .also { caller.noteReply(it, used, reply.usage) }
             val calls = ReplyCalls(reply.parts, ::acceptProgress)
             val call = calls.actions.firstOrNull { tools.verb(it.name) in TurnPolicy.FINAL_VERBS }
             val retryWaitMs = caller.lastRetryWaitMs
@@ -1077,7 +1077,8 @@ class AgentLoop(
             emit(RunEvent.ModelReply(
                 now(), step, RunEvent.clip(Redactor.text(text)), call?.name, call?.let { Redactor.args(tools.verb(it.name), it.argsJson, secretField = false) },
                 reply.usage?.inputTokens, reply.usage?.outputTokens, reply.usage?.cachedInputTokens, latencyMs, retryWaitMs = retryWaitMs,
-                repliedAtMs = repliedAtMs,
+                model = used.name, role = if (caller.recordRoles) caller.roleOf(used) else null,
+                group = caller.groupOf(used), repliedAtMs = repliedAtMs,
             ))
             // 收尾模型也可能正在生成时收到插话。最多重答两次，其余交给下一任务。
             if (attempt < 2 && inbox?.hasSteers() == true) {
