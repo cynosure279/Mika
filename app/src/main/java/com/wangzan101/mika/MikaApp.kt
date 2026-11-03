@@ -472,7 +472,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             voicePlayback = voicePlayer.state,
             speakText = { text -> speak(text) },
             stopVoice = { voicePlayer.stop() },
-            personaStore = personas,
+            personaStore = if (FeatureFlags.get(this).persona()) personas else null,
         )
     }
 
