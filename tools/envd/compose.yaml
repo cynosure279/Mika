@@ -1,0 +1,29 @@
+services:
+  envd:
+    build: .
+    restart: unless-stopped
+    command:
+      - -listen
+      - 0.0.0.0:8787
+      - -data
+      - /data
+      - -token-file
+      - /run/secrets/envd_token
+    secrets:
+      - envd_token
+    volumes:
+      - envd_data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "127.0.0.1:8787:8787"
+
+secrets:
+  envd_token:
+    file: ./envd_token
+
+volumes:
+  envd_data:

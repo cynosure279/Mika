@@ -27,10 +27,12 @@
 | [chatgpt-signin-check.md](chatgpt-signin-check.md) | 上手机之前，在电脑上用 App 同一套代码走一遍「用 ChatGPT 登录」 |
 | [remote-device-access-check.md](remote-device-access-check.md) | 远程亮屏与解锁的验证记录 |
 | [remote-mcp.md](remote-mcp.md) | 自托管远程 CLI / MCP 的部署、手机鉴权和断线语义 |
+| [remote-env.md](remote-env.md) | 远端执行环境（envd）的 MCP 契约、部署、安全边界和路线图 |
 
 ## 仓库里别处的开发文档
 
 - [`eval/README.md`](../../eval/README.md)：真机评测。
 - [`tools/sandbox/README.md`](../../tools/sandbox/README.md)：沙箱原生程序和自带运行环境的重新构建。
+- [`tools/envd/README.md`](../../tools/envd/README.md)：自托管远端执行服务器的构建与部署（实验性）。
 
 开发文档目前除知识格式外只有中文版。
