@@ -28,7 +28,7 @@ import com.wangzan101.mika.takeover.Takeover
 import com.wangzan101.mika.task.SteerNote
 import com.wangzan101.mika.task.SteerState
 import com.wangzan101.mika.ui.PipPhysics.Corner
-import com.wangzan101.mika.core.cap.web.AttachedPage
+import com.wangzan101.mika.core.agent.AttachedPage
 import com.wangzan101.mika.core.userscreen.UserScreenMessage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow

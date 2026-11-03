@@ -42,7 +42,7 @@ class ChatCopyTest {
         assertEquals("a.pdf", ChatCopy.plainTitle("附件:/workspace/inbox/a.pdf(1 KB)"))
         assertEquals(ScreenCopy.TAG, ChatCopy.plainTitle("[[screen:s1]]"))
         // 在浏览器页上对着一页问的:页面说明不当标题
-        val paged = com.wangzan101.mika.core.cap.web.AttachedPage.compose(com.wangzan101.mika.core.cap.web.AttachedPage.Page("https://a.example/", "页"), "挑一个\n第二行")
+        val paged = com.wangzan101.mika.core.agent.AttachedPage.compose(com.wangzan101.mika.core.agent.AttachedPage.Page("https://a.example/", "页"), "挑一个\n第二行")
         assertEquals("挑一个", ChatCopy.plainTitle(paged))
     }
 

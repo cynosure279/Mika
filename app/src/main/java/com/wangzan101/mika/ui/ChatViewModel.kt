@@ -52,7 +52,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import com.wangzan101.mika.core.tool.ToolIndex
 import com.wangzan101.mika.core.assembly.knownTools
-import com.wangzan101.mika.core.cap.web.AttachedPage
+import com.wangzan101.mika.core.agent.AttachedPage
 import com.wangzan101.mika.core.userscreen.UserScreenMessage
 import kotlin.coroutines.CoroutineContext
 
