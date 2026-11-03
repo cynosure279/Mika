@@ -183,6 +183,7 @@ fun ModelSetupScreen(
                 onSave = { vm.saveGroup(it) },
                 onDelete = { vm.deleteGroup(it) },
                 ensureConfig = { p, m -> vm.ensureConfig(p, m) },
+                onSetContext = vm::setModelContext,
             )
         }
         groupsOpen -> {
@@ -843,19 +844,30 @@ private fun FallbackSection(ui: ModelSetupUi, role: ModelRole = ModelRole.Main, 
 }
 
 private fun hasModelContextControl(ui: ModelSetupUi, role: ModelRole): Boolean =
-    ui.roles[role] is RoleChoice.Model && ui.configFor(role) != null
+    (ui.roles[role] is RoleChoice.Model || ui.roles[role] is RoleChoice.Group) && ui.configFor(role) != null
 
 @Composable
 private fun ModelContextControl(ui: ModelSetupUi, role: ModelRole,
     onSave: (String, ModelContextSettings) -> Boolean, modifier: Modifier = Modifier,
 ) {
-    // 具体模型和组都能设;组先给排在最前的成员,成员级设置在组编辑页再补
+    // 具体模型和组都能设;组先给排在最前的成员,成员级设置在组编辑页
     if (ui.roles[role] !is RoleChoice.Model && ui.roles[role] !is RoleChoice.Group) return
     val cfg = ui.configFor(role) ?: return
     val saved = ui.providerOf(cfg)?.contextSettings?.get(cfg.model) ?: ModelContextSettings()
     var open by rememberSaveable(cfg.id) { mutableStateOf(false) }
     ModelOptionButton(stringResource(R.string.model_context_title), "context-${role.name.lowercase()}", modifier) { open = true }
     if (!open) return
+    ModelContextDialog(cfg, saved, "context", { settings -> onSave(cfg.id, settings) }) {
+        open = false
+    }
+}
+
+/** 一个模型配置的上下文窗口/压缩触发点;用途页和组编辑页共用。[onSave] 返回 false 时留在对话框上说明。 */
+@Composable
+internal fun ModelContextDialog(
+    cfg: ProviderConfig, saved: ModelContextSettings, tagPrefix: String,
+    onSave: (ModelContextSettings) -> Boolean, onDismiss: () -> Unit,
+) {
     var window by rememberSaveable(cfg.id) { mutableStateOf(saved.windowTokens?.toString().orEmpty()) }
     var trigger by rememberSaveable(cfg.id) { mutableStateOf(saved.triggerTokens?.toString().orEmpty()) }
     var readTimeout by rememberSaveable(cfg.id) { mutableStateOf(saved.readTimeoutSeconds?.toString().orEmpty()) }
@@ -870,7 +882,7 @@ private fun ModelContextControl(ui: ModelSetupUi, role: ModelRole,
     val badReadTimeout = readTimeout.isNotBlank() && settings.readTimeoutSeconds == null
     val keyboard = KeyboardOptions(keyboardType = KeyboardType.Number)
     MikaDialog(
-        onDismissRequest = { open = false },
+        onDismissRequest = onDismiss,
         modifier = Modifier.imePadding(),
         title = { Text(stringResource(R.string.model_context_title)) },
         text = {
@@ -878,13 +890,13 @@ private fun ModelContextControl(ui: ModelSetupUi, role: ModelRole,
                 Text(cfg.model)
                 Text(stringResource(R.string.model_context_note))
                 OutlinedTextField(window, { window = it; saveFailed = false },
-                    modifier = Modifier.fillMaxWidth().testTag("context-window"), singleLine = true, keyboardOptions = keyboard,
+                    modifier = Modifier.fillMaxWidth().testTag("$tagPrefix-window"), singleLine = true, keyboardOptions = keyboard,
                     label = { Text(stringResource(R.string.model_context_window)) },
                     placeholder = { Text(stringResource(R.string.model_context_auto, modelWindow)) },
                     supportingText = if (badWindow) ({ Text(stringResource(R.string.model_context_integer)) }) else null,
                     isError = badWindow)
                 OutlinedTextField(trigger, { trigger = it; saveFailed = false },
-                    modifier = Modifier.fillMaxWidth().testTag("context-trigger"), singleLine = true, keyboardOptions = keyboard,
+                    modifier = Modifier.fillMaxWidth().testTag("$tagPrefix-trigger"), singleLine = true, keyboardOptions = keyboard,
                     label = { Text(stringResource(R.string.model_context_trigger)) },
                     placeholder = { Text(stringResource(R.string.model_context_auto, limits.trigger)) },
                     supportingText = {
@@ -901,15 +913,15 @@ private fun ModelContextControl(ui: ModelSetupUi, role: ModelRole,
                     }) else null,
                     isError = badReadTimeout)
                 if (!badWindow && (trigger.isBlank() || settings.triggerTokens != null)) Text(stringResource(R.string.model_context_effective, limits.window, limits.trigger),
-                    modifier = Modifier.testTag("context-effective"))
+                    modifier = Modifier.testTag("$tagPrefix-effective"))
                 TextButton(onClick = { window = ""; trigger = ""; readTimeout = ""; saveFailed = false }) { Text(stringResource(R.string.reset)) }
                 if (saveFailed) Text(stringResource(R.string.model_context_save_failed), color = MikaTheme.colors.bad)
             }
         },
         confirmButton = { TextButton(onClick = {
-            if (onSave(cfg.id, settings)) open = false else saveFailed = true
-        }, enabled = !badWindow && !badTrigger && !badReadTimeout, modifier = Modifier.testTag("context-save")) { Text(stringResource(R.string.save)) } },
-        dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } },
+            if (onSave(settings)) onDismiss() else saveFailed = true
+        }, enabled = !badWindow && !badTrigger && !badReadTimeout, modifier = Modifier.testTag("$tagPrefix-save")) { Text(stringResource(R.string.save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 

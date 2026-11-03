@@ -24,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +33,7 @@ import com.wangzan101.mika.core.model.GroupLimits
 import com.wangzan101.mika.core.model.GroupMember
 import com.wangzan101.mika.core.model.GroupStrategy
 import com.wangzan101.mika.core.model.ModelGroup
+import com.wangzan101.mika.settings.ModelContextSettings
 import com.wangzan101.mika.ui.components.ButtonKind
 import com.wangzan101.mika.ui.components.ButtonSize
 import com.wangzan101.mika.ui.components.FooterNote
@@ -99,6 +101,7 @@ fun ModelGroupEditorScreen(
     onSave: suspend (ModelGroup) -> Boolean,
     onDelete: suspend (String) -> Unit,
     ensureConfig: suspend (String, String) -> String?,
+    onSetContext: (String, ModelContextSettings) -> Boolean = { _, _ -> false },
 ) {
     val c = MikaTheme.colors
     val scope = rememberCoroutineScope()
@@ -108,6 +111,7 @@ fun ModelGroupEditorScreen(
     var sticky by rememberSaveable(groupId) { mutableStateOf(existing?.sticky ?: true) }
     var members by remember(groupId) { mutableStateOf(existing?.members ?: emptyList()) }
     var adding by remember { mutableStateOf(false) }
+    var contextFor by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -157,6 +161,9 @@ fun ModelGroupEditorScreen(
                     Text(ModelsCopy.groupPriority(i + 1), style = MikaType.Caption, color = c.ink3, modifier = Modifier.weight(1f))
                     TextButton(onClick = { members = members.swapped(i, i - 1) }, enabled = i > 0, modifier = Modifier.testTag("group-up-$i")) { Text(ModelsCopy.GROUP_UP) }
                     TextButton(onClick = { members = members.swapped(i, i + 1) }, enabled = i < members.lastIndex, modifier = Modifier.testTag("group-down-$i")) { Text(ModelsCopy.GROUP_DOWN) }
+                    TextButton(onClick = { contextFor = m.configId }, modifier = Modifier.testTag("group-context-$i")) {
+                        Text(ModelsCopy.GROUP_CONTEXT)
+                    }
                     TextButton(onClick = { members = members.filterIndexed { j, _ -> j != i } }, modifier = Modifier.testTag("group-remove-$i")) {
                         Text(ModelsCopy.GROUP_REMOVE, color = c.bad)
                     }
@@ -205,6 +212,12 @@ fun ModelGroupEditorScreen(
                 }
             },
         )
+    }
+    contextFor?.let { id ->
+        ui.configOf(id)?.let { cfg ->
+            val saved = ui.providerOf(cfg)?.contextSettings?.get(cfg.model) ?: ModelContextSettings()
+            ModelContextDialog(cfg, saved, "group-context", { settings -> onSetContext(cfg.id, settings) }) { contextFor = null }
+        }
     }
     if (confirmDelete && existing != null) {
         AlertDialog(
