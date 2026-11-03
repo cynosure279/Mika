@@ -37,6 +37,17 @@ The debug build is not precompiled and its UI is several times slower; use the p
 - The sandbox's native binaries and bundled runtime are checked into the repository; to rebuild them see [`tools/sandbox/README.md`](../tools/sandbox/README.md).
 - For on-device evaluation see [`eval/README.md`](../eval/README.md).
 
+### CI
+
+Pull requests and pushes to `main` run on GitHub Actions ([`ci.yml`](workflows/ci.yml)); no secrets are required:
+
+- `core (JVM)`: `./gradlew :core:test`
+- `cli (Python)`: `./gradlew :core:cliTest` (Python 3.10+)
+- `app (Android)`: `./gradlew :app:testDebugUnitTest :app:assembleDebug`
+- `relay (Go)`: `./gradlew :core:relayTest`
+
+Reproduce locally with the commands above. The repository pins text files to LF in `.gitattributes`: goldens, prompts and the README are compared byte-for-byte, so line endings that vary by platform (for example an old Windows checkout with `core.autocrlf=true`) make tests and goldens disagree. If your working tree is not LF, re-checkout or convert it back to LF before running the tests or `-PupdateSnapshots`.
+
 ### Model configuration details
 
 - Three roles: the **main model** (does the work; must support tool calling), the **vision model** (describes the UI and locates things in screenshots; off by default on a fresh install, or choose "use main model"), and the **light model** (small jobs like judging outcomes, extracting memories and understanding intent; defaults to the main model).

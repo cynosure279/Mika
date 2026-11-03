@@ -37,6 +37,17 @@
 - 沙箱的原生程序和自带运行环境已在仓库里；重新构建见 [`tools/sandbox/README.md`](../tools/sandbox/README.md)。
 - 真机评测见 [`eval/README.md`](../eval/README.md)。
 
+### CI
+
+PR 和合入 `main` 的提交会在 GitHub Actions 上跑（[`ci.yml`](workflows/ci.yml)），不需要配置任何密钥：
+
+- `core (JVM)`：`./gradlew :core:test`
+- `cli (Python)`：`./gradlew :core:cliTest`（Python 3.10+）
+- `app (Android)`：`./gradlew :app:testDebugUnitTest :app:assembleDebug`
+- `relay (Go)`：`./gradlew :core:relayTest`
+
+本地按上面的命令逐项复现即可。仓库用 `.gitattributes` 把文本文件固定成 LF：金样、提示词和 README 都按字节比较，换行随平台变（例如 `core.autocrlf=true` 的旧 Windows 检出）会让测试和金样对不上。工作区不是 LF 时，先重新检出或把换行改回 LF，再运行测试或 `-PupdateSnapshots`。
+
 ### 模型配置细节
 
 - 三个用途：**主模型**（办事，要支持工具调用）、**看图模型**（描述界面、看图定位；新装默认不用，可选「用主模型」）、**轻量模型**（判断结局、提取记忆、理解意图等小事，默认用主模型）。
