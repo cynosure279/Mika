@@ -28,6 +28,8 @@ import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.skills.SkillNote
 import com.wangzan101.mika.memory.RunNotes
 import com.wangzan101.mika.settings.Prerequisites
+import com.wangzan101.mika.settings.Persona
+import com.wangzan101.mika.settings.PersonaStore
 import com.wangzan101.mika.settings.Problem
 import com.wangzan101.mika.takeover.Takeover
 import com.wangzan101.mika.task.SteerNote
@@ -263,6 +265,8 @@ enum class ComposerMode {
 data class ChatUi(
     val conversationId: String? = null,
     val exchanges: List<Exchange> = emptyList(),
+    /** 这个对话用的人格;新对话还没发第一句话时只是界面状态,发出去时写进旁文件。 */
+    val personaId: String? = null,
     /** 上次发送被拦下时缺的条件;为空表示没被拦。 */
     val blocked: List<Problem>? = null,
     val pip: PipUi = PipUi(),
@@ -367,12 +371,17 @@ class ChatViewModel(
     private val branchTitle: (String) -> String = { it },
     /** 读写对话记录、复制分支在哪儿做。 */
     private val io: CoroutineContext = Dispatchers.IO,
+    /** 人格;为 null 时不提供选择(测试或没有此功能)。 */
+    private val personaStore: PersonaStore? = null,
 ) {
     /** 用户在对话页上关掉留在后台的那一页。 */
     fun closeKeptPage() = closeKept()
 
     private val _ui = MutableStateFlow(ChatUi())
     val ui: StateFlow<ChatUi> = _ui.asStateFlow()
+
+    /** 可选的人格;没有人格存储时是空列表。 */
+    val personas: StateFlow<List<Persona>> = personaStore?.personas ?: MutableStateFlow(emptyList())
 
     /** 删掉了(或正在删)的对话:侧栏当场不再列出,不等删完。 */
     private val _deleted = MutableStateFlow<Set<String>>(emptySet())
@@ -710,6 +719,11 @@ class ChatViewModel(
     /** 在对话 [id] 里开始新任务 [goal]:界面上加一问一答,交给服务(并行关着、服务还忙时排在它收尾后面)。 */
     private fun begin(goal: String, id: String) {
         lingerJob?.cancel()
+        // 新对话选好的人格在交给服务之前写进旁文件;任务开局按它读。
+        // 已经有绑定、界面又没选(例如重建后还没读出来)时只补选中的,不把已有绑定删掉。
+        _ui.value.personaId?.let { selected ->
+            if (store.persona(id)?.personaId != selected) runCatching { store.setPersona(id, selected) }
+        }
         // 这个对话的编号定下来了:胶囊之后接着它(新开的对话到这一刻才有编号)
         markCurrent(CurrentChat.Open(id))
         // 上一个任务收尾时先撤屏再报结束,这里读到的就是新任务开始前的样子;
@@ -806,7 +820,7 @@ class ChatViewModel(
         when {
             current == null -> {
                 if (!s.active()) return
-                _ui.update { it.copy(conversationId = conversationId, exchanges = saved(conversationId)) }
+                _ui.update { it.copy(conversationId = conversationId, exchanges = saved(conversationId), personaId = personaFor(conversationId)) }
             }
             current != conversationId -> {
                 val live = _ui.value.exchanges.getOrNull(liveIndex)
@@ -829,7 +843,7 @@ class ChatViewModel(
         val past = saved(conversationId)
         liveIndex = -1
         // 没有任务的对话不带别的任务的接管进度
-        _ui.update { ChatUi(conversationId = conversationId, exchanges = past, takeoverStage = Takeover.Stage.None) }
+        _ui.update { ChatUi(conversationId = conversationId, exchanges = past, takeoverStage = Takeover.Stage.None, personaId = personaFor(conversationId)) }
         markCurrent(CurrentChat.Open(conversationId))
         if (conversationId !in activeConversations.value) { unpark(conversationId); return }
         follow(conversationId, unpark(conversationId))
@@ -977,6 +991,25 @@ class ChatViewModel(
         _ui.update { it.copy(pip = gated(it.pip)) }
     }
 
+    /** 这个对话存下的人格 id;没有为 null。 */
+    private fun personaFor(conversationId: String?): String? = conversationId?.let { store.persona(it)?.personaId }
+
+    /**
+     * 换这个对话用的人格;null 表示回到默认。任务在跑或排队时不允许切换。
+     * 已经说过话的对话当场写旁文件;新对话只记在界面状态里,第一句话发送时由 [begin] 写。
+     */
+    fun selectPersona(personaId: String?): Boolean {
+        if (!canSwitchPersona()) return false
+        if (personaId != null && personaStore?.get(personaId) == null) return false
+        val id = _ui.value.conversationId
+        if (id != null && store.turns(id).isNotEmpty()) runCatching { store.setPersona(id, personaId) }
+        _ui.update { it.copy(personaId = personaId) }
+        return true
+    }
+
+    /** 这个对话此刻能不能换人格:没有任务在跑,也没有排队的。 */
+    fun canSwitchPersona(): Boolean = !busy() && !currentRunning()
+
     /** 切到某个对话;任务在跑时不切。 */
     fun openConversation(id: String) {
         refreshParallel()
@@ -984,7 +1017,7 @@ class ChatViewModel(
         if (busy()) return
         val past = saved(id)
         liveIndex = -1
-        _ui.update { ChatUi(conversationId = id, exchanges = past, takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled) }
+        _ui.update { ChatUi(conversationId = id, exchanges = past, takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled, personaId = personaFor(id)) }
         markCurrent(CurrentChat.Open(id))
         // 这个对话的任务是别处开始的(悬浮胶囊、定时任务):打开就接上它
         if (id in activeConversations.value) follow(id)

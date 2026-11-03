@@ -84,6 +84,8 @@ fun SettingsScreen(
     onOpenAbout: () -> Unit = {},
     /** 外部 MCP server 设置(outbound);为空时不显示入口。 */
     mcpServers: com.wangzan101.mika.settings.McpServerStore? = null,
+    /** 人格设置;为空时不显示入口。 */
+    onOpenPersonas: (() -> Unit)? = null,
 ) {
     val configs by store.configs.collectAsState()
     val roles by store.roles.collectAsState()
@@ -160,6 +162,7 @@ fun SettingsScreen(
             onOpenNotifications = { page = SettingsPage.Notifications },
             language = language, onOpenLanguage = { page = SettingsPage.Language },
             onOpenMemory = onOpenMemory,
+            onOpenPersonas = onOpenPersonas,
             onOpenAdvanced = { page = SettingsPage.Advanced },
             versionName = BuildConfig.VERSION_NAME, updateVersion = updateVersion, onOpenAbout = onOpenAbout,
         )
@@ -254,6 +257,7 @@ fun SettingsContent(
     language: AppLanguage = AppLanguage.System,
     onOpenLanguage: () -> Unit = {},
     onOpenMemory: (() -> Unit)? = null,
+    onOpenPersonas: (() -> Unit)? = null,
     onOpenAdvanced: () -> Unit = {},
     versionName: String = "",
     updateVersion: String? = null,
@@ -294,7 +298,10 @@ fun SettingsContent(
             onOpenMemory?.let {
                 ListRow(MikaIcons.Heart, stringResource(R.string.settings_memory_data), stringResource(R.string.settings_memory_sub), first = true, onClick = it) { RowChevron() }
             }
-            ListRow(MikaIcons.Shield, stringResource(R.string.appaccess_title), stringResource(R.string.appaccess_row_sub), first = onOpenMemory == null, onClick = onOpenAppAccess) { RowChevron() }
+            onOpenPersonas?.let {
+                ListRow(MikaIcons.Spark, stringResource(R.string.persona_title), stringResource(R.string.persona_sub), first = onOpenMemory == null, onClick = it) { RowChevron() }
+            }
+            ListRow(MikaIcons.Shield, stringResource(R.string.appaccess_title), stringResource(R.string.appaccess_row_sub), first = onOpenMemory == null && onOpenPersonas == null, onClick = onOpenAppAccess) { RowChevron() }
         }
 
         GroupLabel(stringResource(R.string.settings_other))

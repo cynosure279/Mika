@@ -336,6 +336,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
                     },
                     voice = app.voice,
                     openSpeechModel = { nav.push(Route.SpeechModel) },
+                    onOpenPersonas = { nav.push(Route.Persona) },
                 )
             }
         }
@@ -343,11 +344,13 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
             val autonomous by app.approvals.autonomous.collectAsState()
             SettingsScreen(store, status, release, onFix, onBack = back, onOpenMemory = { nav.push(Route.Memory) },
                 onOpenModels = { nav.push(Route.Models) },
+                onOpenPersonas = { nav.push(Route.Persona) },
                 autonomous = autonomous, onAutonomous = app.approvalControl::setAutonomous,
                 updateVersion = updateState.update?.version, onOpenAbout = { nav.push(Route.About) },
                 mcpServers = app.mcpServers)
         }
         Route.Models -> ModelsScreen(store, onBack = back, onOpenSpeech = { nav.push(Route.SpeechModel) }, onOpenUsage = { nav.push(Route.Usage) })
+        Route.Persona -> PersonaScreen(app.personas, onBack = back)
         Route.Usage -> UsageScreen(app.usage, store.providers, onBack = back)
         Route.SpeechModel -> SpeechModelScreen(store, onBack = back)
         Route.About -> AboutScreen(

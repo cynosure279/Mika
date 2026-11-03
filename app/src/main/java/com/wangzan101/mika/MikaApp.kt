@@ -119,6 +119,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             },
         )
     }
+
+    /** 人格:命名的自定义提示词层,存在 settings 目录;不加密,不含密钥。 */
+    val personas by lazy { com.wangzan101.mika.settings.PersonaStore(java.io.File(filesDir, "settings")) }
     override val tabBudget get() = resources.tabBudget
 
     /** 任务结束后留在后台接着运行的那一页;关掉时在来源对话那一轮记下原因(对话页那一轮下面显示「后台网页已关闭」)。 */
@@ -313,6 +316,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             branchWorkspace = AndroidBranchWorkspace(app),
             // 标题后面加当前界面语言的「分支」后缀;源标题太长时先截短,后缀留着
             branchTitle = { base -> ChatCopy.branchTitle(base, tr(R.string.chat_branch_title_suffix)) },
+            personaStore = personas,
         )
     }
 

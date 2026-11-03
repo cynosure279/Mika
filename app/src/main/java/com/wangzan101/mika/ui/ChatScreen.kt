@@ -179,8 +179,12 @@ fun ChatScreen(
     voice: VoiceSource? = null,
     /** 「还不能语音输入」里的「去选」。 */
     openSpeechModel: () -> Unit = {},
+    /** 人格选择器里的「管理人格」:打开设置里的人格页。 */
+    onOpenPersonas: () -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
+    val personas by vm.personas.collectAsState()
+    var personaPicker by remember { mutableStateOf(false) }
     val others by vm.otherRunning.collectAsState()
     val keptAny by vm.keptPage.collectAsState()
     // 只管这个对话留下的那一页
@@ -374,7 +378,27 @@ fun ChatScreen(
             steerTarget = last?.goal?.let(ChatCopy::plainTitle),
             onVoiceHolding = { voiceHolding = it },
             editRequest = editRequest,
+            personaBar = if (personas.isNotEmpty() || ui.personaId != null) {
+                {
+                    PersonaChip(
+                        current = ui.personaId,
+                        personas = personas,
+                        enabled = vm.canSwitchPersona(),
+                        onClick = { personaPicker = true },
+                    )
+                }
+            } else null,
         )
+
+        if (personaPicker) {
+            PersonaPicker(
+                current = ui.personaId,
+                personas = personas,
+                onSelect = { vm.selectPersona(it) },
+                onManage = { personaPicker = false; onOpenPersonas() },
+                onDismiss = { personaPicker = false },
+            )
+        }
 
         AgentPip(
             pip = ui.pip,
@@ -1167,6 +1191,8 @@ internal fun Composer(
     steerTarget: String? = null,
     /** 按着说话时为 true:对话内容跟着虚化。 */
     onVoiceHolding: (Boolean) -> Unit = {},
+    /** 输入栏上方的人格 chip;为 null 时不显示。 */
+    personaBar: (@Composable () -> Unit)? = null,
 ) {
     val c = MikaTheme.colors
     val vh = rememberVoiceHold(voice, onVoiceText)
@@ -1242,6 +1268,7 @@ internal fun Composer(
             .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
     ) {
         Column(Modifier.fillMaxWidth()) {
+            personaBar?.let { it() }
             quote?.let { QuoteChip(it, onRemoveQuote, Modifier.padding(bottom = 6.dp)) }
             if (attachments.isNotEmpty()) PendingTray(attachments, onRemove, Modifier.padding(bottom = 2.dp))
             if (importing || rejected.isNotEmpty() || overLimit > 0) {

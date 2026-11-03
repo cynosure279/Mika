@@ -2,6 +2,7 @@ package com.wangzan101.mika.chat
 
 import android.content.Context
 import com.wangzan101.mika.core.agent.Turn
+import com.wangzan101.mika.settings.PersonaStore
 import com.wangzan101.mika.core.memory.MemoryNote
 import com.wangzan101.mika.core.memory.NoteKind
 import com.wangzan101.mika.core.skills.SkillNote
@@ -18,6 +19,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import java.io.File
@@ -118,7 +120,8 @@ class ConversationStore(private val dir: File) {
         val main = file(conversationId).name
         dir.listFiles { f ->
             f.isFile && (f.name == main || f.name.startsWith("$main.") || f.name == titleFile(conversationId).name || f.name == pinFile(conversationId).name ||
-                f.name == pageFile(conversationId).name || f.name == branchFile(conversationId).name)
+                f.name == pageFile(conversationId).name || f.name == branchFile(conversationId).name ||
+                f.name == personaFile(conversationId).name || f.name == personaFile(conversationId).name + ".tmp")
         }
             .orEmpty().forEach { it.delete() }
         // 删掉的正是用户此刻在的那个:不再指着它,胶囊回落到最近那个
@@ -191,6 +194,68 @@ class ConversationStore(private val dir: File) {
     }
 
     /**
+     * 这个对话用的人格;没有、读不到、id 不合法为 null。放在 `<id>.persona` 里(JSON:version、current、history)。
+     * 人格被删除后旁文件仍在:调用方拿 [PersonaBinding.personaId] 去 PersonaStore 找不到,就当缺失处理。
+     */
+    @Synchronized
+    fun persona(conversationId: String): PersonaBinding? = runCatching {
+        val f = personaFile(conversationId).takeIf { it.isFile } ?: return@runCatching null
+        val o = Json.parseToJsonElement(f.readText()) as? JsonObject ?: return@runCatching null
+        val current = str(o, "current")?.takeIf(PersonaStore::isValidId) ?: return@runCatching null
+        val history = objects(o, "history").mapNotNull { h ->
+            val to = str(h, "to")?.takeIf(PersonaStore::isValidId) ?: return@mapNotNull null
+            val at = (h["at"] as? JsonPrimitive)?.contentOrNull?.toLongOrNull() ?: return@mapNotNull null
+            PersonaSwitch(at, str(h, "from")?.takeIf(PersonaStore::isValidId), to)
+        }
+        PersonaBinding(current, history.takeLast(MAX_PERSONA_HISTORY))
+    }.getOrNull()
+
+    /**
+     * 换掉这个对话用的人格;null 表示回到默认(删掉旁文件)。写进去了返回 true。
+     * 切换追加一条 history(最多 [MAX_PERSONA_HISTORY] 条),同一个人格重复写不追加;先写临时文件再改名。
+     */
+    @Synchronized
+    fun setPersona(conversationId: String, personaId: String?, at: Long = System.currentTimeMillis()): Boolean {
+        if (safe(conversationId) in deleted) return false
+        val f = personaFile(conversationId)
+        if (personaId == null) {
+            val ok = !f.exists() || f.delete()
+            if (ok) _changes.tryEmit(conversationId)
+            return ok
+        }
+        if (!PersonaStore.isValidId(personaId)) return false
+        val previous = persona(conversationId)
+        val history = buildList {
+            addAll(previous?.history.orEmpty())
+            previous?.personaId?.takeIf { it != personaId }?.let { add(PersonaSwitch(at, it, personaId)) }
+        }.takeLast(MAX_PERSONA_HISTORY)
+        val json = buildJsonObject {
+            put("version", 1)
+            put("current", personaId)
+            put("history", buildJsonArray {
+                history.forEach { h ->
+                    add(buildJsonObject {
+                        put("at", h.at)
+                        h.from?.let { put("from", it) }
+                        put("to", h.to)
+                    })
+                }
+            })
+        }
+        dir.mkdirs()
+        val tmp = File(dir, "${f.name}.tmp")
+        val ok = runCatching {
+            tmp.writeText(json.toString())
+            if (!tmp.renameTo(f)) {
+                f.writeText(json.toString())
+                tmp.delete()
+            }
+        }.isSuccess
+        if (ok) _changes.tryEmit(conversationId)
+        return ok
+    }
+
+    /**
      * 把 [sourceId] 的轮次复制成新对话 [targetId],复制到 [throughTurn](0 起,含在内)为止。
      * 源不存在、源文件损坏、[throughTurn] 越界、目标已有对话文件时返回 false,什么都不写。
      * [title] 非空白时写成新对话标题;[origin] 非空时写 `<targetId>.branch`。
@@ -230,6 +295,8 @@ class ConversationStore(private val dir: File) {
         write(targetId, records.take(if (includeTurn) turn + 1 else turn))
         title?.let { writeTitle(targetId, it) }
         pageOrigin(sourceId)?.let { setPageOrigin(targetId, it) }
+        // 人格跟着对话走;切换记录不复制,新对话从当前这一份开始
+        persona(sourceId)?.let { setPersona(targetId, it.personaId) }
         origin?.let { writeBranchOrigin(targetId, it) }
         return true
     }
@@ -389,6 +456,9 @@ class ConversationStore(private val dir: File) {
 
         /** `current` 文件里表示「新开还没说话的对话」的那个值(对话编号只会是字母数字、`-`、`_`,不会撞上)。 */
         private const val CURRENT_FRESH = "fresh"
+
+        /** 人格切换记录最多留这么多条。 */
+        private const val MAX_PERSONA_HISTORY = 50
     }
 
     // id 来自 newConversation 或外部传入,只留安全字符,免得拼出目录外的路径
@@ -397,6 +467,7 @@ class ConversationStore(private val dir: File) {
     private fun pinFile(id: String) = File(dir, "${safe(id)}.pin")
     private fun pageFile(id: String) = File(dir, "${safe(id)}.page")
     private fun branchFile(id: String) = File(dir, "${safe(id)}.branch")
+    private fun personaFile(id: String) = File(dir, "${safe(id)}.persona")
 
     /** 用户此刻在哪个对话,见 [CurrentChat];不是 `.json`,不进 [list]。 */
     private fun currentFile() = File(dir, "current")
@@ -411,6 +482,12 @@ data class ConversationSummary(
     val page: PageOrigin? = null,
     val branchOf: BranchOrigin? = null,
 )
+
+/** 对话用的人格和切换记录;人格本身在 PersonaStore 里,这里只存 id。 */
+data class PersonaBinding(val personaId: String, val history: List<PersonaSwitch> = emptyList())
+
+/** 一次人格切换:[from] 为 null 表示从默认换过来。 */
+data class PersonaSwitch(val at: Long, val from: String?, val to: String)
 
 /** 分支来源:从 [parentId] 的第 [parentTurn] 轮(0 起)分出来的;[afterTurn] 为 false 时是复制到这一轮之前(第 2 阶段从用户消息重新问)。 */
 data class BranchOrigin(val parentId: String, val parentTurn: Int, val afterTurn: Boolean, val at: Long)
