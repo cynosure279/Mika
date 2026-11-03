@@ -236,7 +236,7 @@ func writeTextFile(root, p string, content []byte, appendMode bool, maxBytes int
 		_ = os.Remove(tmp)
 		return 0, err
 	}
-	if err := os.Rename(tmp, full); err != nil {
+	if err := replaceFile(tmp, full); err != nil {
 		_ = os.Remove(tmp)
 		return 0, err
 	}

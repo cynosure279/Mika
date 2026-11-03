@@ -22,8 +22,13 @@ func newTestServer(t *testing.T) (*httptest.Server, *Server) {
 
 func newTestServerWith(t *testing.T, cfg config, readOnly bool) (*httptest.Server, *Server) {
 	t.Helper()
+	return newTestServerWithRoots(t, cfg, readOnly)
+}
+
+func newTestServerWithRoots(t *testing.T, cfg config, readOnly bool, roots ...string) (*httptest.Server, *Server) {
+	t.Helper()
 	dir := t.TempDir()
-	store, err := OpenStore(dir, readOnly)
+	store, err := OpenStore(dir, readOnly, roots...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,6 +266,9 @@ func TestEnvironmentLifecycle(t *testing.T) {
 }
 
 func TestExec(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test commands use a Unix shell")
+	}
 	ts, _ := newTestServer(t)
 	id := createEnv(t, ts, "exec")
 
@@ -396,6 +404,9 @@ func TestUploadDownloadAndBinary(t *testing.T) {
 }
 
 func TestOutputTruncation(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test command uses a Unix shell")
+	}
 	ts, _ := newTestServerWith(t, config{maxExec: 1, maxOutput: 16}, false)
 	id := createEnv(t, ts, "truncate")
 	out := callJSON[struct {
@@ -404,5 +415,93 @@ func TestOutputTruncation(t *testing.T) {
 	}](t, ts, "exec", map[string]any{"env": id, "command": "printf 'abcdefghijklmnopqrstuvwxyz'"})
 	if !out.Truncated || len(out.Stdout) != 16 {
 		t.Fatalf("truncate: %+v", out)
+	}
+}
+
+func TestAttachExistingDirectory(t *testing.T) {
+	base := t.TempDir()
+	allowed := filepath.Join(base, "allowed")
+	shared := filepath.Join(allowed, "shared")
+	if err := os.MkdirAll(shared, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(shared, "keep.txt"), []byte("keep"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ts, srv := newTestServerWithRoots(t, config{maxExec: 1, maxOutput: 1 << 20}, false, allowed)
+
+	attached := callJSON[struct {
+		Environment struct {
+			ID       string `json:"id"`
+			Attached bool   `json:"attached"`
+		} `json:"environment"`
+	}](t, ts, "env_create", map[string]any{"name": "phone", "path": shared})
+	if attached.Environment.ID == "" || !attached.Environment.Attached {
+		t.Fatalf("attach: %+v", attached)
+	}
+	id := attached.Environment.ID
+
+	read := callJSON[struct {
+		Content string `json:"content"`
+	}](t, ts, "read_file", map[string]any{"env": id, "path": "keep.txt"})
+	if read.Content != "keep" {
+		t.Fatalf("read attached: %q", read.Content)
+	}
+	callJSON[struct{}](t, ts, "write_file", map[string]any{"env": id, "path": "new.txt", "content": "new"})
+	if err := os.WriteFile(filepath.Join(shared, "outside.txt"), []byte("outside"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	read2 := callJSON[struct {
+		Content string `json:"content"`
+	}](t, ts, "read_file", map[string]any{"env": id, "path": "outside.txt"})
+	if read2.Content != "outside" {
+		t.Fatalf("read external file: %q", read2.Content)
+	}
+
+	// Cloning an attached environment copies it into a managed workspace.
+	clone := callJSON[struct {
+		Environment struct {
+			ID       string `json:"id"`
+			Attached bool   `json:"attached"`
+		} `json:"environment"`
+	}](t, ts, "env_clone", map[string]any{"source": id, "name": "phone-copy"})
+	if clone.Environment.Attached {
+		t.Fatal("clone must be a managed environment")
+	}
+
+	// An attached environment is visible only with the same -allow-root.
+	if _, err := OpenStore(srv.store.dataDir, false, allowed); err != nil {
+		t.Fatalf("reload with allowed root: %v", err)
+	}
+	if _, err := OpenStore(srv.store.dataDir, false); err == nil {
+		t.Fatal("reload without -allow-root must fail")
+	}
+
+	// Deleting an attached environment keeps the user's directory.
+	if _, isErr := callTool(t, ts, "env_delete", map[string]any{"id": id, "confirm": id}); isErr {
+		t.Fatal("delete attached failed")
+	}
+	if _, err := os.Stat(filepath.Join(shared, "keep.txt")); err != nil {
+		t.Fatalf("attached files were removed: %v", err)
+	}
+	if _, err := OpenStore(srv.store.dataDir, false, allowed); err != nil {
+		t.Fatalf("reload after delete: %v", err)
+	}
+}
+
+func TestAttachRequiresAllowRoot(t *testing.T) {
+	ts, _ := newTestServer(t)
+	dir := t.TempDir()
+	if text, isErr := callTool(t, ts, "env_create", map[string]any{"name": "nope", "path": dir}); !isErr || !strings.Contains(text, "attach_not_allowed") {
+		t.Fatalf("attach without allow-root: %s (isErr=%v)", text, isErr)
+	}
+}
+
+func TestAttachOutsideAllowedRoot(t *testing.T) {
+	allowed := t.TempDir()
+	outside := t.TempDir()
+	ts, _ := newTestServerWithRoots(t, config{maxExec: 1, maxOutput: 1 << 20}, false, allowed)
+	if text, isErr := callTool(t, ts, "env_create", map[string]any{"name": "nope", "path": outside}); !isErr || !strings.Contains(text, "outside") {
+		t.Fatalf("attach outside: %s (isErr=%v)", text, isErr)
 	}
 }

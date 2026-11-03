@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -19,14 +18,24 @@ const (
 )
 
 type config struct {
-	listen    string
-	dataDir   string
-	tokenFile string
-	readOnly  bool
-	maxExec   int
-	maxOutput int
-	tlsCert   string
-	tlsKey    string
+	listen     string
+	dataDir    string
+	tokenFile  string
+	readOnly   bool
+	maxExec    int
+	maxOutput  int
+	allowRoots []string
+	tlsCert    string
+	tlsKey     string
+}
+
+type stringList []string
+
+func (s *stringList) String() string { return strings.Join(*s, ",") }
+
+func (s *stringList) Set(value string) error {
+	*s = append(*s, value)
+	return nil
 }
 
 func main() {
@@ -37,6 +46,7 @@ func main() {
 	flag.BoolVar(&cfg.readOnly, "read-only", false, "disable exec, writes, create, clone and delete")
 	flag.IntVar(&cfg.maxExec, "max-exec", 4, "maximum concurrent commands")
 	flag.IntVar(&cfg.maxOutput, "max-output", 1<<20, "maximum captured bytes per output stream")
+	flag.Var((*stringList)(&cfg.allowRoots), "allow-root", "existing directory that env_create may attach with path (repeatable)")
 	flag.StringVar(&cfg.tlsCert, "tls-cert", "", "TLS certificate (optional; otherwise terminate TLS in a reverse proxy)")
 	flag.StringVar(&cfg.tlsKey, "tls-key", "", "TLS private key")
 	flag.Parse()
@@ -54,7 +64,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	store, err := OpenStore(cfg.dataDir, cfg.readOnly)
+	store, err := OpenStore(cfg.dataDir, cfg.readOnly, cfg.allowRoots...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -68,7 +78,7 @@ func main() {
 		MaxHeaderBytes:    1 << 20,
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), shutdownSignals()...)
 	defer stop()
 
 	errCh := make(chan error, 1)

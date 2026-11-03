@@ -1,6 +1,6 @@
 # 远端执行环境（envd）
 
-> 状态：实验性，第一版。只实现了 workspace 后端和 MCP 传输；容器后端、流式输出、大文件传输、会话级环境选择尚未实现。默认行为不变：Mika 仍然使用手机上的 Alpine 沙箱。
+> 状态：实验性，第一版。实现了 workspace 后端、MCP 传输、跨平台裸机运行和显式挂载已有目录；流式输出、大文件传输、会话级环境选择尚未实现。默认行为不变：Mika 仍然使用手机上的 Alpine 沙箱。
 
 ## 这是什么
 
@@ -19,12 +19,15 @@
 
 ## 架构
 
-```
-Mika（手机） ── MCP over HTTPS ──> envd（用户自己的机器 / 容器）
+```text
+Mika（手机） ── MCP over HTTPS ──> envd（用户自己的机器 / 容器 / Termux）
                                       │
                                       ├── envs.json          环境元数据
-                                      └── envs/<id>/root/   环境工作区
+                                      ├── envs/<id>/root/    托管环境的工作区
+                                      └── -allow-root/...    显式挂载的已有目录
 ```
+
+envd 是一个静态二进制，Linux、macOS、Windows 和 Termux（linux-arm64）都能跑。桌面端的 Docker Compose 只是推荐的安全包装，不是运行前提。
 
 - 传输：MCP Streamable HTTP，JSON-RPC，单个 JSON 响应；不使用 SSE 流。
 - 鉴权：`Authorization: Bearer <token>`，令牌从文件读取，常量时间比较。
@@ -61,11 +64,11 @@ Mika（手机） ── MCP over HTTPS ──> envd（用户自己的机器 / �
 | 工具 | 参数 | 说明 | 注解 |
 | --- | --- | --- | --- |
 | `env_info` | 无 | 服务版本、环境数量、只读状态、限制 | readOnly |
-| `env_list` | 无 | 列出环境：`id`、`name`、`kind`、`createdAt` | readOnly |
-| `env_create` | `name` | 新建 workspace 环境 | 写 |
+| `env_list` | 无 | 列出环境：`id`、`name`、`kind`、`attached`、`createdAt` | readOnly |
+| `env_create` | `name`、`path?` | 新建空工作区；给了 `path` 时挂载 `-allow-root` 下的已有目录 | 写 |
 | `env_clone` | `source`、`name` | 复制环境工作区；复制期间源环境的命令会等待 | 写 |
 | `env_delete` | `id`、`confirm` | 删除环境；`confirm` 必须等于 `id` | destructive |
-| `exec` | `env`、`command`、`cwd?`、`timeoutSec?` | 运行 `/bin/sh -c command`，返回退出码、stdout、stderr、耗时 | destructive |
+| `exec` | `env`、`command`、`cwd?`、`timeoutSec?` | 运行平台 shell（Unix 是 `/bin/sh -c`，Windows 是 `cmd.exe /C`），返回退出码、stdout、stderr、耗时 | destructive |
 | `read_file` | `env`、`path`、`maxBytes?` | 读文本文件；二进制拒绝 | readOnly |
 | `write_file` | `env`、`path`、`content`、`append?` | 写文本文件，原子替换 | 写 |
 | `upload_file` | `env`、`path`、`contentBase64` | 上传小文件（≤ 1 MiB 解码后） | 写 |
@@ -95,25 +98,29 @@ Mika（手机） ── MCP over HTTPS ──> envd（用户自己的机器 / �
 ### 环境生命周期
 
 - 环境 ID 由服务端生成，形如 `env-1a2b3c4d`；名字 1–64 个字符，不能重名。
-- 环境目录：`<data>/envs/<id>/root/`。
-- `env_create` 只创建空工作区。第一版没有镜像/模板参数；容器后端在后续版本加入。
-- `env_clone` 复制工作区内容。运行中的命令会阻塞复制；复制失败会删掉半成品。
-- `env_delete` 需要 `confirm` 等于环境 ID，删除元数据和整个工作区。
+- 托管环境目录：`<data>/envs/<id>/root/`。
+- `env_create` 默认创建空工作区。给了 `path` 时，它必须是 `-allow-root` 下的一个已存在目录（绝对路径或相对当前进程的路径），环境直接指向它，不复制内容。`-allow-root` 可以重复；没有配置时不能挂载。
+- `env_clone` 复制工作区内容。运行中的命令会阻塞复制；复制失败会删掉半成品。挂载的目录被 clone 后，新环境是托管副本，不再指向原目录。
+- `env_delete` 需要 `confirm` 等于环境 ID。托管环境删除整个工作区；挂载环境**只删元数据，不删用户文件**。
+- 服务启动时会重新核对挂载环境仍在某个 `-allow-root` 下；配置变了或目录不可用，服务拒绝启动，不静默降级。
 - 元数据原子写入 `<data>/envs.json`；文件损坏时服务拒绝启动，不会覆盖。
 
 ## 安全模型
 
-远端执行是**真实主机权限**，和手机沙箱「碰不到手机」的安全故事不同。部署和使用时至少做到：
+远端执行是**真实主机权限**，和手机沙箱「碰不到手机」的安全故事不同。envd 本身是一个可移植的静态二进制，可以裸机、容器或 Termux 里跑；隔离强弱取决于部署方式，不是环境类型。
 
 - 只监听回环或私有网络；公网必须放在 TLS 反向代理后面，并限制来源。
 - 使用长随机令牌（至少 32 字符），通过文件提供，不进命令行、不进日志。
-- 把 envd 跑在容器或专用虚拟机里；第一版不提供每环境隔离，`exec` 能访问 envd 用户能访问的一切。
-- 需要更强隔离时，在宿主机上为 envd 单独建用户/容器，只挂载数据目录。
-- `-read-only` 可关闭 `exec`、写入、创建、克隆和删除，只保留读取。
+- **裸机运行没有隔离**：`exec` 能访问 envd 用户能访问的一切。建议专用用户、专用目录；只读场景用 `-read-only`。
+- **桌面端推荐用容器包装**：仓库里的 Dockerfile / compose 以非 root、只读根、`cap_drop: ALL`、`no-new-privileges` 运行，默认只发布到回环。它缩小影响面，但不是完整沙箱。
+- **挂载已有目录必须显式开启**：`-allow-root` 可重复；`env_create` 的 `path` 必须落在其中一个根下。默认不挂任何外部目录，不能挂整盘。挂载环境删除时只删元数据，不删用户文件。
+- Windows 支持是 best-effort：Unix 权限、符号链接和硬链接保护不完整。
 - 远端输出是不可信观察；模型不能把输出当成指令。
 - 手机侧应逐环境显式添加/启用，不默认把数据送出手机。
 
 ## 部署
+
+### 桌面端：容器安全套件（推荐）
 
 ```sh
 cd tools/envd
@@ -122,13 +129,55 @@ chmod 600 envd_token
 docker compose up -d --build
 ```
 
-默认只发布到 `127.0.0.1:8787`。公网或跨网络使用时，在前面放自己的 TLS 反向代理，把 `/mcp` 转发到 envd；不要直接把明文端口暴露到公网。
+容器以非 root、只读根、`cap_drop: ALL`、`no-new-privileges` 运行，默认只发布到 `127.0.0.1:8787`。公网或跨网络使用时，在前面放自己的 TLS 反向代理，把 `/mcp` 转发到 envd；不要直接把明文端口暴露到公网。
 
-不使用 Docker 时：
+### 裸机
+
+同一份静态二进制可以直接运行：
 
 ```sh
-go build -o mika-envd .
+go build -trimpath -o mika-envd .
 ./mika-envd -listen 127.0.0.1:8787 -data ./data -token-file ./envd_token
+```
+
+挂载一个已有目录（例如项目目录、NAS 目录）：
+
+```sh
+./mika-envd -listen 127.0.0.1:8787 -data ./data -token-file ./envd_token \
+  -allow-root /srv/projects
+```
+
+然后在 `env_create` 里传 `path: "/srv/projects/my-app"`。挂载环境删除时不会删这个目录。
+
+### Termux / 手机
+
+Termux 是 Android 上的 Linux arm64 用户空间，可以直接跑 `GOOS=linux GOARCH=arm64` 的静态二进制。典型做法：
+
+```sh
+# 在 Termux 里
+pkg install golang
+cd mika/tools/envd
+go build -trimpath -o mika-envd .
+termux-setup-storage          # 授权后 ~/storage/shared 指向共享存储
+./mika-envd -listen 127.0.0.1:18787 -data ~/envd -token-file ~/envd/token \
+  -allow-root ~/storage/shared
+```
+
+然后在 Mika 的设置 › MCP 服务器里连 `http://127.0.0.1:18787/mcp`（本地 HTTP 需要在设置里允许），只把共享存储里的某个子目录作为 `path` 挂进来，不要挂整个 `/sdcard`。
+
+限制：
+
+- Termux 的后台存活受 Android 限制；需要 wake lock、关闭电池优化，或者接受只在 Termux 打开时可用。
+- `termux-setup-storage` 的授权范围和 Android 版本、Termux 发行版有关；挂载前先确认目标目录真的可读写。
+- 常驻服务会耗电，不适合默认常开。
+- 建议只读或只挂用户明确选择的子目录；不要把整个共享存储交给 Agent。
+
+### 交叉编译
+
+```sh
+CGO_ENABLED=0 GOOS=linux  GOARCH=arm64 go build -trimpath -o mika-envd-linux-arm64 .
+CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -o mika-envd-darwin-arm64 .
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o mika-envd-windows-amd64.exe .
 ```
 
 ## 接入 Mika
@@ -141,12 +190,13 @@ go build -o mika-envd .
 
 ## 路线图
 
-1. **容器后端**：用 Docker/Podman 为每个环境起一个容器，clone = 从同一镜像新建容器 + 复制工作区卷；host 模式单独确认。
-2. **流式输出**：exec 的 stdout/stderr 通过 SSE 或 MCP 通知增量返回，支持取消。
-3. **大文件传输**：MCP 工具只做控制和元数据，二进制走带令牌的 HTTPS 上传/下载端点，长度和 SHA-256 校验。
-4. **环境管理器**：手机侧环境列表、添加远端、clone、删除、健康状态；会话存 `envId`，任务启动时按环境过滤能力（`RunSpec.capabilities` 已有钩子）。
-5. **统一提供方**：把 `SandboxPort` 拆成命令/文件/技能/导出/桥几组能力，本地 PRoot 和远端 envd 都实现同一套接口，`run_command` 等工具名保持不变。
-6. **反向手机桥**（可选）：远端脚本里的 `mika phone` 通过手机与 envd 的长连接回到手机。第一版明确不做。
+1. **流式输出**：exec 的 stdout/stderr 通过 SSE 或 MCP 通知增量返回，支持取消。
+2. **大文件传输**：MCP 工具只做控制和元数据，二进制走带令牌的 HTTPS 上传/下载端点，长度和 SHA-256 校验。
+3. **环境管理器**：手机侧环境列表、添加远端、clone、删除、健康状态；会话存 `envId`，任务启动时按环境过滤能力（`RunSpec.capabilities` 已有钩子）。
+4. **统一提供方**：把 `SandboxPort` 拆成命令/文件/技能/导出/桥几组能力，本地 PRoot 和远端 envd 都实现同一套接口，`run_command` 等工具名保持不变。
+5. **反向手机桥**（可选）：远端脚本里的 `mika phone` 通过手机与 envd 的长连接回到手机。第一版明确不做。
+
+容器不是执行模型的一部分；它是桌面端的部署包装。后续如果要支持更强的隔离，也是在 envd 外面加沙箱/虚拟机，而不是给每个环境起容器。
 
 ## 为什么先做 MCP
 

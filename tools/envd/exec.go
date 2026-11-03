@@ -109,18 +109,10 @@ func (s *Server) runExec(ctx context.Context, e *Environment, command, cwd strin
 	runCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 
-	cmd := exec.Command("/bin/sh", "-c", command)
+	shell, shellArgs := shellCommand(command)
+	cmd := exec.Command(shell, shellArgs...)
 	cmd.Dir = cwdFull
-	cmd.Env = []string{
-		"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-		"HOME=" + root,
-		"PWD=" + cwdFull,
-		"TMPDIR=/tmp",
-		"LANG=C.UTF-8",
-		"LC_ALL=C.UTF-8",
-		"TERM=dumb",
-		"MIKA_ENVD=1",
-	}
+	cmd.Env = shellEnv(root, cwdFull)
 	stdout := newCappedBuffer(s.cfg.maxOutput)
 	stderr := newCappedBuffer(s.cfg.maxOutput)
 	cmd.Stdout = stdout

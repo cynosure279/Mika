@@ -24,8 +24,9 @@ const (
 )
 
 var (
-	ErrReadOnly = errors.New("server is read-only")
-	ErrNotFound = errors.New("environment not found")
+	ErrReadOnly         = errors.New("server is read-only")
+	ErrNotFound         = errors.New("environment not found")
+	ErrAttachNotAllowed = errors.New("attaching existing directories is not enabled")
 )
 
 // Environment is one named workspace on the remote host. The lock is not
@@ -34,6 +35,7 @@ type Environment struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Kind      string    `json:"kind"`
+	RootPath  string    `json:"root,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 
@@ -41,8 +43,13 @@ type Environment struct {
 }
 
 func (e *Environment) Root(dataDir string) string {
+	if e.RootPath != "" {
+		return e.RootPath
+	}
 	return filepath.Join(dataDir, "envs", e.ID, "root")
 }
+
+func (e *Environment) Attached() bool { return e.RootPath != "" }
 
 type storeFile struct {
 	Version      int            `json:"version"`
@@ -50,14 +57,15 @@ type storeFile struct {
 }
 
 type Store struct {
-	mu       sync.Mutex
-	dataDir  string
-	metaPath string
-	readOnly bool
-	envs     map[string]*Environment
+	mu           sync.Mutex
+	dataDir      string
+	metaPath     string
+	readOnly     bool
+	allowedRoots []string
+	envs         map[string]*Environment
 }
 
-func OpenStore(dataDir string, readOnly bool) (*Store, error) {
+func OpenStore(dataDir string, readOnly bool, allowedRoots ...string) (*Store, error) {
 	abs, err := filepath.Abs(dataDir)
 	if err != nil {
 		return nil, err
@@ -65,11 +73,16 @@ func OpenStore(dataDir string, readOnly bool) (*Store, error) {
 	if err := os.MkdirAll(filepath.Join(abs, "envs"), 0o700); err != nil {
 		return nil, fmt.Errorf("create data directory: %w", err)
 	}
+	roots, err := canonicalAllowedRoots(allowedRoots)
+	if err != nil {
+		return nil, err
+	}
 	s := &Store{
-		dataDir:  abs,
-		metaPath: filepath.Join(abs, "envs.json"),
-		readOnly: readOnly,
-		envs:     map[string]*Environment{},
+		dataDir:      abs,
+		metaPath:     filepath.Join(abs, "envs.json"),
+		readOnly:     readOnly,
+		allowedRoots: roots,
+		envs:         map[string]*Environment{},
 	}
 	b, err := os.ReadFile(s.metaPath)
 	if err != nil {
@@ -98,10 +111,14 @@ func OpenStore(dataDir string, readOnly bool) (*Store, error) {
 		if _, dup := s.envs[e.ID]; dup {
 			return nil, fmt.Errorf("duplicate environment id %s", e.ID)
 		}
-		s.envs[e.ID] = e
-		if err := os.MkdirAll(e.Root(abs), 0o750); err != nil {
+		if e.RootPath != "" {
+			if !filepath.IsAbs(e.RootPath) || !s.rootAllowed(e.RootPath) {
+				return nil, fmt.Errorf("attached environment %s is unavailable or outside -allow-root", e.ID)
+			}
+		} else if err := os.MkdirAll(e.Root(abs), 0o750); err != nil {
 			return nil, fmt.Errorf("create environment %s: %w", e.ID, err)
 		}
+		s.envs[e.ID] = e
 	}
 	return s, nil
 }
@@ -132,6 +149,59 @@ func (s *Store) Create(name string) (*Environment, error) {
 	if err := s.saveLocked(); err != nil {
 		delete(s.envs, id)
 		_ = os.RemoveAll(filepath.Dir(e.Root(s.dataDir)))
+		return nil, err
+	}
+	return e, nil
+}
+
+// CreateAttached mounts an existing directory that lives under one of the
+// -allow-root directories. It does not create or copy anything.
+func (s *Store) CreateAttached(name, path string) (*Environment, error) {
+	if s.readOnly {
+		return nil, ErrReadOnly
+	}
+	name = strings.TrimSpace(name)
+	if !validName(name) {
+		return nil, fmt.Errorf("name must be 1-64 printable characters")
+	}
+	if len(s.allowedRoots) == 0 {
+		return nil, ErrAttachNotAllowed
+	}
+	if path == "" {
+		return nil, fmt.Errorf("path is required")
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	real, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := os.Stat(real)
+	if err != nil {
+		return nil, err
+	}
+	if !fi.IsDir() {
+		return nil, fmt.Errorf("path is not a directory")
+	}
+	if !s.rootAllowed(real) {
+		return nil, errOutside
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.nameTakenLocked(name) {
+		return nil, fmt.Errorf("environment name already exists")
+	}
+	id, err := s.newIDLocked()
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	e := &Environment{ID: id, Name: name, Kind: envKindWorkspace, RootPath: real, CreatedAt: now, UpdatedAt: now}
+	s.envs[id] = e
+	if err := s.saveLocked(); err != nil {
+		delete(s.envs, id)
 		return nil, err
 	}
 	return e, nil
@@ -197,8 +267,10 @@ func (s *Store) Delete(id, confirm string) error {
 	}
 	e.lock.Lock()
 	defer e.lock.Unlock()
-	if err := os.RemoveAll(filepath.Dir(e.Root(s.dataDir))); err != nil {
-		return err
+	if !e.Attached() {
+		if err := os.RemoveAll(filepath.Dir(e.Root(s.dataDir))); err != nil {
+			return err
+		}
 	}
 	delete(s.envs, id)
 	return s.saveLocked()
@@ -221,6 +293,7 @@ type envView struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Kind      string    `json:"kind"`
+	Attached  bool      `json:"attached"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
@@ -229,7 +302,7 @@ func (s *Store) List() []envView {
 	defer s.mu.Unlock()
 	out := make([]envView, 0, len(s.envs))
 	for _, e := range s.envs {
-		out = append(out, envView{ID: e.ID, Name: e.Name, Kind: e.Kind, CreatedAt: e.CreatedAt})
+		out = append(out, envView{ID: e.ID, Name: e.Name, Kind: e.Kind, Attached: e.Attached(), CreatedAt: e.CreatedAt})
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].CreatedAt.Equal(out[j].CreatedAt) {
@@ -307,6 +380,50 @@ func validName(name string) bool {
 		}
 	}
 	return true
+}
+
+func canonicalAllowedRoots(raw []string) ([]string, error) {
+	out := make([]string, 0, len(raw))
+	seen := map[string]bool{}
+	for _, value := range raw {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		abs, err := filepath.Abs(value)
+		if err != nil {
+			return nil, fmt.Errorf("allow-root %s: %w", value, err)
+		}
+		real, err := filepath.EvalSymlinks(abs)
+		if err != nil {
+			return nil, fmt.Errorf("allow-root %s: %w", value, err)
+		}
+		fi, err := os.Stat(real)
+		if err != nil {
+			return nil, fmt.Errorf("allow-root %s: %w", value, err)
+		}
+		if !fi.IsDir() {
+			return nil, fmt.Errorf("allow-root %s is not a directory", value)
+		}
+		if !seen[real] {
+			out = append(out, real)
+			seen[real] = true
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) rootAllowed(path string) bool {
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return false
+	}
+	for _, root := range s.allowedRoots {
+		if within(root, real) {
+			return true
+		}
+	}
+	return false
 }
 
 func copyTree(src, dst string) error {

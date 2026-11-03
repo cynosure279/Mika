@@ -64,9 +64,10 @@ func toolDefs() []toolDef {
 		},
 		{
 			Name:        "env_create",
-			Description: "Create a new empty workspace environment on the remote host.",
+			Description: "Create a new empty workspace environment, or attach an existing directory under an allowed root.",
 			InputSchema: objectSchema(map[string]any{
 				"name": strProp("Environment name, 1-64 printable characters."),
+				"path": strProp("Optional existing directory under a -allow-root. When set, the environment points at it and env_delete does not delete its files."),
 			}, "name"),
 			Annotations: annotations(false, false),
 		},
@@ -182,6 +183,8 @@ func toolError(err error) (string, bool) {
 		return jsonFail("read_only", "The server is running in read-only mode.")
 	case errors.Is(err, ErrNotFound):
 		return jsonFail("environment_not_found", "No environment has that id.")
+	case errors.Is(err, ErrAttachNotAllowed):
+		return jsonFail("attach_not_allowed", "Start envd with -allow-root to attach existing directories.")
 	case errors.Is(err, errOutside):
 		return jsonFail("path_outside_workspace", "The path is outside the environment workspace.")
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
@@ -220,12 +223,13 @@ func (s *Server) callTool(ctx context.Context, name string, raw json.RawMessage)
 	switch name {
 	case "env_info":
 		return jsonOK(map[string]any{
-			"ok":           true,
-			"server":       serverName,
-			"version":      serverVersion,
-			"environments": s.store.Count(),
-			"readOnly":     s.cfg.readOnly,
-			"backend":      envKindWorkspace,
+			"ok":            true,
+			"server":        serverName,
+			"version":       serverVersion,
+			"environments":  s.store.Count(),
+			"readOnly":      s.cfg.readOnly,
+			"backend":       envKindWorkspace,
+			"attachEnabled": len(s.store.allowedRoots) > 0,
 			"limits": map[string]any{
 				"maxExec":          s.cfg.maxExec,
 				"maxOutput":        s.cfg.maxOutput,
@@ -241,15 +245,22 @@ func (s *Server) callTool(ctx context.Context, name string, raw json.RawMessage)
 	case "env_create":
 		var a struct {
 			Name string `json:"name"`
+			Path string `json:"path"`
 		}
 		if err := decodeArgs(raw, &a); err != nil {
 			return jsonFail("invalid_arguments", err.Error())
 		}
-		e, err := s.store.Create(a.Name)
+		var e *Environment
+		var err error
+		if a.Path != "" {
+			e, err = s.store.CreateAttached(a.Name, a.Path)
+		} else {
+			e, err = s.store.Create(a.Name)
+		}
 		if err != nil {
 			return toolError(err)
 		}
-		return jsonOK(map[string]any{"ok": true, "environment": envView{e.ID, e.Name, e.Kind, e.CreatedAt}})
+		return jsonOK(map[string]any{"ok": true, "environment": envView{ID: e.ID, Name: e.Name, Kind: e.Kind, Attached: e.Attached(), CreatedAt: e.CreatedAt}})
 
 	case "env_clone":
 		var a struct {
@@ -263,7 +274,7 @@ func (s *Server) callTool(ctx context.Context, name string, raw json.RawMessage)
 		if err != nil {
 			return toolError(err)
 		}
-		return jsonOK(map[string]any{"ok": true, "environment": envView{e.ID, e.Name, e.Kind, e.CreatedAt}})
+		return jsonOK(map[string]any{"ok": true, "environment": envView{ID: e.ID, Name: e.Name, Kind: e.Kind, Attached: e.Attached(), CreatedAt: e.CreatedAt}})
 
 	case "env_delete":
 		var a struct {
