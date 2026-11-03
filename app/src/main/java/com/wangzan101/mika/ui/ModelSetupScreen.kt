@@ -130,6 +130,9 @@ fun ModelSetupScreen(
     var picking by rememberSaveable { mutableStateOf<ModelRole?>(null) }
     var pickingFallbackRole by rememberSaveable { mutableStateOf<ModelRole?>(null) }
     var pickingFallbackSlot by rememberSaveable { mutableStateOf<Int?>(null) }
+    var groupsOpen by rememberSaveable { mutableStateOf(false) }
+    // "" 表示新建,null 表示不在编辑组
+    var groupEditing by rememberSaveable { mutableStateOf<String?>(null) }
     var openProvider by rememberSaveable { mutableStateOf<String?>(null) }
     var allModels by rememberSaveable { mutableStateOf(false) }
     var openDecision by rememberSaveable { mutableStateOf(false) }
@@ -165,12 +168,31 @@ fun ModelSetupScreen(
         pickFallback = { pickingFallbackRole = ModelRole.Main; pickingFallbackSlot = it },
         pickRoleFallback = { r, s -> pickingFallbackRole = r; pickingFallbackSlot = s },
         openProviders = { showProviders = true },
+        openGroups = { groupsOpen = true },
         next = onDone, openSpeech = onOpenSpeech, openVoice = onOpenVoice, openUsage = onOpenUsage,
         openDecision = { openDecision = true }, openSignIn = { signInSheet = it },
         setReasoningEffort = vm::setReasoningEffort, setModelContext = vm::setModelContext,
     )
     when {
         openDecision -> JevSettingsScreen(remember { DecisionSettings.get(context) }, onBack = { openDecision = false })
+        groupEditing != null -> {
+            BackHandler { groupEditing = null }
+            ModelGroupEditorScreen(
+                ui, groupEditing?.takeIf { it.isNotEmpty() },
+                onBack = { groupEditing = null },
+                onSave = { vm.saveGroup(it) },
+                onDelete = { vm.deleteGroup(it) },
+                ensureConfig = { p, m -> vm.ensureConfig(p, m) },
+            )
+        }
+        groupsOpen -> {
+            BackHandler { groupsOpen = false }
+            ModelGroupsScreen(
+                ui, onBack = { groupsOpen = false },
+                onNew = { groupEditing = "" },
+                onEdit = { groupEditing = it },
+            )
+        }
         provider != null -> {
             LaunchedEffect(provider.id) { vm.ensureListed() }
             val accountKind = when {
@@ -255,6 +277,8 @@ fun ModelSetupScreen(
                     },
                     pickManual = { pid, model -> vm.pickManual(role, pid, model) { picking = null } },
                     choose = { vm.choose(role, it); picking = null },
+                    chooseGroup = { vm.chooseGroup(role, it); picking = null },
+                    manageGroups = { picking = null; groupsOpen = true },
                     addProvider = { vm.openForm(); picking = null },
                 ),
                 onBack = { picking = null },
@@ -324,6 +348,8 @@ class ModelSetupActions(
     val next: () -> Unit = {},
     /** 打开一家账号登录的说明面板。 */
     val openSignIn: (SignInKind) -> Unit = {},
+    /** 打开模型组管理页;上手流程不显示入口。 */
+    val openGroups: () -> Unit = {},
     val setReasoningEffort: (ModelRole, String?) -> Unit = { _, _ -> },
     val setModelContext: (String, ModelContextSettings) -> Boolean = { _, _ -> false },
 )
@@ -380,6 +406,9 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
                     RolesSection(ui, onPick, actions.setReasoningEffort, actions.setModelContext)
                     SpeechVoiceSection(ui, actions.openSpeech, actions.openVoice)
                     ImageModelSection(ui, actions.openImage)
+                    GroupCard(Modifier.padding(top = 8.dp)) {
+                        ListRow(MikaIcons.Leaf, ModelsCopy.GROUPS, first = true, onClick = actions.openGroups) { RowChevron() }
+                    }
                     actions.openDecision?.let { openDecision ->
                         GroupCard {
                             ListRow(MikaIcons.Route, stringResource(R.string.jev_title), stringResource(R.string.jev_row_sub),
@@ -427,7 +456,7 @@ private fun ProvidersSection(ui: ModelSetupUi, actions: ModelSetupActions) {
     }
     ui.probeNote?.let { FooterNote(it, Modifier.testTag("setup-probe-note"), color = c.warn) }
     // 刚存下的那家一个模型都没试通过:直接去选主模型(选的时候先试调用)
-    if (ui.pickToProbe != null && ui.roles.main == null) {
+    if (ui.pickToProbe != null && !ui.roles.hasMain) {
         Text(
             ModelSetupCopy.PICK_MAIN,
             Modifier.padding(start = 16.dp, bottom = 12.dp).clickable { actions.pickRole(ModelRole.Main) }.testTag("setup-pick-main").padding(vertical = 4.dp),
