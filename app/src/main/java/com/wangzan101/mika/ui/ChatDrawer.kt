@@ -1,6 +1,7 @@
 package com.wangzan101.mika.ui
 
 import com.wangzan101.mika.R
+import com.wangzan101.mika.export.ExportConversationDialog
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.ui.components.DirectionalIcon
 import androidx.compose.ui.res.stringResource
@@ -547,6 +548,7 @@ fun ChatWithDrawer(
     }
     /** 正在改名的那条。 */
     var renaming by remember { mutableStateOf<DrawerConversation?>(null) }
+    var exporting by remember { mutableStateOf<DrawerConversation?>(null) }
     /** 要删的那条和删它会连带什么;确认弹窗开着。 */
     var confirming by remember { mutableStateOf<Pair<DrawerConversation, DeleteImpact>?>(null) }
     val menuOpen = acting != null
@@ -614,6 +616,7 @@ fun ChatWithDrawer(
                 item, bounds, progress = { lift.value },
                 onPin = { closeMenu { vm.setPinned(id, !item.pinned) } },
                 onRename = { closeMenu { renaming = item } },
+                onExport = { closeMenu { exporting = item } },
                 onDelete = { closeMenu { confirming = item to vm.deleteImpact(id) } },
                 onDismiss = { closeMenu() },
             )
@@ -638,5 +641,8 @@ fun ChatWithDrawer(
             },
             onDismiss = { confirming = null },
         )
+    }
+    exporting?.let { item ->
+        item.id?.let { id -> ExportConversationDialog(id, item.title, onDismiss = { exporting = null }) }
     }
 }
