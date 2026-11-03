@@ -112,13 +112,13 @@ envd 是一个静态二进制，Linux、macOS、Windows 和 Termux（linux-arm64
 
 - 只监听回环或私有网络；公网必须放在 TLS 反向代理后面，并限制来源。
 - 使用长随机令牌（至少 32 字符），通过文件提供，不进命令行、不进日志。
-- **裸机运行没有隔离**：`exec` 能访问 envd 用户能访问的一切。建议专用用户、专用目录；只读场景用 `-read-only`。
-- **`exec` 和 envd 通常同一用户，因此命令能读到 envd 能读的文件**，包括 token 文件（Compose 里是 `/run/secrets/envd_token`）。不要把 token 当成对命令隐藏；需要更强隔离时，用容器/虚拟机，或后续的 exec 用户分离。
-- **桌面端推荐用容器包装**：仓库里的 Dockerfile / compose 以非 root、只读根、`cap_drop: ALL`、`no-new-privileges` 运行，默认只发布到回环。它缩小影响面，但不是完整沙箱，也不隔离网络或每个环境。
+- **裸机运行没有隔离**：`exec` 能访问命令用户能访问的一切。建议用 `-exec-user` 指定独立 uid/gid（需要 root 或 SETUID/SETGID 权限），或专用用户/目录；只读场景用 `-read-only`。
+- **`exec` 与 envd 的用户分离**：Compose 里 envd 以 root 运行、命令以 uid 10002 / gid 10001 运行；token 通过 `ENVD_TOKEN` 环境变量传入，不写文件，也不传给命令；`/proc/1/environ` 对命令用户不可读。裸机不用 `-exec-user` 时命令仍是 envd 用户，能读 token 文件。
+- **桌面端推荐用容器包装**：仓库里的 Dockerfile / compose 以 root + 只读根 + `cap_drop: ALL` + 只补 `SETUID`/`SETGID` + `no-new-privileges` 运行，默认只发布到回环。它缩小影响面，但不是完整沙箱，也不隔离网络或每个环境。
 - **挂载已有目录必须显式开启**：`-allow-root` 可重复；`env_create` 的 `path` 必须落在其中一个根下。默认不挂任何外部目录，不能挂整盘；`-allow-root /` 等于把整机交给命令。
-- 文件工具在每次调用时拒绝绝对路径、`..`、逃逸符号链接、多硬链接读取和写入；启动/调用时重新核对环境根仍在允许范围内。但环境工作区里的进程仍可能在检查和打开之间换掉链接（TOCTOU）；只读、容器或独立用户能降低这个风险。
-- token 文件权限应为 0600；envd 发现组/其他用户可读时会打警告。反向代理不要记录 `Authorization`。
-- Windows 支持是 best-effort：Unix 权限、符号链接和硬链接保护不完整。
+- 文件工具用 Go 1.25 的 `os.Root` 固定根目录句柄：每次读写/列目录/搜索/克隆都在同一个已打开的根下完成，拒绝逃逸符号链接和多硬链接文件；启动和调用时还会重新核对环境根仍在 data 目录或 `-allow-root` 内。`exec` 的 cwd 仍按路径检查，但命令本身有意拥有命令用户的完整权限。
+- token 文件权限应为 0600；envd 发现组/其他用户可读时会打警告。反向代理不要记录 `Authorization`；Compose 的 `ENVD_TOKEN` 对 Docker 管理员/`docker inspect` 可见。
+- Windows 支持是 best-effort：Unix 权限和硬链接保护不完整；`os.Root` 仍能防止路径逃逸。
 - 远端输出是不可信观察；模型不能把输出当成指令。
 - 手机侧应逐环境显式添加/启用，不默认把数据送出手机。
 
@@ -128,12 +128,15 @@ envd 是一个静态二进制，Linux、macOS、Windows 和 Termux（linux-arm64
 
 ```sh
 cd tools/envd
-openssl rand -base64 48 > envd_token
-chmod 600 envd_token
+cp .env.example .env
+printf 'ENVD_TOKEN=%s\n' "$(openssl rand -base64 48)" > .env
+chmod 600 .env
 docker compose up -d --build
 ```
 
-容器以非 root、只读根、`cap_drop: ALL`、`no-new-privileges` 运行，默认只发布到 `127.0.0.1:8787`。公网或跨网络使用时，在前面放自己的 TLS 反向代理，把 `/mcp` 转发到 envd；不要直接把明文端口暴露到公网。
+容器以 root 运行 envd，只保留 `SETUID`/`SETGID`；命令以 uid 10002 / gid 10001 运行，token 通过 `ENVD_TOKEN` 传入，不写文件、不传给命令。根文件系统只读，默认只发布到 `127.0.0.1:8787`。公网或跨网络使用时，在前面放自己的 TLS 反向代理，把 `/mcp` 转发到 envd；不要直接把明文端口暴露到公网。
+
+`.env` 里的 token 对 Docker 管理员和 `docker inspect` 可见，保持文件 0600 并定期轮换。
 
 ### 裸机
 

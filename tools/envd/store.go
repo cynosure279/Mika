@@ -85,6 +85,8 @@ type Store struct {
 	metaPath     string
 	readOnly     bool
 	allowedRoots []string
+	execUID      int
+	execGID      int
 	envs         map[string]*Environment
 }
 
@@ -93,7 +95,7 @@ func OpenStore(dataDir string, readOnly bool, allowedRoots ...string) (*Store, e
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(abs, "envs"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(abs, "envs"), 0o750); err != nil {
 		return nil, fmt.Errorf("create data directory: %w", err)
 	}
 	roots, err := canonicalAllowedRoots(allowedRoots)
@@ -105,6 +107,8 @@ func OpenStore(dataDir string, readOnly bool, allowedRoots ...string) (*Store, e
 		metaPath:     filepath.Join(abs, "envs.json"),
 		readOnly:     readOnly,
 		allowedRoots: roots,
+		execUID:      -1,
+		execGID:      -1,
 		envs:         map[string]*Environment{},
 	}
 	b, err := os.ReadFile(s.metaPath)
@@ -138,7 +142,7 @@ func OpenStore(dataDir string, readOnly bool, allowedRoots ...string) (*Store, e
 			if !filepath.IsAbs(e.RootPath) || !s.rootAllowed(e.RootPath) {
 				return nil, fmt.Errorf("attached environment %s is unavailable or outside -allow-root", e.ID)
 			}
-		} else if err := os.MkdirAll(e.Root(abs), 0o750); err != nil {
+		} else if err := os.MkdirAll(e.Root(abs), 0o770); err != nil {
 			return nil, fmt.Errorf("create environment %s: %w", e.ID, err)
 		}
 		s.envs[e.ID] = e
@@ -147,6 +151,43 @@ func OpenStore(dataDir string, readOnly bool, allowedRoots ...string) (*Store, e
 		}
 	}
 	return s, nil
+}
+
+// ConfigureExecUser makes the envs directory setgid for the exec group and
+// gives existing environment directories group write access. Command users
+// still need the user to grant access to attached directories themselves.
+func (s *Store) ConfigureExecUser(uid, gid int) error {
+	s.execUID = uid
+	s.execGID = gid
+	if gid < 0 {
+		return nil
+	}
+	envs := filepath.Join(s.dataDir, "envs")
+	if err := os.Chmod(s.dataDir, 0o755); err != nil {
+		return fmt.Errorf("chmod %s: %w", s.dataDir, err)
+	}
+	if err := os.Chown(envs, -1, gid); err != nil {
+		return fmt.Errorf("chown %s to group %d: %w", envs, gid, err)
+	}
+	if err := os.Chmod(envs, 0o2770); err != nil {
+		return fmt.Errorf("chmod %s: %w", envs, err)
+	}
+	for _, e := range s.envs {
+		if e.Attached() {
+			continue
+		}
+		_ = filepath.WalkDir(e.Root(s.dataDir), func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if d.IsDir() {
+				_ = os.Chown(path, -1, gid)
+				_ = os.Chmod(path, 0o770)
+			}
+			return nil
+		})
+	}
+	return nil
 }
 
 func (s *Store) Create(name string) (*Environment, error) {
@@ -168,7 +209,7 @@ func (s *Store) Create(name string) (*Environment, error) {
 	}
 	now := time.Now().UTC()
 	e := &Environment{ID: id, Name: name, Kind: envKindWorkspace, CreatedAt: now, UpdatedAt: now}
-	if err := os.MkdirAll(e.Root(s.dataDir), 0o750); err != nil {
+	if err := os.MkdirAll(e.Root(s.dataDir), 0o770); err != nil {
 		return nil, err
 	}
 	s.envs[id] = e
@@ -263,7 +304,7 @@ func (s *Store) Clone(sourceID, name string) (*Environment, error) {
 	}
 
 	dstRoot := filepath.Join(s.dataDir, "envs", id, "root")
-	if err := os.MkdirAll(dstRoot, 0o750); err != nil {
+	if err := os.MkdirAll(dstRoot, 0o770); err != nil {
 		return nil, err
 	}
 	if err := copyTree(src.Root(s.dataDir), dstRoot); err != nil {
@@ -456,82 +497,77 @@ func (s *Store) rootAllowed(path string) bool {
 }
 
 func copyTree(src, dst string) error {
-	srcReal, err := filepath.EvalSymlinks(src)
+	srcRoot, err := os.OpenRoot(src)
 	if err != nil {
 		return err
 	}
+	defer srcRoot.Close()
+	dstRoot, err := os.OpenRoot(dst)
+	if err != nil {
+		return err
+	}
+	defer dstRoot.Close()
+
 	var total int64
 	entries := 0
-	return filepath.WalkDir(srcReal, func(path string, d fs.DirEntry, err error) error {
+	return fs.WalkDir(srcRoot.FS(), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if path == srcReal {
+		if path == "." {
 			return nil
 		}
 		entries++
 		if entries > maxCloneEntries {
 			return fmt.Errorf("environment has too many entries")
 		}
-		rel, err := filepath.Rel(srcReal, path)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(dst, rel)
-		info, err := os.Lstat(path)
+		name := native(path)
+		info, err := srcRoot.Lstat(name)
 		if err != nil {
 			return err
 		}
 		switch {
 		case info.IsDir():
-			return os.MkdirAll(target, 0o750)
+			return dstRoot.MkdirAll(name, 0o770)
 		case info.Mode().IsRegular():
 			if hasMultipleLinks(info) {
-				return fmt.Errorf("refusing to clone a file with multiple hard links: %s", rel)
+				return fmt.Errorf("refusing to clone a file with multiple hard links: %s", path)
 			}
 			total += info.Size()
 			if total > maxCloneBytes {
 				return fmt.Errorf("environment is too large to clone")
 			}
-			return copyRegularFile(path, target, info.Mode().Perm())
+			in, err := srcRoot.Open(name)
+			if err != nil {
+				return err
+			}
+			defer in.Close()
+			out, err := dstRoot.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o660)
+			if err != nil {
+				return err
+			}
+			_, copyErr := io.Copy(out, in)
+			closeErr := out.Close()
+			if copyErr != nil {
+				return copyErr
+			}
+			return closeErr
 		case info.Mode()&os.ModeSymlink != 0:
-			link, err := os.Readlink(path)
+			link, err := srcRoot.Readlink(name)
 			if err != nil {
 				return err
 			}
 			if filepath.IsAbs(link) {
-				return fmt.Errorf("absolute symlink is not allowed: %s", rel)
+				return fmt.Errorf("absolute symlink is not allowed: %s", path)
 			}
-			resolved := filepath.Clean(filepath.Join(filepath.Dir(path), link))
-			real, err := filepath.EvalSymlinks(resolved)
-			if err != nil {
-				return fmt.Errorf("symlink target is unavailable: %s", rel)
+			target := filepath.Clean(filepath.Join(filepath.Dir(name), link))
+			if target == ".." || strings.HasPrefix(target, ".."+string(filepath.Separator)) {
+				return fmt.Errorf("symlink escapes the environment: %s", path)
 			}
-			if !within(srcReal, real) {
-				return fmt.Errorf("symlink escapes the environment: %s", rel)
-			}
-			return os.Symlink(link, target)
+			return dstRoot.Symlink(link, name)
 		default:
 			// Device nodes, sockets and FIFOs are not copied.
 			return nil
 		}
 	})
-}
-
-func copyRegularFile(src, dst string, mode os.FileMode) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode&0o750)
-	if err != nil {
-		return err
-	}
-	_, copyErr := io.Copy(out, in)
-	closeErr := out.Close()
-	if copyErr != nil {
-		return copyErr
-	}
-	return closeErr
 }

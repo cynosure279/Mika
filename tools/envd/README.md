@@ -12,12 +12,15 @@ The developer contract and threat model are in [`docs/dev/remote-env.md`](../../
 
 ```sh
 cd tools/envd
-openssl rand -base64 48 > envd_token
-chmod 600 envd_token
+cp .env.example .env
+printf 'ENVD_TOKEN=%s\n' "$(openssl rand -base64 48)" > .env
+chmod 600 .env
 docker compose up -d --build
 ```
 
-The container runs as a non-root user with a read-only root filesystem, `cap_drop: ALL` and `no-new-privileges`, and listens on `127.0.0.1:8787` only. Put your own TLS reverse proxy in front before exposing it to another network.
+The container runs envd as root with only `SETUID`/`SETGID`, a read-only root filesystem, `cap_drop: ALL` and `no-new-privileges`, and listens on `127.0.0.1:8787` only. Commands run as uid 10002 in group 10001, so they cannot read the token (it is passed in `ENVD_TOKEN`, not a file). Put your own TLS reverse proxy in front before exposing it to another network.
+
+The token is visible to the Docker daemon/admin through `docker inspect`, so keep `.env` private and rotate the token if it leaks.
 
 ### Bare metal
 
@@ -26,7 +29,9 @@ go build -trimpath -o mika-envd .
 ./mika-envd -listen 127.0.0.1:8787 -data ./data -token-file ./envd_token
 ```
 
-There is no isolation: `exec` runs as the envd user. Use a dedicated user/directory, or `-read-only` when only reads are needed.
+`-token-env` is also supported. To isolate commands, start envd as root with `-exec-user 10002 -exec-group 10001`; the data directory must be writable by that group. Without `-exec-user`, commands run as the envd user and can read the token file.
+
+There is no isolation beyond that: `exec` runs as the selected user. Use a dedicated user/directory, or `-read-only` when only reads are needed.
 
 ### Termux / phone
 
@@ -84,9 +89,9 @@ Paths are relative to the environment workspace. Absolute paths, `..` and escapi
 ## Security
 
 - Bare-metal execution is not isolated. The container wrapper is the recommended desktop default; it reduces blast radius but is not a complete sandbox.
-- `exec` runs as the same user as envd, so commands can read files that user can read, including the token file (`/run/secrets/envd_token` in Compose). Rotate tokens and use a container/VM when that matters.
+- `exec` runs as uid 10002/group 10001 in the container; the token is in `ENVD_TOKEN` and is not inherited by commands. Bare metal without `-exec-user` runs commands as the envd user, which can read the token file.
 - Attach only directories you intend the agent to use. Do not expose all of shared storage; `-allow-root /` is the whole machine.
-- File tools reject escaping symlinks and files with multiple hard links at check time, but a concurrent process can still race the check. Use `-read-only`, a container or a dedicated user where this matters.
+- File tools use `os.Root` on every operation, reject escaping symlinks and files with multiple hard links, and bind the root to a directory handle, so a concurrent process cannot redirect them outside the workspace. `exec` itself intentionally has the command user's full access.
 - Windows support is best effort: Unix permissions, symlinks and hard-link protections are weaker.
 - Use a long random token (0600), keep it out of shell history and logs, and terminate TLS in a reverse proxy.
 - Do not expose the plain HTTP port to the internet.

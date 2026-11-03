@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -22,6 +23,7 @@ const (
 	defaultReadBytes = 256 << 10
 	maxTransferBytes = 1 << 20
 	maxSearchFiles   = 5000
+	maxSearchEntries = 100_000
 	maxSearchBytes   = 32 << 20
 )
 
@@ -81,91 +83,30 @@ func within(base, target string) bool {
 	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }
 
+func native(rel string) string {
+	return filepath.FromSlash(rel)
+}
+
+// resolveRead is used for exec's cwd; file contents go through os.Root below.
 func resolveRead(root, p string) (string, error) {
 	rel, err := cleanRel(p)
 	if err != nil {
 		return "", err
 	}
-	full := filepath.Join(root, rel)
-	real, err := filepath.EvalSymlinks(full)
+	r, err := os.OpenRoot(root)
 	if err != nil {
 		return "", err
 	}
-	if !within(root, real) {
-		return "", errOutside
-	}
-	return real, nil
-}
-
-func resolveWrite(root, p string) (string, error) {
-	rel, err := cleanRel(p)
+	defer r.Close()
+	f, err := r.Open(native(rel))
 	if err != nil {
 		return "", err
 	}
-	if rel == "." {
-		return "", fmt.Errorf("path must name a file")
-	}
-	if err := mkdirAllInside(root, filepath.Dir(rel)); err != nil {
+	defer f.Close()
+	if _, err := f.Stat(); err != nil {
 		return "", err
 	}
-	full := filepath.Join(root, rel)
-	if fi, err := os.Lstat(full); err == nil {
-		if fi.Mode()&os.ModeSymlink != 0 {
-			return "", fmt.Errorf("refusing to write through a symbolic link")
-		}
-		if fi.IsDir() {
-			return "", fmt.Errorf("path is a directory")
-		}
-		if !fi.Mode().IsRegular() {
-			return "", fmt.Errorf("path is not a regular file")
-		}
-		if hasMultipleLinks(fi) {
-			return "", fmt.Errorf("refusing to write a file with multiple hard links")
-		}
-	} else if !os.IsNotExist(err) {
-		return "", err
-	}
-	return full, nil
-}
-
-func mkdirAllInside(root, rel string) error {
-	if rel == "." || rel == "" {
-		return nil
-	}
-	cur := root
-	for _, seg := range strings.Split(rel, string(filepath.Separator)) {
-		if seg == "" || seg == "." {
-			continue
-		}
-		next := filepath.Join(cur, seg)
-		fi, err := os.Lstat(next)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return err
-			}
-			if err := os.Mkdir(next, 0o750); err != nil && !os.IsExist(err) {
-				return err
-			}
-			cur = next
-			continue
-		}
-		if fi.Mode()&os.ModeSymlink != 0 {
-			real, err := filepath.EvalSymlinks(next)
-			if err != nil {
-				return err
-			}
-			if !within(root, real) {
-				return errOutside
-			}
-			cur = real
-			continue
-		}
-		if !fi.IsDir() {
-			return fmt.Errorf("%s is not a directory", seg)
-		}
-		cur = next
-	}
-	return nil
+	return filepath.Join(root, native(rel)), nil
 }
 
 func readTextFile(root, p string, maxBytes int) ([]byte, error) {
@@ -180,104 +121,152 @@ func readTextFile(root, p string, maxBytes int) ([]byte, error) {
 }
 
 func readAnyFile(root, p string, maxBytes int) ([]byte, error) {
-	full, err := resolveRead(root, p)
+	rel, err := cleanRel(p)
 	if err != nil {
 		return nil, err
 	}
-	fi, err := os.Lstat(full)
+	if rel == "." {
+		return nil, fmt.Errorf("path is a directory")
+	}
+	r, err := os.OpenRoot(root)
 	if err != nil {
 		return nil, err
 	}
-	if !fi.Mode().IsRegular() {
+	defer r.Close()
+	f, err := r.Open(native(rel))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("path is not a regular file")
 	}
-	if hasMultipleLinks(fi) {
+	if hasMultipleLinks(info) {
 		return nil, fmt.Errorf("refusing to read a file with multiple hard links")
 	}
-	if fi.Size() > int64(maxBytes) {
+	if info.Size() > int64(maxBytes) {
 		return nil, fmt.Errorf("file is larger than %d bytes", maxBytes)
 	}
-	return os.ReadFile(full)
+	data, err := io.ReadAll(io.LimitReader(f, int64(maxBytes)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxBytes {
+		return nil, fmt.Errorf("file is larger than %d bytes", maxBytes)
+	}
+	return data, nil
 }
 
 func writeTextFile(root, p string, content []byte, appendMode bool, maxBytes int) (int, error) {
 	if len(content) > maxBytes {
 		return 0, fmt.Errorf("content is larger than %d bytes", maxBytes)
 	}
-	full, err := resolveWrite(root, p)
+	rel, err := cleanRel(p)
 	if err != nil {
 		return 0, err
 	}
+	if rel == "." {
+		return 0, fmt.Errorf("path must name a file")
+	}
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		return 0, err
+	}
+	defer r.Close()
+	if dir := filepath.Dir(rel); dir != "." {
+		if err := r.MkdirAll(native(dir), 0o770); err != nil {
+			return 0, err
+		}
+	}
 	if appendMode {
-		f, err := os.OpenFile(full, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o640)
+		f, err := r.OpenFile(native(rel), os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o660)
 		if err != nil {
 			return 0, err
 		}
-		if _, err := f.Write(content); err != nil {
+		info, statErr := f.Stat()
+		if statErr != nil || !info.Mode().IsRegular() || hasMultipleLinks(info) {
 			_ = f.Close()
-			return 0, err
+			if statErr != nil {
+				return 0, statErr
+			}
+			return 0, fmt.Errorf("refusing to append to a non-regular or hard-linked file")
 		}
-		return len(content), f.Close()
+		n, writeErr := f.Write(content)
+		closeErr := f.Close()
+		if writeErr != nil {
+			return n, writeErr
+		}
+		return n, closeErr
 	}
-	dir := filepath.Dir(full)
-	tmp := filepath.Join(dir, ".mika-tmp-"+randomHex(8))
-	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o640)
+
+	tmp := filepath.Join(native(filepath.Dir(rel)), ".mika-tmp-"+randomHex(8))
+	f, err := r.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o660)
 	if err != nil {
 		return 0, err
 	}
 	if _, err := f.Write(content); err != nil {
 		_ = f.Close()
-		_ = os.Remove(tmp)
+		_ = r.Remove(tmp)
 		return 0, err
 	}
 	if err := f.Sync(); err != nil {
 		_ = f.Close()
-		_ = os.Remove(tmp)
+		_ = r.Remove(tmp)
 		return 0, err
 	}
 	if err := f.Close(); err != nil {
-		_ = os.Remove(tmp)
+		_ = r.Remove(tmp)
 		return 0, err
 	}
-	if err := replaceFile(tmp, full); err != nil {
-		_ = os.Remove(tmp)
+	if err := r.Rename(tmp, native(rel)); err != nil {
+		_ = r.Remove(tmp)
 		return 0, err
 	}
 	return len(content), nil
 }
 
 func listDirectory(root, p string) ([]dirEntry, error) {
-	full, err := resolveRead(root, p)
+	rel, err := cleanRel(p)
 	if err != nil {
 		return nil, err
 	}
-	fi, err := os.Stat(full)
+	r, err := os.OpenRoot(root)
 	if err != nil {
 		return nil, err
 	}
-	if !fi.IsDir() {
+	defer r.Close()
+	f, err := r.Open(native(rel))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
 		return nil, fmt.Errorf("path is not a directory")
 	}
-	items, err := os.ReadDir(full)
+	items, err := f.Readdir(-1)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]dirEntry, 0, len(items))
 	for _, item := range items {
-		info, err := os.Lstat(filepath.Join(full, item.Name()))
-		if err != nil {
-			continue
-		}
 		kind := "file"
 		switch {
-		case info.IsDir():
+		case item.IsDir():
 			kind = "dir"
-		case info.Mode()&os.ModeSymlink != 0:
+		case item.Mode()&os.ModeSymlink != 0:
 			kind = "link"
-		case !info.Mode().IsRegular():
+		case !item.Mode().IsRegular():
 			kind = "other"
 		}
-		out = append(out, dirEntry{Name: item.Name(), Type: kind, Size: info.Size()})
+		out = append(out, dirEntry{Name: item.Name(), Type: kind, Size: item.Size()})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
@@ -287,24 +276,33 @@ func searchFiles(root, p, pattern string, maxResults int) ([]searchMatch, int, e
 	if pattern == "" || len(pattern) > 200 {
 		return nil, 0, fmt.Errorf("pattern must be 1-200 characters")
 	}
-	full, err := resolveRead(root, p)
+	rel, err := cleanRel(p)
 	if err != nil {
 		return nil, 0, err
 	}
-	fi, err := os.Stat(full)
+	r, err := os.OpenRoot(root)
 	if err != nil {
 		return nil, 0, err
 	}
+	defer r.Close()
+	info, err := r.Stat(native(rel))
+	if err != nil {
+		return nil, 0, err
+	}
+
 	var files []string
-	if fi.IsDir() {
-		err = filepath.WalkDir(full, func(path string, d fs.DirEntry, err error) error {
+	if info.IsDir() {
+		visited := 0
+		rootFS := r.FS()
+		err = fs.WalkDir(rootFS, filepath.ToSlash(rel), func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
 			}
-			if d.IsDir() {
-				return nil
+			visited++
+			if visited > maxSearchEntries {
+				return fs.SkipAll
 			}
-			if d.Type()&os.ModeSymlink != 0 || !d.Type().IsRegular() {
+			if d.IsDir() || d.Type()&fs.ModeSymlink != 0 || !d.Type().IsRegular() {
 				return nil
 			}
 			files = append(files, path)
@@ -316,8 +314,8 @@ func searchFiles(root, p, pattern string, maxResults int) ([]searchMatch, int, e
 		if err != nil && !errors.Is(err, fs.SkipAll) {
 			return nil, 0, err
 		}
-	} else if fi.Mode().IsRegular() {
-		files = []string{full}
+	} else if info.Mode().IsRegular() {
+		files = []string{filepath.ToSlash(rel)}
 	} else {
 		return nil, 0, fmt.Errorf("path is not a file or directory")
 	}
@@ -325,7 +323,7 @@ func searchFiles(root, p, pattern string, maxResults int) ([]searchMatch, int, e
 	var matches []searchMatch
 	var scanned int64
 	for _, file := range files {
-		info, err := os.Lstat(file)
+		info, err := r.Lstat(native(file))
 		if err != nil || !info.Mode().IsRegular() || info.Size() > 1<<20 || hasMultipleLinks(info) {
 			continue
 		}
@@ -333,19 +331,15 @@ func searchFiles(root, p, pattern string, maxResults int) ([]searchMatch, int, e
 		if scanned > maxSearchBytes {
 			break
 		}
-		data, err := os.ReadFile(file)
+		data, err := r.ReadFile(native(file))
 		if err != nil || bytes.IndexByte(data, 0) >= 0 {
-			continue
-		}
-		rel, err := filepath.Rel(root, file)
-		if err != nil {
 			continue
 		}
 		for i, line := range bytes.Split(data, []byte("\n")) {
 			if !bytes.Contains(line, []byte(pattern)) {
 				continue
 			}
-			matches = append(matches, searchMatch{Path: rel, Line: i + 1, Text: string(line)})
+			matches = append(matches, searchMatch{Path: file, Line: i + 1, Text: string(line)})
 			if len(matches) >= maxResults {
 				return matches, len(files), nil
 			}

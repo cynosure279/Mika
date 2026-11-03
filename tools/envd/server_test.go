@@ -29,6 +29,9 @@ func newTestServerWith(t *testing.T, cfg config, readOnly bool) (*httptest.Serve
 
 func newTestServerWithRoots(t *testing.T, cfg config, readOnly bool, roots ...string) (*httptest.Server, *Server) {
 	t.Helper()
+	if cfg.execUser == 0 && cfg.execGroup == 0 {
+		cfg.execUser, cfg.execGroup = -1, -1
+	}
 	dir := t.TempDir()
 	store, err := OpenStore(dir, readOnly, roots...)
 	if err != nil {
@@ -36,6 +39,16 @@ func newTestServerWithRoots(t *testing.T, cfg config, readOnly bool, roots ...st
 	}
 	cfg.dataDir = dir
 	cfg.readOnly = readOnly
+	if cfg.execUser >= 0 {
+		_ = os.Chmod(filepath.Dir(dir), 0o755)
+		setGroupUmask()
+		if err := store.ConfigureExecUser(cfg.execUser, cfg.execGroup); err != nil {
+			t.Fatal(err)
+		}
+		if err := validateExecUser(cfg.execUser, cfg.execGroup); err != nil {
+			t.Fatal(err)
+		}
+	}
 	s := NewServer(cfg, testToken, store)
 	ts := httptest.NewServer(s)
 	t.Cleanup(ts.Close)
@@ -174,6 +187,20 @@ func TestAuthAndProtocol(t *testing.T) {
 	e, _ := out["error"].(map[string]any)
 	if e["code"] != float64(-32601) {
 		t.Fatalf("unknown method error: %v", out)
+	}
+}
+
+func TestExecUserRunsAsAnotherUid(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() != 0 {
+		t.Skip("changing uid requires a Unix host and root")
+	}
+	ts, _ := newTestServerWith(t, config{maxExec: 1, maxOutput: 1 << 20, execUser: 65534, execGroup: 65534}, false)
+	id := createEnv(t, ts, "runner")
+	out := callJSON[struct {
+		Stdout string `json:"stdout"`
+	}](t, ts, "exec", map[string]any{"env": id, "command": "id -u"})
+	if strings.TrimSpace(out.Stdout) != "65534" {
+		t.Fatalf("exec uid: %q", out.Stdout)
 	}
 }
 
@@ -362,7 +389,7 @@ func TestReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := config{dataDir: dir, maxExec: 1, maxOutput: 1 << 20, readOnly: true}
+	cfg := config{dataDir: dir, maxExec: 1, maxOutput: 1 << 20, readOnly: true, execUser: -1, execGroup: -1}
 	ts := httptest.NewServer(NewServer(cfg, testToken, readOnly))
 	t.Cleanup(ts.Close)
 

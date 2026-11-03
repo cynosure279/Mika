@@ -3,10 +3,27 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 )
+
+func setExecCredential(cmd *exec.Cmd, uid, gid int) error {
+	if uid >= 0 {
+		return fmt.Errorf("-exec-user is not supported on Windows")
+	}
+	return nil
+}
+
+func validateExecUser(uid, gid int) error {
+	if uid >= 0 {
+		return fmt.Errorf("-exec-user is not supported on Windows")
+	}
+	return nil
+}
+
+func setGroupUmask() {}
 
 func shellCommand(command string) (string, []string) {
 	comspec := os.Getenv("ComSpec")

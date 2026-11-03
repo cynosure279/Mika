@@ -22,9 +22,12 @@ type config struct {
 	listen     string
 	dataDir    string
 	tokenFile  string
+	tokenEnv   string
 	readOnly   bool
 	maxExec    int
 	maxOutput  int
+	execUser   int
+	execGroup  int
 	allowRoots []string
 	tlsCert    string
 	tlsKey     string
@@ -43,17 +46,20 @@ func main() {
 	cfg := config{}
 	flag.StringVar(&cfg.listen, "listen", "127.0.0.1:18787", "HTTP listen address")
 	flag.StringVar(&cfg.dataDir, "data", "./data", "data directory")
-	flag.StringVar(&cfg.tokenFile, "token-file", "", "file containing the bearer token (required, at least 32 characters)")
+	flag.StringVar(&cfg.tokenFile, "token-file", "", "file containing the bearer token (at least 32 characters)")
+	flag.StringVar(&cfg.tokenEnv, "token-env", "", "environment variable containing the bearer token; preferred with -exec-user")
 	flag.BoolVar(&cfg.readOnly, "read-only", false, "disable exec, writes, create, clone and delete")
 	flag.IntVar(&cfg.maxExec, "max-exec", 4, "maximum concurrent commands")
 	flag.IntVar(&cfg.maxOutput, "max-output", 1<<20, "maximum captured bytes per output stream")
+	flag.IntVar(&cfg.execUser, "exec-user", -1, "run commands as this numeric uid (Unix only; requires privileges)")
+	flag.IntVar(&cfg.execGroup, "exec-group", -1, "group id for -exec-user (default: same as uid)")
 	flag.Var((*stringList)(&cfg.allowRoots), "allow-root", "existing directory that env_create may attach with path (repeatable)")
 	flag.StringVar(&cfg.tlsCert, "tls-cert", "", "TLS certificate (optional; otherwise terminate TLS in a reverse proxy)")
 	flag.StringVar(&cfg.tlsKey, "tls-key", "", "TLS private key")
 	flag.Parse()
 
-	if cfg.tokenFile == "" {
-		log.Fatal("-token-file is required")
+	if cfg.tokenFile == "" && cfg.tokenEnv == "" {
+		log.Fatal("-token-file or -token-env is required")
 	}
 	if cfg.maxExec < 1 || cfg.maxExec > 64 {
 		log.Fatal("-max-exec must be 1..64")
@@ -61,12 +67,36 @@ func main() {
 	if cfg.maxOutput < 1024 || cfg.maxOutput > 64<<20 {
 		log.Fatal("-max-output must be 1024..67108864")
 	}
-	token, err := readToken(cfg.tokenFile)
-	if err != nil {
-		log.Fatal(err)
+	if cfg.execUser >= 0 && cfg.execGroup < 0 {
+		cfg.execGroup = cfg.execUser
+	}
+	if cfg.execUser < 0 && cfg.execGroup >= 0 {
+		log.Fatal("-exec-group requires -exec-user")
+	}
+	var token string
+	if cfg.tokenEnv != "" {
+		token = strings.TrimSpace(os.Getenv(cfg.tokenEnv))
+		if len(token) < 32 {
+			log.Fatalf("%s must contain a token of at least 32 characters", cfg.tokenEnv)
+		}
+	} else {
+		var err error
+		token, err = readToken(cfg.tokenFile)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	store, err := OpenStore(cfg.dataDir, cfg.readOnly, cfg.allowRoots...)
 	if err != nil {
+		log.Fatal(err)
+	}
+	if err := validateExecUser(cfg.execUser, cfg.execGroup); err != nil {
+		log.Fatal(err)
+	}
+	if cfg.execUser >= 0 {
+		setGroupUmask()
+	}
+	if err := store.ConfigureExecUser(cfg.execUser, cfg.execGroup); err != nil {
 		log.Fatal(err)
 	}
 	srv := NewServer(cfg, token, store)

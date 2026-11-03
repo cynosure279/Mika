@@ -3,10 +3,40 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"syscall"
 )
+
+func setExecCredential(cmd *exec.Cmd, uid, gid int) error {
+	if uid < 0 {
+		return nil
+	}
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid), NoSetGroups: true}
+	return nil
+}
+
+func validateExecUser(uid, gid int) error {
+	if uid < 0 {
+		return nil
+	}
+	cmd := exec.Command("/bin/sh", "-c", "true")
+	if err := setExecCredential(cmd, uid, gid); err != nil {
+		return err
+	}
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("cannot run commands as uid %d gid %d: %w", uid, gid, err)
+	}
+	return nil
+}
+
+func setGroupUmask() {
+	syscall.Umask(0o002)
+}
 
 func shellCommand(command string) (string, []string) {
 	return "/bin/sh", []string{"-c", command}

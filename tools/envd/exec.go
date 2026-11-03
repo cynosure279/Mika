@@ -79,7 +79,7 @@ func (b *cappedBuffer) Truncated() bool {
 // child gets its own process group so a timeout also stops its descendants.
 // onChunk receives output as it is produced; it may be called from the stdout
 // and stderr reader goroutines at the same time.
-func runProcessCapture(ctx context.Context, name string, args []string, dir string, env []string, timeoutSec, maxOutput int, onChunk func(string)) (execOutput, error) {
+func runProcessCapture(ctx context.Context, name string, args []string, dir string, env []string, timeoutSec, maxOutput int, onChunk func(string), uid, gid int) (execOutput, error) {
 	runCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSec)*time.Second)
 	defer cancel()
 
@@ -95,6 +95,9 @@ func runProcessCapture(ctx context.Context, name string, args []string, dir stri
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	setProcessGroup(cmd)
+	if err := setExecCredential(cmd, uid, gid); err != nil {
+		return execOutput{}, err
+	}
 
 	started := time.Now()
 	if err := cmd.Start(); err != nil {
@@ -179,5 +182,5 @@ func (s *Server) runExec(ctx context.Context, e *Environment, command, cwd strin
 	}
 
 	shell, shellArgs := shellCommand(command)
-	return runProcessCapture(ctx, shell, shellArgs, cwdFull, shellEnv(root, cwdFull), timeoutSec, s.cfg.maxOutput, onProgress)
+	return runProcessCapture(ctx, shell, shellArgs, cwdFull, shellEnv(root, cwdFull), timeoutSec, s.cfg.maxOutput, onProgress, s.cfg.execUser, s.cfg.execGroup)
 }
