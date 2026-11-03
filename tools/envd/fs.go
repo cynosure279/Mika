@@ -25,6 +25,7 @@ const (
 	maxSearchFiles   = 5000
 	maxSearchEntries = 100_000
 	maxSearchBytes   = 32 << 20
+	maxListEntries   = 5000
 )
 
 type dirEntry struct {
@@ -229,31 +230,35 @@ func writeTextFile(root, p string, content []byte, appendMode bool, maxBytes int
 	return len(content), nil
 }
 
-func listDirectory(root, p string) ([]dirEntry, error) {
+func listDirectory(root, p string) ([]dirEntry, bool, error) {
 	rel, err := cleanRel(p)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	r, err := os.OpenRoot(root)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer r.Close()
 	f, err := r.Open(native(rel))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	defer f.Close()
 	info, err := f.Stat()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if !info.IsDir() {
-		return nil, fmt.Errorf("path is not a directory")
+		return nil, false, fmt.Errorf("path is not a directory")
 	}
-	items, err := f.Readdir(-1)
-	if err != nil {
-		return nil, err
+	items, readErr := f.Readdir(maxListEntries + 1)
+	if readErr != nil && !errors.Is(readErr, io.EOF) {
+		return nil, false, readErr
+	}
+	truncated := len(items) > maxListEntries
+	if truncated {
+		items = items[:maxListEntries]
 	}
 	out := make([]dirEntry, 0, len(items))
 	for _, item := range items {
@@ -269,7 +274,7 @@ func listDirectory(root, p string) ([]dirEntry, error) {
 		out = append(out, dirEntry{Name: item.Name(), Type: kind, Size: item.Size()})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out, nil
+	return out, truncated, nil
 }
 
 func searchFiles(root, p, pattern string, maxResults int) ([]searchMatch, int, error) {

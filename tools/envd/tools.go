@@ -465,11 +465,11 @@ func (s *Server) callTool(ctx context.Context, name string, raw json.RawMessage,
 		if a.Path == "" {
 			a.Path = "."
 		}
-		entries, err := listDirectory(root, a.Path)
+		entries, truncated, err := listDirectory(root, a.Path)
 		if err != nil {
 			return toolError(err)
 		}
-		return jsonOK(map[string]any{"ok": true, "path": a.Path, "entries": entries})
+		return jsonOK(map[string]any{"ok": true, "path": a.Path, "entries": entries, "truncated": truncated})
 
 	case "search":
 		var a struct {

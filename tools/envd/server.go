@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -46,14 +47,23 @@ type rpcError struct {
 func (e *rpcError) Error() string { return e.Message }
 
 type Server struct {
-	cfg     config
-	token   string
-	store   *Store
-	execSem chan struct{}
+	cfg        config
+	token      string
+	store      *Store
+	execSem    chan struct{}
+	limiter    *limiter
+	trustProxy bool
 }
 
 func NewServer(cfg config, token string, store *Store) *Server {
-	return &Server{cfg: cfg, token: token, store: store, execSem: make(chan struct{}, cfg.maxExec)}
+	return &Server{
+		cfg:        cfg,
+		token:      token,
+		store:      store,
+		execSem:    make(chan struct{}, cfg.maxExec),
+		limiter:    newLimiter(cfg.rateLimit, cfg.authLimit),
+		trustProxy: cfg.trustProxy,
+	}
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -65,10 +75,22 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "cross-origin requests are not allowed", http.StatusForbidden)
 		return
 	}
+	key := s.callerKey(r)
+	if s.limiter != nil && !s.limiter.allow(key) {
+		w.Header().Set("Retry-After", "60")
+		http.Error(w, "too many requests", http.StatusTooManyRequests)
+		return
+	}
 	if !s.authorized(r) {
+		if s.limiter != nil {
+			s.limiter.authFailed(key)
+		}
 		w.Header().Set("WWW-Authenticate", `Bearer realm="mika-envd"`)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
+	}
+	if s.limiter != nil {
+		s.limiter.authOK(key)
 	}
 	switch r.Method {
 	case http.MethodPost:
@@ -82,6 +104,21 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Allow", "POST, DELETE")
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *Server) callerKey(r *http.Request) string {
+	if s.trustProxy {
+		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+			parts := strings.Split(forwarded, ",")
+			if last := strings.TrimSpace(parts[len(parts)-1]); last != "" {
+				return last
+			}
+		}
+	}
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
 }
 
 func (s *Server) authorized(r *http.Request) bool {

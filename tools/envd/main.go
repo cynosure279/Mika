@@ -28,6 +28,9 @@ type config struct {
 	maxOutput  int
 	execUser   int
 	execGroup  int
+	rateLimit  int
+	authLimit  int
+	trustProxy bool
 	allowRoots []string
 	tlsCert    string
 	tlsKey     string
@@ -53,6 +56,9 @@ func main() {
 	flag.IntVar(&cfg.maxOutput, "max-output", 1<<20, "maximum captured bytes per output stream")
 	flag.IntVar(&cfg.execUser, "exec-user", -1, "run commands as this numeric uid (Unix only; requires privileges)")
 	flag.IntVar(&cfg.execGroup, "exec-group", -1, "group id for -exec-user (default: same as uid)")
+	flag.IntVar(&cfg.rateLimit, "rate-limit", 120, "requests per minute per caller (0 disables)")
+	flag.IntVar(&cfg.authLimit, "auth-limit", 5, "failed authentications per minute before a 60s block (0 disables)")
+	flag.BoolVar(&cfg.trustProxy, "trust-proxy", false, "use the last X-Forwarded-For address as the caller")
 	flag.Var((*stringList)(&cfg.allowRoots), "allow-root", "existing directory that env_create may attach with path (repeatable)")
 	flag.StringVar(&cfg.tlsCert, "tls-cert", "", "TLS certificate (optional; otherwise terminate TLS in a reverse proxy)")
 	flag.StringVar(&cfg.tlsKey, "tls-key", "", "TLS private key")
@@ -66,6 +72,9 @@ func main() {
 	}
 	if cfg.maxOutput < 1024 || cfg.maxOutput > 64<<20 {
 		log.Fatal("-max-output must be 1024..67108864")
+	}
+	if cfg.rateLimit < 0 || cfg.authLimit < 0 {
+		log.Fatal("-rate-limit and -auth-limit must be >= 0")
 	}
 	if cfg.execUser >= 0 && cfg.execGroup < 0 {
 		cfg.execGroup = cfg.execUser

@@ -83,7 +83,8 @@ Paths are relative to the environment workspace. Absolute paths, `..` and escapi
 
 - `exec`: 60 s default, 600 s maximum; `-max-exec` concurrent commands (default 4).
 - Output: `-max-output` bytes per stream (default 1 MiB); the rest is dropped and marked `truncated`.
-- Text files: 1 MiB; transfers: 1 MiB; search: 5000 files / 32 MiB.
+- Text files: 1 MiB; transfers: 1 MiB; search: 5000 files / 32 MiB; `list_dir` returns at most 5000 entries and sets `truncated`.
+- HTTP: `-rate-limit` requests/minute per caller (default 120), `-auth-limit` failed authentications/minute before a 60 s block (default 5); `-trust-proxy` uses the last `X-Forwarded-For` address.
 - `-read-only` disables exec, writes, create, clone and delete.
 
 ## Security

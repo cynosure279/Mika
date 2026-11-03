@@ -233,7 +233,12 @@ class HttpMcpEndpoint private constructor(
                 val source = response.body?.source()
                 if (source != null) {
                     while (!source.exhausted()) {
-                        val line = source.readUtf8Line() ?: break
+                        val line = try {
+                            source.readUtf8LineStrict(MAX_SSE_LINE)
+                        } catch (e: java.io.EOFException) {
+                            if (source.exhausted()) break
+                            throw McpClientException("MCP server sent an oversized SSE line")
+                        }
                         if (!line.startsWith("data:")) continue
                         val data = line.removePrefix("data:").trim()
                         if (data.isEmpty()) continue
@@ -280,6 +285,7 @@ class HttpMcpEndpoint private constructor(
     companion object {
         const val PROTOCOL_VERSION = "2025-03-26"
         private const val MAX_TOOL_PAGES = 20
+        private const val MAX_SSE_LINE = 8L * 1024 * 1024
         private val json = Json { ignoreUnknownKeys = true }
 
         /**
