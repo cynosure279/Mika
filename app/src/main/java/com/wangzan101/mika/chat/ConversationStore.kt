@@ -24,7 +24,7 @@ import java.io.File
 import java.util.UUID
 
 /** 每个对话一个小 JSON 文件,放在 App 私有目录;重启后仍在。 */
-class ConversationStore(private val dir: File) {
+class ConversationStore(private val dir: File, private val clock: () -> Long = System::currentTimeMillis) {
     constructor(context: Context) : this(File(context.filesDir, "conversations"))
 
     fun newConversation(): String = UUID.randomUUID().toString()
@@ -296,6 +296,7 @@ class ConversationStore(private val dir: File) {
                 groups = (o["groups"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull } ?: emptyList(),
                 keptPage = field("keptPage"),
                 keptPageClosed = field("keptPageClosed"),
+                atMs = field("atMs")?.toLongOrNull(),
             )
             turn to (o["files"] as? JsonArray).orEmpty().mapNotNull(::fileOf)
         }
@@ -318,7 +319,9 @@ class ConversationStore(private val dir: File) {
             // 损坏的文件挪到一边留着,不拿新内容覆盖掉
             f.renameTo(File(dir, "${f.name}.corrupt-${System.currentTimeMillis()}"))
         }
-        write(conversationId, prior.orEmpty() + (turn to files))
+        // 新的一轮记下存进来的时刻;带时间戳的(分支复制、恢复)照原样保留
+        val recorded = if (turn.atMs == null) turn.copy(atMs = clock()) else turn
+        write(conversationId, prior.orEmpty() + (recorded to files))
     }
 
     /** 改运行编号为 [runId] 的那一轮(任务结束后补上判的结局、记忆与技能提示);找不到就不动。 */
@@ -362,6 +365,7 @@ class ConversationStore(private val dir: File) {
                 if (it.finishedReplies.any(String::isNotEmpty)) put("finishedReplies", JsonArray(it.finishedReplies.map(::JsonPrimitive)))
                 if (it.groups.isNotEmpty()) put("groups", JsonArray(it.groups.map(::JsonPrimitive)))
                 it.keptPage?.let { h -> put("keptPage", h) }; it.keptPageClosed?.let { r -> put("keptPageClosed", r) }
+                it.atMs?.let { t -> put("atMs", t) }
                 if (it.skillNotes.isNotEmpty()) put("skillNotes", JsonArray(it.skillNotes.map { n ->
                     buildJsonObject { put("text", n.text); n.draftId?.let { d -> put("draftId", d) }; n.suspended?.let { x -> put("suspended", x) } }
                 }))

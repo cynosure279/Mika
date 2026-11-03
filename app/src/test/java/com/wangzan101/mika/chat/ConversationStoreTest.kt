@@ -4,6 +4,7 @@ import com.wangzan101.mika.core.agent.Turn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import kotlinx.coroutines.launch
 import org.junit.Rule
@@ -15,14 +16,34 @@ class ConversationStoreTest {
 
     @Test fun persistsAcrossInstances() {
         val dir = tmp.newFolder("c")
-        val a = ConversationStore(dir)
+        val a = ConversationStore(dir, clock = { 1_700_000_000_000L })
         val id = a.newConversation()
         a.append(id, Turn("查天气", "晴", "succeeded"))
         a.append(id, Turn("订票", "验证码\n\"过不去\"", "failed"))
         val b = ConversationStore(dir)
-        assertEquals(listOf(Turn("查天气", "晴", "succeeded"), Turn("订票", "验证码\n\"过不去\"", "failed")), b.turns(id))
+        assertEquals(
+            listOf(Turn("查天气", "晴", "succeeded", atMs = 1_700_000_000_000L), Turn("订票", "验证码\n\"过不去\"", "failed", atMs = 1_700_000_000_000L)),
+            b.turns(id),
+        )
         assertEquals(emptyList<Turn>(), b.turns(b.newConversation()))
         assertNotEquals(id, b.newConversation())
+    }
+
+    /** 新存进来的一轮记下时刻;带时间戳的(分支复制、恢复)原样保留;旧文件没有这个字段读到 null。 */
+    @Test fun persistsRecordedAt() {
+        val dir = tmp.newFolder("c")
+        val a = ConversationStore(dir, clock = { 1_700_000_000_000L })
+        val id = a.newConversation()
+        a.append(id, Turn("查天气", "晴", "succeeded"))
+        assertEquals(1_700_000_000_000L, ConversationStore(dir).turns(id).single().atMs)
+        assertTrue("\"atMs\":1700000000000" in java.io.File(dir, "$id.json").readText())
+
+        a.append(id, Turn("谢谢", "不客气", "succeeded", atMs = 42L))
+        assertEquals(42L, ConversationStore(dir).turns(id).last().atMs)
+
+        val old = a.newConversation()
+        java.io.File(dir, "$old.json").writeText("""[{"userText":"旧","outcome":"好","status":"succeeded"}]""")
+        assertNull(ConversationStore(dir).turns(old).single().atMs)
     }
 
     /** 留在后台运行的那一页(站点)和它后来关掉的原因跟着那一轮存下;没留页的轮次不写这两个字段。 */
@@ -176,7 +197,7 @@ class ConversationStoreTest {
         val aside = dir.listFiles().orEmpty().filter { it.name.startsWith("x.json.corrupt-") }
         assertEquals(1, aside.size)
         assertEquals("{not json", aside.single().readText())
-        assertEquals(listOf(Turn("a", "b", "cancelled")), s.turns("x"))
+        assertEquals(listOf(Turn("a", "b", "cancelled")), s.turns("x").map { it.copy(atMs = null) })
         assertEquals(listOf("x"), s.list().map { it.id })
     }
 
@@ -197,7 +218,7 @@ class ConversationStoreTest {
     @Test fun unverifiedTurnKeepsItsNote() {
         val dir = tmp.newFolder()
         val id = ConversationStore(dir).let { s -> s.newConversation().also { s.append(it, Turn("查余额", "余额 10 元", "unverified", note = "防截屏")) } }
-        assertEquals(listOf(Turn("查余额", "余额 10 元", "unverified", note = "防截屏")), ConversationStore(dir).turns(id))
+        assertEquals(listOf(Turn("查余额", "余额 10 元", "unverified", note = "防截屏")), ConversationStore(dir).turns(id).map { it.copy(atMs = null) })
     }
 
     @Test fun turnKeepsItsRunId() {
@@ -337,7 +358,7 @@ class ConversationStoreTest {
         assertTrue(store.branch(source, target, throughTurn = 1))
         assertEquals(
             listOf(Turn("一", "甲", "succeeded"), Turn("二", "乙", "succeeded")),
-            ConversationStore(dir).turns(target),
+            ConversationStore(dir).turns(target).map { it.copy(atMs = null) },
         )
         // 源对话仍是三轮
         assertEquals(listOf("一", "二", "三"), store.turns(source).map { it.userText })

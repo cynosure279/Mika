@@ -33,6 +33,8 @@ data class Turn(
     val keptPage: String? = null,
     /** 留下的那一页后来关掉的原因([com.wangzan101.mika.core.cap.web.KeptPageClose.wire]);还开着或没留为 null。 */
     val keptPageClosed: String? = null,
+    /** 这一轮存进对话的时刻(毫秒);旧对话没有这个字段时为 null。只用于显示与导出,不进给模型的上文。 */
+    val atMs: Long? = null,
 )
 
 object Conversation {
