@@ -40,6 +40,7 @@
     <string name="export_label_exported">Diekspor</string>
     <string name="export_label_model">Model</string>
     <string name="export_label_unknown">Tidak diketahui</string>
+    <string name="export_label_warnings">Peringatan</string>
     <string name="export_label_truncated">dipotong, panjang asli %1$d</string>
     <string name="export_label_missing_asset">Tidak ada: %1$s</string>
     <string name="export_label_run_record_missing">Catatan eksekusi tidak tersedia lagi</string>

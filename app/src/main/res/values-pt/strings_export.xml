@@ -40,6 +40,7 @@
     <string name="export_label_exported">Exportado</string>
     <string name="export_label_model">Modelo</string>
     <string name="export_label_unknown">Desconhecido</string>
+    <string name="export_label_warnings">Avisos</string>
     <string name="export_label_truncated">truncado, comprimento original %1$d</string>
     <string name="export_label_missing_asset">Ausente: %1$s</string>
     <string name="export_label_run_record_missing">O registro de execução não está mais disponível</string>

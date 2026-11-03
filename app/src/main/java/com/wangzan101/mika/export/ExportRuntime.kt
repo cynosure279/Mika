@@ -23,6 +23,7 @@ import com.wangzan101.mika.core.export.ManifestSelection
 import com.wangzan101.mika.core.export.ManifestWarning
 import com.wangzan101.mika.core.export.markdown.MarkdownExportBackend
 import com.wangzan101.mika.core.export.json.JsonExportBackend
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -83,6 +84,7 @@ class ExportRuntime(private val context: Context) {
 
             val warnings = document.warnings.toMutableList()
             val sink = DirectoryExportSink(staging)
+            var totalAssets = 0L
             document.assets.forEachIndexed { index, asset ->
                 currentCoroutineContext().ensureActive()
                 onProgress(ExportProgress(ExportPhase.Packaging, index, document.assets.size))
@@ -90,13 +92,30 @@ class ExportRuntime(private val context: Context) {
                     warnings += ExportWarning("asset_too_large", asset.fileName)
                     return@forEachIndexed
                 }
-                val input = source.open(asset)
-                if (input == null) {
-                    warnings += ExportWarning("asset_missing", asset.fileName)
+                val remaining = MAX_TOTAL_ASSETS - totalAssets
+                if (remaining <= 0) {
+                    warnings += ExportWarning("asset_total_too_large", asset.fileName)
                     return@forEachIndexed
                 }
-                input.use { from ->
-                    sink.open("assets/${asset.fileName}").use { to -> copy(from, to) }
+                val target = File(staging, "assets/${asset.fileName}")
+                try {
+                    val input = source.open(asset)
+                    if (input == null) {
+                        warnings += ExportWarning("asset_missing", asset.fileName)
+                        return@forEachIndexed
+                    }
+                    totalAssets += input.use { from ->
+                        sink.open("assets/${asset.fileName}").use { to -> copyLimited(from, to, minOf(MAX_ASSET_BYTES, remaining)) }
+                    }
+                } catch (e: CancellationException) {
+                    target.delete()
+                    throw e
+                } catch (e: AssetTooLarge) {
+                    target.delete()
+                    warnings += ExportWarning("asset_too_large", asset.fileName)
+                } catch (e: Exception) {
+                    target.delete()
+                    warnings += ExportWarning("asset_unreadable", asset.fileName)
                 }
             }
 
@@ -154,15 +173,17 @@ class ExportRuntime(private val context: Context) {
 
     private fun ExportBlock.turnIndex(): Int? = id.value.drop(1).substringBefore('-').toIntOrNull()
 
-    private fun copyToDestination(file: File, destination: Uri, progress: (Long) -> Unit) {
+    private suspend fun copyToDestination(file: File, destination: Uri, progress: (Long) -> Unit) {
+        currentCoroutineContext().ensureActive()
         val output = context.contentResolver.openOutputStream(destination, "wt") ?: throw IOException("cannot open destination")
         output.use { out -> file.inputStream().use { input -> copy(input, out, progress) } }
     }
 
-    private fun copy(input: InputStream, output: OutputStream, progress: ((Long) -> Unit)? = null): Long {
+    private suspend fun copy(input: InputStream, output: OutputStream, progress: ((Long) -> Unit)? = null): Long {
         val buf = ByteArray(64 * 1024)
         var total = 0L
         while (true) {
+            currentCoroutineContext().ensureActive()
             val n = input.read(buf)
             if (n < 0) break
             output.write(buf, 0, n)
@@ -172,9 +193,26 @@ class ExportRuntime(private val context: Context) {
         return total
     }
 
+    private suspend fun copyLimited(input: InputStream, output: OutputStream, max: Long): Long {
+        val buf = ByteArray(64 * 1024)
+        var total = 0L
+        while (true) {
+            currentCoroutineContext().ensureActive()
+            val n = input.read(buf)
+            if (n < 0) break
+            if (total + n > max) throw AssetTooLarge()
+            output.write(buf, 0, n)
+            total += n
+        }
+        return total
+    }
+
+    private class AssetTooLarge : Exception()
+
     private fun language(): String = java.util.Locale.getDefault().language
 
     private companion object {
         const val MAX_ASSET_BYTES = 50L shl 20
+        const val MAX_TOTAL_ASSETS = 200L shl 20
     }
 }

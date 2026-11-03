@@ -139,8 +139,9 @@ class ExportTest {
             File(root, "assets").mkdirs()
             File(root, "document.md").writeText("# hi")
             File(root, "assets/a.txt").writeText("abc")
+            File(root, "assets/manifest.json").writeText("{}")
             val entries = ExportPackage.contentEntries(root)
-            assertEquals(listOf("assets/a.txt", "document.md"), entries.map { it.path })
+            assertEquals(listOf("assets/a.txt", "assets/manifest.json", "document.md"), entries.map { it.path })
             assertEquals(ExportPackage.sha256(File(root, "assets/a.txt")), entries.first().sha256)
             val manifest = ExportManifest(
                 appVersion = "test", exportedAt = "2026-11-03T00:00:00Z",
@@ -153,7 +154,7 @@ class ExportTest {
             ExportPackage.zip(root, File(out, "x.zip"))
             ZipFile(File(out, "x.zip")).use { zip ->
                 val names = zip.entries().asSequence().map { it.name }.toList()
-                assertEquals(listOf("assets/a.txt", "document.md", "manifest.json"), names)
+                assertEquals(listOf("assets/a.txt", "assets/manifest.json", "document.md", "manifest.json"), names)
             }
             assertFalse(ExportPackage.copySingle(root, File(out, "single.md")))
         } finally {
@@ -185,6 +186,77 @@ class ExportTest {
         assertFalse(pii.contains("/data/user/0/x"))
         val kept = ExportRedactor.apply("mail a@b.com", RedactionLevel.Secrets)
         assertTrue(kept.contains("a@b.com"))
+    }
+
+    @Test fun markdownEscapesUntrustedFields() = kotlinx.coroutines.runBlocking {
+        val root = createTempDir()
+        try {
+            val asset = ExportAsset(
+                "a", AssetKind.Image, "x](javascript:alert(1)).jpg", "image/jpeg", 1,
+                AssetRequest.ContentUri("content://x"),
+            )
+            val document = ExportDocument(
+                meta = ExportMeta("c1", "[x](javascript:alert(1)) <img src=x onerror=1>", 1_000L, "test", "en"),
+                blocks = listOf(
+                    ExportBlock.UserMessage(
+                        ExportIds.user(0), "[x](javascript:alert(1)) <img src=x onerror=1>", null,
+                        PageRef("https://example.com/x?a=1", "x](javascript:alert(1))", "sel <b>"),
+                        listOf(asset), emptyList(), null,
+                    ),
+                    ExportBlock.Answer(
+                        ExportIds.answer(0), "hello <script>alert(1)</script>", AnswerOutcome.Succeeded, null, null,
+                        listOf(ToolStep(1, null, "tool", null, "````\n<script>", false, 0, null)), emptyList(),
+                    ),
+                ),
+                assets = listOf(asset),
+            )
+            MarkdownExportBackend(labels).render(document, ExportPresentation(), Reader, DirectoryExportSink(root)) {}
+            val text = File(root, "document.md").readText()
+            assertFalse(text.contains("[x](javascript:"))
+            assertFalse(Regex("""(?<!\\)\]\(javascript:""").containsMatchIn(text))
+            assertFalse(text.substringBefore("### Tool steps").contains("<script>"))
+            assertFalse(Regex("""(?<!\\)<img""").containsMatchIn(text))
+            assertTrue(text.contains("\\[x\\]"))
+            assertTrue(text.contains("&lt;script>"))
+            assertTrue(text.contains("`````text"))
+        } finally {
+            root.deleteRecursively()
+        }
+    }
+
+    @Test fun redactsPageUrlTitleAndAttachmentName() = kotlinx.coroutines.runBlocking {
+        val source = object : ExportSource {
+            override suspend fun turns(conversationId: String) = listOf(
+                ExportTurnRecord(
+                    index = 0,
+                    userText = AttachmentLines.compose(
+                        AttachedPage.compose(
+                            AttachedPage.Page("https://example.com/cb?token=abc&email=a@b.com", "T", "s"),
+                            "请看",
+                        ),
+                        listOf("/workspace/inbox/x.pdf" to "1 KB"),
+                    ),
+                    outcome = "好了",
+                    status = "succeeded",
+                ),
+            )
+            override suspend fun run(runId: String) = null
+            override suspend fun resolve(request: AssetRequest) =
+                if (request is AssetRequest.Workspace) {
+                    ExportAsset("", AssetKind.File, "alice@example.com.pdf", "application/pdf", 1, request)
+                } else null
+        }
+        val document = ExportDocumentBuilder(source, labels, "test", "en") { 1_000L }.build(
+            "c1", "key sk-1234567890abcdef", ExportSelection("c1"),
+            ExportContent(redaction = RedactionLevel.SecretsAndPii),
+        )
+        val user = document.blocks.filterIsInstance<ExportBlock.UserMessage>().single()
+        val url = user.page!!.url
+        assertFalse(url.contains("token=abc"))
+        assertFalse(url.contains("a@b.com"))
+        assertTrue(url.contains("token=***"))
+        assertFalse(document.meta.title.contains("sk-1234567890abcdef"))
+        assertFalse(user.attachments.single().fileName.contains("@"))
     }
 
     private class Source : ExportSource {

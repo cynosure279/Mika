@@ -45,7 +45,7 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
         val total = document.blocks.size
         progress(ExportProgress(ExportPhase.Rendering, 0, total))
         sink.open("document.md").bufferedWriter(Charsets.UTF_8).use { out ->
-            out.appendLine("# ${oneLine(document.meta.title)}")
+            out.appendLine("# ${MarkdownText.plain(oneLine(document.meta.title))}")
             out.appendLine()
             out.appendLine("*${labels.exportedAt}: ${time(document.meta.exportedAtMs)}*")
             out.appendLine()
@@ -59,8 +59,15 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
                 progress(ExportProgress(ExportPhase.Rendering, index + 1, total))
             }
             if (document.warnings.isNotEmpty()) {
-                out.appendLine("> ${labels.unknown}:")
-                document.warnings.forEach { out.appendLine("> - ${oneLine(it.code)}: ${oneLine(it.detail)}") }
+                out.appendLine("> ${labels.warnings}:")
+                document.warnings.forEach {
+                    val line = when (it.code) {
+                        "run_record_missing" -> labels.runRecordMissing
+                        "asset_missing", "asset_unreadable", "asset_too_large", "asset_total_too_large" -> labels.missingAsset.format(it.detail)
+                        else -> it.detail
+                    }
+                    out.appendLine("> - ${MarkdownText.plain(line)}")
+                }
             }
         }
     }
@@ -69,16 +76,17 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
         out.appendLine("## ${labels.user}${block.atMs?.let { " · ${time(it)}" }.orEmpty()}")
         block.quote?.let { q ->
             out.appendLine("> **${labels.quote}:**")
-            q.text.lines().forEach { out.appendLine("> $it") }
+            q.text.lines().forEach { out.appendLine("> ${MarkdownText.plain(it)}") }
             out.appendLine()
         }
         block.page?.let { p ->
-            val title = p.title.ifBlank { p.url }
-            out.appendLine("> ${labels.page}: [$title](${p.url})")
-            p.selection?.takeIf { it.isNotBlank() }?.lines()?.forEach { out.appendLine("> | $it") }
+            val title = MarkdownText.plain(p.title.ifBlank { p.url })
+            val destination = MarkdownText.destination(p.url)
+            out.appendLine(if (destination != null) "> ${labels.page}: [$title]($destination)" else "> ${labels.page}: $title")
+            p.selection?.takeIf { it.isNotBlank() }?.lines()?.forEach { out.appendLine("> | ${MarkdownText.plain(it)}") }
             out.appendLine()
         }
-        block.text.takeIf { it.isNotBlank() }?.let { out.appendLine(it); out.appendLine() }
+        block.text.takeIf { it.isNotBlank() }?.let { out.appendLine(MarkdownText.plain(it)); out.appendLine() }
         for (screen in block.screens) image(out, screen)
         if (block.attachments.isNotEmpty()) {
             out.appendLine("### ${labels.attachments}")
@@ -89,9 +97,9 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
 
     private fun steer(out: Appendable, block: ExportBlock.SteerMessage) {
         out.appendLine("### ${labels.steer}")
-        block.interruptedText?.takeIf { it.isNotBlank() }?.let { out.appendLine("> $it"); out.appendLine() }
-        block.finishedText?.takeIf { it.isNotBlank() }?.let { out.appendLine("> $it"); out.appendLine() }
-        block.text.takeIf { it.isNotBlank() }?.let { out.appendLine(it); out.appendLine() }
+        block.interruptedText?.takeIf { it.isNotBlank() }?.let { out.appendLine("> ${MarkdownText.plain(it)}"); out.appendLine() }
+        block.finishedText?.takeIf { it.isNotBlank() }?.let { out.appendLine("> ${MarkdownText.plain(it)}"); out.appendLine() }
+        block.text.takeIf { it.isNotBlank() }?.let { out.appendLine(MarkdownText.plain(it)); out.appendLine() }
         for (asset in block.assets) {
             if (asset.kind == AssetKind.UserScreen || asset.kind == AssetKind.Image) image(out, asset) else file(out, asset)
         }
@@ -99,25 +107,25 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
 
     private fun answer(out: Appendable, block: ExportBlock.Answer) {
         out.appendLine("## ${labels.mika}${block.atMs?.let { " · ${time(it)}" }.orEmpty()}")
-        block.model?.takeIf { it.isNotBlank() }?.let { out.appendLine("*${labels.model}: ${oneLine(it)}*"); out.appendLine() }
+        block.model?.takeIf { it.isNotBlank() }?.let { out.appendLine("*${labels.model}: ${MarkdownText.plain(oneLine(it))}*"); out.appendLine() }
         when (val o = block.outcome) {
             AnswerOutcome.Succeeded -> Unit
             is AnswerOutcome.Unverified -> {
-                out.appendLine("> ${labels.unverified.format(o.note.orEmpty())}")
-                o.unconfirmed.forEach { out.appendLine("> - $it") }
+                out.appendLine("> ${labels.unverified.format(MarkdownText.plain(o.note.orEmpty()))}")
+                o.unconfirmed.forEach { out.appendLine("> - ${MarkdownText.plain(it)}") }
                 out.appendLine()
             }
             is AnswerOutcome.Failed -> {
-                out.appendLine("> ${labels.notDone.format(o.reason)}")
+                out.appendLine("> ${labels.notDone.format(MarkdownText.plain(o.reason))}")
                 out.appendLine()
             }
             is AnswerOutcome.Cancelled -> {
                 out.appendLine("> ${labels.cancelled}")
-                o.summary?.let { out.appendLine("> $it") }
+                o.summary?.let { out.appendLine("> ${MarkdownText.plain(it)}") }
                 out.appendLine()
             }
         }
-        block.markdown.takeIf { it.isNotBlank() }?.let { out.appendLine(it); out.appendLine() }
+        block.markdown.takeIf { it.isNotBlank() }?.let { out.appendLine(MarkdownText.safeHtml(it)); out.appendLine() }
         if (block.toolSteps.isNotEmpty()) {
             out.appendLine("### ${labels.toolSteps}")
             block.toolSteps.forEach { step(out, it) }
@@ -131,17 +139,17 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
     }
 
     private fun step(out: Appendable, step: ToolStep) {
-        val tool = step.tool?.takeIf { it.isNotBlank() }?.let { " `$it`" }.orEmpty()
+        val tool = step.tool?.takeIf { it.isNotBlank() }?.let { " `${MarkdownText.inlineCode(it)}`" }.orEmpty()
         val duration = if (step.durationMs > 0) " (${step.durationMs} ms)" else ""
         val error = if (step.isError) " · ${labels.toolError}" else ""
         out.appendLine("**${String.format(Locale.ROOT, labels.step, step.step)}**$tool$duration$error")
-        step.note?.takeIf { it.isNotBlank() }?.let { out.appendLine(it); out.appendLine() }
+        step.note?.takeIf { it.isNotBlank() }?.let { out.appendLine(MarkdownText.plain(it)); out.appendLine() }
         step.argsJson?.takeIf { it.isNotBlank() }?.let { code(out, "json", it) }
         step.result?.takeIf { it.isNotBlank() }?.let { code(out, "text", it) }
     }
 
     private fun code(out: Appendable, language: String, text: String) {
-        val fence = if ("```" in text) "````" else "```"
+        val fence = MarkdownText.codeFence(text)
         out.appendLine("$fence$language")
         out.appendLine(text)
         out.appendLine(fence)
@@ -149,15 +157,13 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
     }
 
     private fun image(out: Appendable, asset: ExportAsset) {
-        out.appendLine("![${oneLine(asset.fileName)}](${assetPath(asset)})")
+        out.appendLine("![${MarkdownText.plain(oneLine(asset.fileName))}](${MarkdownText.assetPath(asset.fileName)})")
         out.appendLine()
     }
 
     private fun file(out: Appendable, asset: ExportAsset) {
-        out.appendLine("- [${oneLine(asset.fileName)}](${assetPath(asset)})")
+        out.appendLine("- [${MarkdownText.plain(oneLine(asset.fileName))}](${MarkdownText.assetPath(asset.fileName)})")
     }
-
-    private fun assetPath(asset: ExportAsset) = "assets/${asset.fileName}"
 
     private fun time(ms: Long) = FORMAT.format(Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()))
 

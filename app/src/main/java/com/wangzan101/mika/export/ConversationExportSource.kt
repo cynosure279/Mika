@@ -13,8 +13,6 @@ import com.wangzan101.mika.core.export.ExportFileRef
 import com.wangzan101.mika.core.export.ExportRunRecord
 import com.wangzan101.mika.core.export.ExportSource
 import com.wangzan101.mika.core.export.ExportTurnRecord
-import com.wangzan101.mika.core.export.ToolStep
-import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.record.RunStore
 import com.wangzan101.mika.cap.sandbox.SandboxDirs
 import com.wangzan101.mika.core.workspace.GatedFile
@@ -56,38 +54,7 @@ class ConversationExportSource(
 
     override suspend fun run(runId: String): ExportRunRecord? = withContext(Dispatchers.IO) {
         val summary = runs.summary(runId) ?: return@withContext null
-        val events = runs.events(runId)
-        val replies = events.filterIsInstance<RunEvent.ModelReply>().filter { it.acted }.groupBy { it.step }
-        val results = events.filterIsInstance<RunEvent.ToolResult>().groupBy { it.step }
-        val activities = events.filterIsInstance<RunEvent.Activity>().groupBy { it.step }
-        val steps = mutableListOf<ToolStep>()
-        for (step in (replies.keys + results.keys).sorted()) {
-            val stepReplies = replies[step].orEmpty()
-            val stepResults = results[step].orEmpty().toMutableList()
-            val stepActivities = activities[step].orEmpty()
-            if (stepReplies.isEmpty()) {
-                stepResults.forEach { r ->
-                    val activity = stepActivities.firstOrNull { it.callId == r.callId } ?: stepActivities.firstOrNull()
-                    steps += ToolStep(step, null, r.tool, null, r.resultJson, activity?.failed == true, r.durationMs, null)
-                }
-            } else {
-                stepReplies.forEach { reply ->
-                    val result = stepResults.firstOrNull { it.tool == reply.tool } ?: stepResults.removeFirstOrNull()
-                    val activity = stepActivities.firstOrNull { it.callId == result?.callId } ?: stepActivities.firstOrNull()
-                    steps += ToolStep(
-                        step = step,
-                        note = reply.text.takeIf { it.isNotBlank() },
-                        tool = reply.tool,
-                        argsJson = reply.argsJson,
-                        result = result?.resultJson,
-                        isError = activity?.failed == true,
-                        durationMs = result?.durationMs ?: 0,
-                        model = reply.model,
-                    )
-                }
-            }
-        }
-        ExportRunRecord(model = summary.model, startedAtMs = summary.startedAtMs, steps = steps)
+        ExportRunRecord(model = summary.model, startedAtMs = summary.startedAtMs, steps = RunEventToolSteps.of(runs.events(runId)))
     }
 
     override suspend fun resolve(request: AssetRequest): ExportAsset? = withContext(Dispatchers.IO) {

@@ -40,6 +40,7 @@
     <string name="export_label_exported">내보낸 시간</string>
     <string name="export_label_model">모델</string>
     <string name="export_label_unknown">알 수 없음</string>
+    <string name="export_label_warnings">경고</string>
     <string name="export_label_truncated">잘렸습니다, 원래 길이 %1$d</string>
     <string name="export_label_missing_asset">없음: %1$s</string>
     <string name="export_label_run_record_missing">실행 기록이 삭제되었습니다</string>

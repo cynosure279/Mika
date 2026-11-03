@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.R
 import com.wangzan101.mika.chat.ConversationStore
+import com.wangzan101.mika.core.agent.AttachmentLines
 import com.wangzan101.mika.core.export.ExportBlockId
 import com.wangzan101.mika.core.export.ExportContent
 import com.wangzan101.mika.core.export.ExportIds
@@ -44,8 +46,10 @@ import com.wangzan101.mika.core.export.ExportNames
 import com.wangzan101.mika.core.export.ExportPhase
 import com.wangzan101.mika.core.export.ExportPresentation
 import com.wangzan101.mika.core.export.ExportProgress
+import com.wangzan101.mika.core.export.ExportRedactor
 import com.wangzan101.mika.core.export.ExportSelection
 import com.wangzan101.mika.core.export.RedactionLevel
+import com.wangzan101.mika.core.userscreen.UserScreenMessage
 import com.wangzan101.mika.ui.AttachmentMessage
 import com.wangzan101.mika.ui.ScreenCopy
 import kotlinx.coroutines.CancellationException
@@ -97,9 +101,23 @@ internal fun ExportConversationDialog(
     var outcome by remember { mutableStateOf<ExportOutcome?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
     var job by remember { mutableStateOf<Job?>(null) }
+    var fileAssets by remember { mutableStateOf(false) }
+    var screenAssets by remember { mutableStateOf(false) }
 
     LaunchedEffect(conversationId) {
         val records = withContext(Dispatchers.IO) { ConversationStore.shared(context).records(conversationId) }
+        var files = false
+        var screens = false
+        records.forEach { (turn, shared) ->
+            if (shared.isNotEmpty() || AttachmentLines.parse(turn.userText).files.isNotEmpty()) files = true
+            if (UserScreenMessage.has(turn.userText)) screens = true
+            turn.steers.forEach { steer ->
+                if (AttachmentLines.parse(steer).files.isNotEmpty()) files = true
+                if (UserScreenMessage.has(steer)) screens = true
+            }
+        }
+        fileAssets = files
+        screenAssets = screens
         val list = buildList {
             records.forEachIndexed { index, (turn, _) ->
                 add(ExportCandidate(ExportIds.user(index), context.getString(R.string.export_label_user), preview(turn.userText)))
@@ -115,7 +133,7 @@ internal fun ExportConversationDialog(
 
     val options = rememberUpdatedState(ExportUiOptions(format, selected, toolSteps, attachments, screens, timestamps, model, pii))
     val all = candidates.orEmpty()
-    val bundle = attachments || screens
+    val bundle = (attachments && fileAssets) || (screens && screenAssets)
 
     fun start(uri: Uri) {
         val opts = options.value
@@ -156,7 +174,7 @@ internal fun ExportConversationDialog(
     val md = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/markdown")) { uri -> uri?.let(::start) }
     val json = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let(::start) }
     val zip = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri -> uri?.let(::start) }
-    val suggested = suggestedName(title, bundle, format, context.getString(R.string.export_filename_fallback))
+    val suggested = suggestedName(title, bundle, format, context.getString(R.string.export_filename_fallback), pii)
 
     AlertDialog(
         onDismissRequest = { if (!running) onDismiss() },
@@ -202,7 +220,12 @@ internal fun ExportConversationDialog(
                                 modifier = Modifier.padding(start = 8.dp),
                             )
                         }
-                        if (all.isEmpty()) {
+                        if (candidates == null) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                CircularProgressIndicator(Modifier.size(20.dp))
+                                Text(stringResource(R.string.export_preparing))
+                            }
+                        } else if (all.isEmpty()) {
                             Text(stringResource(R.string.export_no_messages))
                         } else {
                             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 260.dp)) {
@@ -272,9 +295,11 @@ private fun progressText(progress: ExportProgress?): String = when (progress?.ph
 
 private fun preview(text: String): String = ScreenCopy.plain(AttachmentMessage.plain(text)).replace('\n', ' ').trim().take(120)
 
-private fun suggestedName(title: String, bundle: Boolean, format: String, fallback: String): String {
-    val base = ExportNames.safeFileName(title.ifBlank { fallback }, fallback)
+private fun suggestedName(title: String, bundle: Boolean, format: String, fallback: String, pii: Boolean): String {
+    val level = if (pii) RedactionLevel.SecretsAndPii else RedactionLevel.Secrets
+    val safeTitle = ExportRedactor.apply(title, level)
+    val base = ExportNames.safeFileName(safeTitle.ifBlank { fallback }, fallback)
     val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
     val ext = if (bundle) "zip" else if (format == "json") "json" else "md"
-    return "$base-$stamp.$ext"
+    return ExportNames.fit("$base-$stamp.$ext")
 }

@@ -14,7 +14,7 @@ object ExportPackage {
 
     /** 暂存目录里除清单以外的条目,按路径排序;链接不跟着走。 */
     fun contentEntries(root: File): List<ManifestEntry> = files(root)
-        .filter { it.name != MANIFEST }
+        .filter { it.relativeTo(root).invariantSeparatorsPath != MANIFEST }
         .map { file ->
             val path = file.relativeTo(root).invariantSeparatorsPath
             ManifestEntry(ExportNames.entryPath(path), file.length(), sha256(file))
@@ -40,7 +40,7 @@ object ExportPackage {
 
     /** 单文件输出:暂存里除清单外只有一个文件时复制它。 */
     fun copySingle(root: File, out: File): Boolean {
-        val single = files(root).filter { it.name != MANIFEST }
+        val single = files(root).filter { it.relativeTo(root).invariantSeparatorsPath != MANIFEST }
         if (single.size != 1) return false
         out.parentFile?.mkdirs()
         single.single().copyTo(out, overwrite = true)

@@ -41,6 +41,7 @@
     <string name="export_label_exported">Exported</string>
     <string name="export_label_model">Model</string>
     <string name="export_label_unknown">Unknown</string>
+    <string name="export_label_warnings">Warnings</string>
     <string name="export_label_truncated">truncated, original length %1$d</string>
     <string name="export_label_missing_asset">Missing: %1$s</string>
     <string name="export_label_run_record_missing">Run record no longer available</string>

@@ -40,6 +40,7 @@
     <string name="export_label_exported">Экспортировано</string>
     <string name="export_label_model">Модель</string>
     <string name="export_label_unknown">Неизвестно</string>
+    <string name="export_label_warnings">Предупреждения</string>
     <string name="export_label_truncated">сокращено, исходная длина %1$d</string>
     <string name="export_label_missing_asset">Отсутствует: %1$s</string>
     <string name="export_label_run_record_missing">Запись выполнения больше недоступна</string>

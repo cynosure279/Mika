@@ -19,6 +19,7 @@ object ExportLabelsUi {
         exportedAt = context.getString(R.string.export_label_exported),
         model = context.getString(R.string.export_label_model),
         unknown = context.getString(R.string.export_label_unknown),
+        warnings = context.getString(R.string.export_label_warnings),
         truncated = context.getString(R.string.export_label_truncated),
         missingAsset = context.getString(R.string.export_label_missing_asset),
         runRecordMissing = context.getString(R.string.export_label_run_record_missing),

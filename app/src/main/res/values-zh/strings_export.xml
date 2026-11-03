@@ -41,6 +41,7 @@
     <string name="export_label_exported">导出时间</string>
     <string name="export_label_model">模型</string>
     <string name="export_label_unknown">未知</string>
+    <string name="export_label_warnings">提示</string>
     <string name="export_label_truncated">已截短，原长 %1$d 字</string>
     <string name="export_label_missing_asset">缺失：%1$s</string>
     <string name="export_label_run_record_missing">运行记录已清理</string>

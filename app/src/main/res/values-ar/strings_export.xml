@@ -40,6 +40,7 @@
     <string name="export_label_exported">وقت التصدير</string>
     <string name="export_label_model">الطراز</string>
     <string name="export_label_unknown">غير معروف</string>
+    <string name="export_label_warnings">تنبيهات</string>
     <string name="export_label_truncated">مقتطع، الطول الأصلي %1$d</string>
     <string name="export_label_missing_asset">مفقود: %1$s</string>
     <string name="export_label_run_record_missing">سجل التشغيل لم يعد متاحًا</string>

@@ -40,6 +40,7 @@
     <string name="export_label_exported">エクスポート日時</string>
     <string name="export_label_model">モデル</string>
     <string name="export_label_unknown">不明</string>
+    <string name="export_label_warnings">注意</string>
     <string name="export_label_truncated">切り詰めました（元の長さ %1$d 文字）</string>
     <string name="export_label_missing_asset">見つかりません：%1$s</string>
     <string name="export_label_run_record_missing">実行記録は削除されました</string>

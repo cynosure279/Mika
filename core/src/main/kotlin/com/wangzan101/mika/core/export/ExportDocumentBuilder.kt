@@ -2,8 +2,9 @@ package com.wangzan101.mika.core.export
 
 import com.wangzan101.mika.core.agent.AttachmentLines
 import com.wangzan101.mika.core.agent.Conversation
-import com.wangzan101.mika.core.agent.QuoteMessage
 import com.wangzan101.mika.core.agent.AttachedPage
+import com.wangzan101.mika.core.agent.QuoteMessage
+import com.wangzan101.mika.core.record.Redactor
 import com.wangzan101.mika.core.userscreen.UserScreenMessage
 import java.util.Locale
 
@@ -45,7 +46,10 @@ class ExportDocumentBuilder(
                     id = ExportIds.user(turn.index),
                     text = redact(parsed.words, content),
                     quote = parsed.quote?.let { QuotedText(it.first, redact(it.second, content)) },
-                    page = parsed.page?.let { PageRef(it.url, redact(it.title, content), it.selection?.let { s -> redact(s, content) }) },
+                    page = parsed.page?.let {
+                        val url = ExportRedactor.apply(Redactor.network(it.url).url ?: it.url, content.redaction)
+                        PageRef(url, redact(it.title, content), it.selection?.let { s -> redact(s, content) })
+                    },
                     attachments = if (content.includeAttachments) {
                         parsed.attachments.mapNotNull { (path, _) -> asset(AssetRequest.Workspace(path), kindFor(path), path.substringAfterLast('/'), content) }
                     } else emptyList(),
@@ -109,10 +113,11 @@ class ExportDocumentBuilder(
             )
         }
 
+        val finalTitle = redact(title.trim().ifEmpty { turns.firstOrNull()?.userText?.take(80) ?: "Mika" }, content)
         return ExportDocument(
             meta = ExportMeta(
                 conversationId = conversationId,
-                title = title.trim().ifEmpty { turns.firstOrNull()?.userText?.take(80) ?: "Mika" },
+                title = finalTitle,
                 exportedAtMs = now(),
                 appVersion = appVersion,
                 language = language,
@@ -146,10 +151,11 @@ class ExportDocumentBuilder(
         assets[key]?.let { return it }
         val resolved = source.resolve(request)
         if (resolved == null) {
-            warnings += ExportWarning("asset_missing", preferredName)
+            warnings += ExportWarning("asset_missing", redact(preferredName, content))
             return null
         }
-        val name = ExportNames.unique(ExportNames.safeFileName(resolved.fileName.ifEmpty { preferredName }), usedNames)
+        val rawName = resolved.fileName.ifEmpty { preferredName }
+        val name = ExportNames.unique(ExportNames.safeFileName(redact(rawName, content)), usedNames)
         val asset = resolved.copy(id = key, kind = if (kind == AssetKind.File) resolved.kind else kind, fileName = name)
         assets[key] = asset
         return asset
