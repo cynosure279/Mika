@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLargeFileUploadAndDownloadOverHTTPS(t *testing.T) {
@@ -90,6 +91,16 @@ func TestSignedFileLinksAreScopedAndExpire(t *testing.T) {
 	resp2.Body.Close()
 	if resp2.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("tampered link: HTTP %d", resp2.StatusCode)
+	}
+
+	expired := srv.fileLinkURL("download", id, "a.txt", time.Now().Add(-time.Minute).Unix())
+	respExpired, err := http.Get(expired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	respExpired.Body.Close()
+	if respExpired.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expired link: HTTP %d", respExpired.StatusCode)
 	}
 
 	upload := callJSON[struct {

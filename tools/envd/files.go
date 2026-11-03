@@ -37,6 +37,9 @@ func (s *Server) fileLink(args json.RawMessage) (string, bool) {
 	if direction != "download" && direction != "upload" {
 		return jsonFail("invalid_arguments", "direction must be download or upload")
 	}
+	if direction == "upload" && s.cfg.readOnly {
+		return toolError(ErrReadOnly)
+	}
 	ttl := a.TTLSec
 	if ttl == 0 {
 		ttl = 300
