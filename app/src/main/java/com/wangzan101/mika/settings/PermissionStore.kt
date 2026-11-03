@@ -82,6 +82,23 @@ class PermissionStore(private val file: File) {
         autonomous: Boolean = false,
     ): PermissionVerdict = PermissionPolicy.evaluate(request, grantsFor(request.context), once, nowMs, autonomous)
 
+    /**
+     * 执行层的闸门。Phase 2a 只有明确拒绝会拦;Ask 仍按允许执行,等询问卡片接入后再变成确认。
+     * 未知工具 fail closed。
+     */
+    fun gateFor(context: PermissionContext): com.wangzan101.mika.core.permission.PermissionGate =
+        com.wangzan101.mika.core.permission.PermissionGate { tool ->
+            val permission = PermissionCatalog.permissionFor(tool)
+                ?: return@PermissionGate PermissionVerdict.Deny("permission_unknown", "Unknown tool ${tool.name}; refuse it.")
+            val spec = PermissionCatalog.spec(permission)
+            PermissionPolicy.evaluate(
+                com.wangzan101.mika.core.permission.PermissionRequest(
+                    permission, PermissionCatalog.resourceFor(tool), context, spec?.description,
+                ),
+                grantsFor(context),
+            )
+        }
+
     @Synchronized fun addGlobal(grant: Grant) = update {
         it.copy(global = replaceGrant(it.global, grant))
     }

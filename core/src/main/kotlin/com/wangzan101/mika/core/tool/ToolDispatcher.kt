@@ -10,6 +10,8 @@ import com.wangzan101.mika.core.memory.UserUtterances
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.permission.PermissionCatalog
+import com.wangzan101.mika.core.permission.PermissionGate
+import com.wangzan101.mika.core.permission.PermissionVerdict
 import com.wangzan101.mika.core.prompt.Feedback
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.risk.GateTarget
@@ -54,6 +56,8 @@ class ToolDispatcher internal constructor(
     retired: Map<String, String> = emptyMap(),
     /** 整个换了名字的旧名 → 现在的名字(见 [LegacyNames])。 */
     moved: Map<String, List<String>> = emptyMap(),
+    /** 执行层的权限闸门;为 null 时只观察、不拦(Phase 0/1)。 */
+    private val permissionGate: PermissionGate? = null,
 ) {
     private val evidenceLog = EvidenceLog()
     private val shots = Shots()
@@ -62,6 +66,9 @@ class ToolDispatcher internal constructor(
     )
     /** 有界面的能力(手机、网页)共用的那一层;界面上的事都经它。 */
     private val surfaces = surfaceLayer(ctx)
+    /** 明确拒绝的工具:留在注册表里(执行时给出 permission_denied),但不发给模型。 */
+    private val deniedTools: Set<String> = if (permissionGate == null) emptySet() else
+        tools.filter { permissionGate.verdict(it) is PermissionVerdict.Deny }.map { it.name }.toSet()
 
     init {
         capabilities.forEach { it.onTaskStart(ctx) }
@@ -115,7 +122,7 @@ class ToolDispatcher internal constructor(
     fun offeredNow(screenExtra: List<ToolSpec> = emptyList(), all: Boolean = false): List<ToolSpec> =
         registry.layered(if (all) folding.toSet() + ToolGroups.SCREENS else openSet(), if (screenGroups.isEmpty()) emptyMap() else mapOf(ToolGroups.SCREENS to screenExtra)).let {
             if (screenGroups.isEmpty()) it + screenExtra else it
-        }
+        }.filterNot { it.name in deniedTools }
 
     /** 改名前的工具名 → 现在的名字;读旧的个人技能、做法时用,调用旧名时提示新名。 */
     val legacy = LegacyNames(ctx.tools, formerPrefix, renamed, retired, moved)
@@ -158,7 +165,7 @@ class ToolDispatcher internal constructor(
     /** 不动屏幕的工具的守卫(本任务一份);没有为 null。 */
     fun offScreenGuard(): OffScreenGuard? = capabilities.firstNotNullOfOrNull { it.guard() }
 
-    fun definitions(): List<ToolSpec> = registry.definitions()
+    fun definitions(): List<ToolSpec> = registry.definitions().filterNot { it.name in deniedTools }
 
     /** 会改变屏幕、页面状态(要过锁屏/暂停关卡):由工具声明的风险推出。 */
     fun writesScreen(name: String): Boolean = registry.declared(name)?.writesScreen == true
@@ -176,7 +183,7 @@ class ToolDispatcher internal constructor(
     val index: ToolIndex get() = ctx.tools
 
     /** 能放进 do_steps 的工具名,按定义里列出的顺序。 */
-    fun batchable(): List<String> = registry.batchable()
+    fun batchable(): List<String> = registry.batchable().filterNot { it in deniedTools }
 
     /** 这个工具做的动作;不认识的名字为 null。 */
     fun verb(name: String?): Verb? = ctx.tools.verb(name)
@@ -215,6 +222,10 @@ class ToolDispatcher internal constructor(
         val tool = registry.declared(call.name)
         if (tool != null && !tool.readOnly) {
             return fail("not_a_read", Feedback.format("not_a_read", "tool" to call.name), recoverable = false)
+        }
+        permissionDenied(call.name)?.let { denied ->
+            notePermissionDecision(call.name, step, "denied")
+            return fail(denied.code, denied.message, recoverable = false)
         }
         return dispatch(call, step, null)
     }
@@ -318,12 +329,31 @@ class ToolDispatcher internal constructor(
     var observer: ((Observation) -> Unit)? = null
 
     /**
-     * 权限观察:每次工具调用记一条「按清单默认值会怎么判」。Phase 0 只记录,不影响执行;由循环设置。
-     * 没有映射的工具不记(穷尽性测试应拦住),执行照旧。
+     * 权限观察:每次工具调用记一条结论。没有闸门时记「按清单默认值会怎么判」(Phase 0/1);
+     * 有闸门时记真实结论:denied / allowed;Ask 在询问卡片接入前仍记 would_ask,执行照旧。
      */
     var permissionObserver: ((RunEvent.Permission) -> Unit)? = null
 
+    /** 执行层问闸门:只有明确拒绝时返回,其余(含 Ask)为 null。 */
+    fun permissionDenied(name: String): PermissionVerdict.Deny? =
+        registry.declared(name)?.let { permissionGate?.verdict(it) as? PermissionVerdict.Deny }
+
+    /** 执行层已经判过、不交给分发器时,补记一条权限结论。 */
+    fun notePermissionDecision(name: String, step: Int?, decision: String) {
+        registry.declared(name)?.let { emitPermission(it, step, decision) }
+    }
+
     private fun notePermission(tool: AgentTool, step: Int?) {
+        val decision = when (val verdict = permissionGate?.verdict(tool)) {
+            is PermissionVerdict.Deny -> "denied"
+            is PermissionVerdict.Allow -> "allowed"
+            is PermissionVerdict.Ask -> "would_ask"
+            null -> PermissionCatalog.observe(tool)?.decision
+        } ?: return
+        emitPermission(tool, step, decision)
+    }
+
+    private fun emitPermission(tool: AgentTool, step: Int?, decision: String) {
         val observer = permissionObserver ?: return
         val seen = PermissionCatalog.observe(tool) ?: return
         observer(RunEvent.Permission(
@@ -331,7 +361,7 @@ class ToolDispatcher internal constructor(
             step = step ?: (executed + 1),
             permission = seen.permission.value,
             resource = seen.resource.label(),
-            decision = seen.decision,
+            decision = decision,
             source = "tool",
             scope = "observe",
             tool = tool.name,

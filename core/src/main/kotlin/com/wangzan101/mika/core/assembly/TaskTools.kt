@@ -115,6 +115,8 @@ fun toolDispatcher(
     selfConfig: com.wangzan101.mika.core.settings.SelfConfig? = null,
     /** 存下的运行记录;给了、而这个对话之前有记过运行的轮次时提供 history_read(查之前几轮读到的东西)。 */
     runRecords: RunRecords? = null,
+    /** 执行层的权限闸门;为 null 时只观察、不拦。 */
+    permissionGate: com.wangzan101.mika.core.permission.PermissionGate? = null,
 ): ToolDispatcher {
     val config = ToolConfig(visionEnabled, skills, recordFrames, vision, inlineScreen, adaptiveVision, memory, profile, utterances, conversationId,
         imageOps, scheduleTrigger, scheduleAdmin, runSpec, childHost, userScreens, personalSkills, selfConfig, runRecords)
@@ -133,7 +135,7 @@ fun toolDispatcher(
                 onSandboxCommand, onSandboxProgress, onSandboxPreparing, onSandboxScript)
         },
     ) + mcpServers.map(::McpClientProvider)
-    return RunAssembler(providers).assemble(runSpec, config, stableRefs, FORMER_PREFIX, RENAMED, RETIRED, MOVED)
+    return RunAssembler(providers).assemble(runSpec, config, stableRefs, FORMER_PREFIX, RENAMED, RETIRED, MOVED, permissionGate)
 }
 
 /** 改名前各能力工具名的前缀:手机的没有前缀,网页的是 browser_。 */

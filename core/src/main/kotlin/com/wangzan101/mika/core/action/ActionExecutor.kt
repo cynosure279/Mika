@@ -116,6 +116,11 @@ class ActionExecutor(
             null -> Unit
         }
         val policy = origin.policy
+        // 权限闸门在操作守卫之前:没权限的动作不读屏、不停留、不留副作用
+        tools.permissionDenied(call.name)?.let { denied ->
+            tools.notePermissionDecision(call.name, origin.step, "denied")
+            return refuse(denied.code, origin, emptyList())
+        }
         val readScope = reads?.takeIf { verb in PAGE_READ_VERBS }
         val before = when {
             offScreen -> emptyList()

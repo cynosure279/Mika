@@ -2,6 +2,7 @@ package com.wangzan101.mika.core.permission
 
 import com.wangzan101.mika.core.run.RunId
 import com.wangzan101.mika.core.run.RunProvenance
+import com.wangzan101.mika.core.tool.ToolInfo
 
 /** 一个权限的稳定名字。不跟着工具改名走;发布后不再改。 */
 @JvmInline
@@ -108,3 +109,11 @@ data class PermissionObservation(
     val decision: String,
     val reason: String?,
 )
+
+/**
+ * 执行层用的权限闸门:按工具给出结论。Phase 2a 只拦 [PermissionVerdict.Deny];`Ask` 仍按允许执行,
+ * 等询问卡片接入后再变成真正的确认。
+ */
+fun interface PermissionGate {
+    fun verdict(tool: ToolInfo): PermissionVerdict
+}
