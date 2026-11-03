@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -486,6 +488,74 @@ func TestAttachExistingDirectory(t *testing.T) {
 	}
 	if _, err := OpenStore(srv.store.dataDir, false, allowed); err != nil {
 		t.Fatalf("reload after delete: %v", err)
+	}
+}
+
+func TestExecStreamsProgress(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the test command uses a Unix shell")
+	}
+	ts, _ := newTestServer(t)
+	id := createEnv(t, ts, "stream")
+	body := fmt.Sprintf(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"exec","arguments":{"env":%q,"command":"for i in 1 2 3; do echo chunk$i; sleep 0.15; done"},"_meta":{"progressToken":"p1"}}}`, id)
+	req, err := http.NewRequest(http.MethodPost, ts.URL+"/mcp", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+testToken)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if got := resp.Header.Get("Content-Type"); !strings.HasPrefix(got, "text/event-stream") {
+		t.Fatalf("content type: %q", got)
+	}
+	progress := 0
+	var final map[string]any
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.HasPrefix(line, "data:") {
+			continue
+		}
+		var msg map[string]any
+		if err := json.Unmarshal([]byte(strings.TrimSpace(strings.TrimPrefix(line, "data:"))), &msg); err != nil {
+			t.Fatalf("bad SSE data %q: %v", line, err)
+		}
+		if msg["method"] == "notifications/progress" {
+			progress++
+		}
+		if msg["id"] == float64(7) {
+			final = msg
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if progress == 0 {
+		t.Fatal("no progress notifications")
+	}
+	if final == nil {
+		t.Fatal("no final response")
+	}
+	result, _ := final["result"].(map[string]any)
+	content, _ := result["content"].([]any)
+	if len(content) == 0 {
+		t.Fatalf("final result: %v", final)
+	}
+	item, _ := content[0].(map[string]any)
+	text, _ := item["text"].(string)
+	var out struct {
+		Stdout string `json:"stdout"`
+	}
+	if err := json.Unmarshal([]byte(text), &out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.Stdout, "chunk3") {
+		t.Fatalf("stdout: %q", out.Stdout)
 	}
 }
 

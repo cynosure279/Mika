@@ -78,7 +78,7 @@ class LegacySseMcpEndpoint private constructor(
         McpResult("MCP server request failed: ${e.message ?: e.javaClass.simpleName}", isError = true)
     }
 
-    override suspend fun call(name: String, arguments: JsonObject): McpResult {
+    override suspend fun call(name: String, arguments: JsonObject, onProgress: ((McpProgress) -> Unit)?): McpResult {
         if (tools.none { it.name == name }) return McpResult("unknown MCP tool: $name", isError = true)
         val result = try {
             rpc("tools/call", buildJsonObject {

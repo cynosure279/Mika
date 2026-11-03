@@ -4,6 +4,7 @@ import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.cap.mcp.McpAnnotations
 import com.wangzan101.mika.core.cap.mcp.McpConnection
 import com.wangzan101.mika.core.cap.mcp.McpEndpoint
+import com.wangzan101.mika.core.cap.mcp.McpProgress
 import com.wangzan101.mika.core.cap.mcp.McpResult
 import com.wangzan101.mika.core.cap.mcp.McpToolDescriptor
 import com.wangzan101.mika.core.record.RunEvent
@@ -32,7 +33,7 @@ class McpServerTest {
             McpToolDescriptor("read", "Read", buildJsonObject { put("type", "object") }, McpAnnotations(readOnlyHint = true)),
             McpToolDescriptor("send", "Send", buildJsonObject { put("type", "object") }, McpAnnotations(openWorldHint = true)),
         )
-        override suspend fun call(name: String, arguments: JsonObject): McpResult { calls++; return McpResult(name) }
+        override suspend fun call(name: String, arguments: JsonObject, onProgress: ((McpProgress) -> Unit)?): McpResult { calls++; return McpResult(name) }
     }
 
     @Test fun lowLevelToolCallsRunAutonomouslyAndEmitEvents() = runBlocking {

@@ -42,7 +42,7 @@ class McpClientTest {
         override fun tools() = offered
         override fun resources() = resourcesError?.let { throw it } ?: offeredResources
         override fun prompts() = offeredPrompts
-        override suspend fun call(name: String, arguments: JsonObject): McpResult { calls++; return result }
+        override suspend fun call(name: String, arguments: JsonObject, onProgress: ((McpProgress) -> Unit)?): McpResult { calls++; return result }
         override suspend fun readResource(uri: String) = McpResult("resource:$uri")
         override suspend fun getPrompt(name: String, arguments: JsonObject) =
             McpResult("prompt:$name\n$arguments")

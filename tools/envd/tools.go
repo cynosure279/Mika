@@ -219,7 +219,7 @@ func (s *Server) envRoot(e *Environment) (string, func(), error) {
 	return root, e.lock.RUnlock, nil
 }
 
-func (s *Server) callTool(ctx context.Context, name string, raw json.RawMessage) (string, bool) {
+func (s *Server) callTool(ctx context.Context, name string, raw json.RawMessage, progress func(string)) (string, bool) {
 	switch name {
 	case "env_info":
 		return jsonOK(map[string]any{
@@ -303,7 +303,7 @@ func (s *Server) callTool(ctx context.Context, name string, raw json.RawMessage)
 		if err != nil {
 			return toolError(err)
 		}
-		out, err := s.runExec(ctx, e, a.Command, a.Cwd, a.TimeoutSec)
+		out, err := s.runExec(ctx, e, a.Command, a.Cwd, a.TimeoutSec, progress)
 		if err != nil {
 			return toolError(err)
 		}

@@ -768,6 +768,7 @@ class TaskRun(
                 sandbox = sandbox, workspace = { conversationId },
                 onSandboxCommand = { sandboxNote(StatusCopy.sandboxCommand(it, sandboxOnline())) },
                 onSandboxProgress = { sandboxNote(StatusCopy.sandboxProgress(it, sandboxOnline())) },
+                onToolProgress = { sandboxNote(StatusCopy.toolProgress(it)) },
                 onSandboxPreparing = { sandboxNote(StatusCopy.RUNTIME_PREPARING) },
                 onSandboxScript = { sandboxNote(StatusCopy.sandboxScript(sandboxOnline())) },
                 imageOps = BitmapImageOps, runSpec = runSpec,

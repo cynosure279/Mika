@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -114,6 +115,10 @@ func (s *Server) handlePost(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
+	if req.Method == "tools/call" && acceptsEventStream(r) && len(progressToken(req.Params)) > 0 {
+		s.handleStreamingToolCall(w, r, req)
+		return
+	}
 	result, rpcErr := s.dispatch(r.Context(), req.Method, req.Params)
 	resp := rpcResponse{JSONRPC: "2.0", ID: req.ID}
 	if rpcErr != nil {
@@ -175,6 +180,10 @@ func chooseProtocol(requested string) string {
 }
 
 func (s *Server) toolsCall(ctx context.Context, params json.RawMessage) (any, *rpcError) {
+	return s.toolsCallWithProgress(ctx, params, nil)
+}
+
+func (s *Server) toolsCallWithProgress(ctx context.Context, params json.RawMessage, progress func(string)) (any, *rpcError) {
 	var p struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
@@ -183,7 +192,7 @@ func (s *Server) toolsCall(ctx context.Context, params json.RawMessage) (any, *r
 		return nil, &rpcError{Code: -32602, Message: "params must contain name and arguments"}
 	}
 	started := time.Now()
-	text, isError := s.callTool(ctx, p.Name, p.Arguments)
+	text, isError := s.callTool(ctx, p.Name, p.Arguments, progress)
 	log.Printf("tool=%s isError=%v duration=%s", p.Name, isError, time.Since(started).Round(time.Millisecond))
 	res := map[string]any{
 		"content": []map[string]any{{"type": "text", "text": text}},
@@ -192,6 +201,116 @@ func (s *Server) toolsCall(ctx context.Context, params json.RawMessage) (any, *r
 		res["isError"] = true
 	}
 	return res, nil
+}
+
+func acceptsEventStream(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept"), "text/event-stream")
+}
+
+func progressToken(params json.RawMessage) json.RawMessage {
+	var p struct {
+		Meta struct {
+			ProgressToken json.RawMessage `json:"progressToken"`
+		} `json:"_meta"`
+	}
+	_ = json.Unmarshal(params, &p)
+	return p.Meta.ProgressToken
+}
+
+func (s *Server) handleStreamingToolCall(w http.ResponseWriter, r *http.Request, req rpcRequest) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		result, rpcErr := s.dispatch(r.Context(), req.Method, req.Params)
+		resp := rpcResponse{JSONRPC: "2.0", ID: req.ID, Result: result}
+		if rpcErr != nil {
+			resp = rpcResponse{JSONRPC: "2.0", ID: req.ID, Error: rpcErr}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	stream := &sseProgress{w: w, flusher: flusher, token: progressToken(req.Params)}
+	result, rpcErr := s.toolsCallWithProgress(r.Context(), req.Params, stream.send)
+	resp := rpcResponse{JSONRPC: "2.0", ID: req.ID}
+	if rpcErr != nil {
+		resp.Error = rpcErr
+	} else {
+		resp.Result = result
+	}
+	stream.final(resp)
+}
+
+type sseProgress struct {
+	mu      sync.Mutex
+	w       http.ResponseWriter
+	flusher http.Flusher
+	token   json.RawMessage
+	seq     int
+	last    time.Time
+	closed  bool
+}
+
+// send throttles progress notifications; the final result still carries the
+// complete captured output.
+func (s *sseProgress) send(text string) {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return
+	}
+	if len(text) > 240 {
+		text = text[:240]
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	now := time.Now()
+	if !s.last.IsZero() && now.Sub(s.last) < 100*time.Millisecond {
+		return
+	}
+	s.last = now
+	s.seq++
+	event := map[string]any{
+		"jsonrpc": "2.0",
+		"method":  "notifications/progress",
+		"params": map[string]any{
+			"progressToken": s.token,
+			"progress":      s.seq,
+			"message":       text,
+		},
+	}
+	if writeSSE(s.w, s.flusher, event) != nil {
+		s.closed = true
+	}
+}
+
+func (s *sseProgress) final(resp rpcResponse) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
+	_ = writeSSE(s.w, s.flusher, resp)
+	s.closed = true
+}
+
+func writeSSE(w http.ResponseWriter, flusher http.Flusher, value any) error {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(w, "data: %s\n\n", b); err != nil {
+		return err
+	}
+	flusher.Flush()
+	return nil
 }
 
 func decodeArgs(raw json.RawMessage, v any) error {

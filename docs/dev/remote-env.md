@@ -1,6 +1,6 @@
 # 远端执行环境（envd）
 
-> 状态：实验性，第一版。实现了 workspace 后端、MCP 传输、跨平台裸机运行和显式挂载已有目录；流式输出、大文件传输、会话级环境选择尚未实现。默认行为不变：Mika 仍然使用手机上的 Alpine 沙箱。
+> 状态：实验性，第一版。实现了 workspace 后端、MCP 传输、跨平台裸机运行、显式挂载已有目录，以及 `exec` 的流式进度；大文件传输、会话级环境选择尚未实现。默认行为不变：Mika 仍然使用手机上的 Alpine 沙箱。
 
 ## 这是什么
 
@@ -79,6 +79,7 @@ envd 是一个静态二进制，Linux、macOS、Windows 和 Termux（linux-arm64
 限制：
 
 - `exec` 默认超时 60 秒，最长 600 秒；并发命令数由 `-max-exec` 控制，默认 4。
+- `exec` 支持进度流：请求带 `_meta.progressToken` 且 `Accept` 包含 `text/event-stream` 时，服务端用 `notifications/progress` 推送 stdout/stderr 片段，最后再发正常的 `tools/call` 结果。没有 progressToken 或客户端不接受 SSE 时仍是单次 JSON 响应。
 - 每个流最多捕获 `-max-output` 字节，默认 1 MiB；超出部分丢弃并标记 `truncated`。
 - `read_file` 默认 256 KiB，最多 1 MiB；`write_file` 最多 1 MiB；上传/下载最多 1 MiB。
 - `search` 最多扫描 5000 个文件、32 MiB，默认返回 100 条匹配。
@@ -196,11 +197,10 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o mika-envd-windows-
 
 ## 路线图
 
-1. **流式输出**：exec 的 stdout/stderr 通过 SSE 或 MCP 通知增量返回，支持取消。
-2. **大文件传输**：MCP 工具只做控制和元数据，二进制走带令牌的 HTTPS 上传/下载端点，长度和 SHA-256 校验。
-3. **环境管理器**：手机侧环境列表、添加远端、clone、删除、健康状态；会话存 `envId`，任务启动时按环境过滤能力（`RunSpec.capabilities` 已有钩子）。
-4. **统一提供方**：把 `SandboxPort` 拆成命令/文件/技能/导出/桥几组能力，本地 PRoot 和远端 envd 都实现同一套接口，`run_command` 等工具名保持不变。
-5. **反向手机桥**（可选）：远端脚本里的 `mika phone` 通过手机与 envd 的长连接回到手机。第一版明确不做。
+1. **大文件传输**：MCP 工具只做控制和元数据，二进制走带令牌的 HTTPS 上传/下载端点，长度和 SHA-256 校验。
+2. **环境管理器**：手机侧环境列表、添加远端、clone、删除、健康状态；会话存 `envId`，任务启动时按环境过滤能力（`RunSpec.capabilities` 已有钩子）。
+3. **统一提供方**：把 `SandboxPort` 拆成命令/文件/技能/导出/桥几组能力，本地 PRoot 和远端 envd 都实现同一套接口，`run_command` 等工具名保持不变。
+4. **反向手机桥**（可选）：远端脚本里的 `mika phone` 通过手机与 envd 的长连接回到手机。第一版明确不做。
 
 容器不是执行模型的一部分；它是桌面端的部署包装。后续如果要支持更强的隔离，也是在 envd 外面加沙箱/虚拟机，而不是给每个环境起容器。
 

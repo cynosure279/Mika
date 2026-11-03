@@ -28,7 +28,7 @@ import kotlinx.serialization.json.put
 interface McpEndpoint {
     val serverId: String
     fun tools(): List<McpToolDescriptor>
-    suspend fun call(name: String, arguments: JsonObject): McpResult
+    suspend fun call(name: String, arguments: JsonObject, onProgress: ((McpProgress) -> Unit)? = null): McpResult
 
     /** 连接时从服务端读到的资源目录;不支持就是空。 */
     fun resources(): List<McpResourceDescriptor> = emptyList()
@@ -56,6 +56,9 @@ data class McpToolDescriptor(
 )
 
 data class McpResult(val text: String, val isError: Boolean = false, val costUnits: Long = 0)
+
+/** tools/call 期间服务端发来的 notifications/progress;消息已经过服务端自己的裁剪。 */
+data class McpProgress(val progress: Double?, val total: Double?, val message: String?)
 
 /** resources/list 的一项;v1 只用 uri/name/description 给模型看。 */
 data class McpResourceDescriptor(
@@ -299,7 +302,16 @@ private class McpClientTool(
         costUnits = descriptor.estimatedCostUnits,
         resultStore = resultStore,
         previewChars = previewChars,
-        call = { endpoint.call(descriptor.name, a.o) },
+        call = {
+            endpoint.call(descriptor.name, a.o) { progress ->
+                val text = progress.message ?: when {
+                    progress.total != null -> "${progress.progress ?: 0.0}/${progress.total}"
+                    progress.progress != null -> "${progress.progress}"
+                    else -> "progress"
+                }
+                ctx.config.onToolProgress(text)
+            }
+        },
     )
 }
 

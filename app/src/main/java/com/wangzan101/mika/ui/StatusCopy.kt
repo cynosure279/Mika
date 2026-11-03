@@ -203,6 +203,9 @@ object StatusCopy {
     /** 命令里 `mika progress` 报的进度。 */
     fun sandboxProgress(text: String, network: Boolean): String = sandboxLine("", text, 60, network)
 
+    /** 外部 MCP / 远端工具报的进度。 */
+    fun toolProgress(text: String): String = sandboxLine("", text, 60, false)
+
     val SANDBOX_ONLINE: String get() = tr(R.string.sandbox_online)
 
     /** 工具在等运行环境准备好时。 */

@@ -62,4 +62,11 @@ printf '%s' "$read_out" | python3 -c 'import json,sys; r=json.load(sys.stdin); t
 clone_out=$(rpc tools/call "{\"name\":\"env_clone\",\"arguments\":{\"source\":\"$env_id\",\"name\":\"smoke-copy\"}}")
 printf '%s' "$clone_out" | python3 -c 'import json,sys; r=json.load(sys.stdin); t=json.loads(r["result"]["content"][0]["text"]); assert t["environment"]["attached"] is False, t'
 
+stream=$(curl -sS -N -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
+    -H "Accept: application/json, text/event-stream" \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"tools/call\",\"params\":{\"name\":\"exec\",\"arguments\":{\"env\":\"$env_id\",\"command\":\"echo stream1; sleep 0.2; echo stream2\"},\"_meta\":{\"progressToken\":\"p\"}}}" \
+    "http://127.0.0.1:18787/mcp")
+printf '%s' "$stream" | grep -q 'notifications/progress'
+printf '%s' "$stream" | grep -q '"id":9'
+
 echo "envd smoke ok"

@@ -44,6 +44,8 @@ internal class ToolConfig(
     val selfConfig: com.wangzan101.mika.core.settings.SelfConfig? = null,
     /** 存下的运行记录;给了、而这个对话之前有记过运行的轮次时提供 history_read。 */
     val runRecords: com.wangzan101.mika.core.record.RunRecords? = null,
+    /** 外部 MCP 工具在运行中报的进度(任务卡片上的一行)。 */
+    val onToolProgress: (String) -> Unit = {},
 )
 
 /**

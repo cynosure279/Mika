@@ -2,7 +2,7 @@
 
 A small self-hosted execution server for Mika. It speaks MCP over HTTP and lets a phone run commands and read/write files in named workspaces on another machine.
 
-Status: experimental. It has a workspace backend, runs as a static binary on Linux/macOS/Windows/Termux, and can attach existing directories under explicit `-allow-root` paths. It does **not** replace the Alpine sandbox on the phone, and it does not provide streaming output, large-file transfer or phone control.
+Status: experimental. It has a workspace backend, runs as a static binary on Linux/macOS/Windows/Termux, can attach existing directories under explicit `-allow-root` paths, and streams `exec` progress over MCP. It does **not** replace the Alpine sandbox on the phone, and it does not provide large-file transfer or phone control.
 
 The developer contract and threat model are in [`docs/dev/remote-env.md`](../../docs/dev/remote-env.md).
 
@@ -68,7 +68,7 @@ Mika sends `Authorization: Bearer <token>`. After a successful test, the task ge
 | --- | --- |
 | `env_info`, `env_list` | Server and environment information |
 | `env_create` (`name`, optional `path`), `env_clone`, `env_delete` | Workspace lifecycle and attached directories |
-| `exec` | Run the platform shell (`/bin/sh -c` or `cmd.exe /C`) in an environment |
+| `exec` | Run the platform shell (`/bin/sh -c` or `cmd.exe /C`) in an environment; with a progressToken it streams stdout/stderr over SSE |
 | `read_file`, `write_file`, `upload_file`, `download_file` | Files |
 | `list_dir`, `search` | Directory listing and literal search |
 
