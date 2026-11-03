@@ -75,7 +75,7 @@ import kotlinx.coroutines.withContext
 private const val SHIZUKU_SETUP_GUIDE_URL = "https://shizuku.rikka.app/guide/setup/"
 
 /** 设置里能进入的子页面;[Home] 是设置首页,[Advanced] 集中放置连接、维护和工程能力。 */
-private enum class SettingsPage { Home, Advanced, AppAccess, SmsLogin, PhoneOps, Calls, Wechat, DuringWork, AppPace, Capsule, Language, Notifications, Recommendations, Checklists, Workflows, Sandbox, Plugins, EnvVars, Recovery, SelfCheck, ComputerAccess, McpServers, Root, Developer, DeviceDirectories, RunStats, Proactive, Backup }
+private enum class SettingsPage { Home, Advanced, AppAccess, Permissions, SmsLogin, PhoneOps, Calls, Wechat, DuringWork, AppPace, Capsule, Language, Notifications, Recommendations, Checklists, Workflows, Sandbox, Plugins, EnvVars, Recovery, SelfCheck, ComputerAccess, McpServers, Root, Developer, DeviceDirectories, RunStats, Proactive, Backup }
 
 /**
  * 设置页:总状态卡 + 常用 / 我的数据 / 其他。高级与其他只增加一层,各子页返回来时的页面。
@@ -207,7 +207,7 @@ fun SettingsScreen(
             SettingsPage.RunStats, SettingsPage.DeviceDirectories -> SettingsPage.Developer
             SettingsPage.SelfCheck -> SettingsPage.Recovery
             SettingsPage.Sandbox, SettingsPage.Recovery, SettingsPage.ComputerAccess,
-            SettingsPage.McpServers, SettingsPage.Root, SettingsPage.Developer, SettingsPage.EnvVars -> SettingsPage.Advanced
+            SettingsPage.McpServers, SettingsPage.Root, SettingsPage.Developer, SettingsPage.EnvVars, SettingsPage.Permissions -> SettingsPage.Advanced
             SettingsPage.AppPace -> SettingsPage.DuringWork
             else -> SettingsPage.Home
         }
@@ -258,6 +258,7 @@ fun SettingsScreen(
             pluginsCount = pluginRecords.size, onOpenPlugins = { page = SettingsPage.Plugins },
             onOpenEnvVars = { page = SettingsPage.EnvVars },
             showRecovery = status.sdkInt >= Prerequisites.MIN_SDK, onOpenRecovery = { page = SettingsPage.Recovery },
+            onOpenPermissions = { page = SettingsPage.Permissions },
             computerAccess = mcpOn, onOpenComputerAccess = { page = SettingsPage.ComputerAccess },
             mcpServersCount = mcpServers?.servers?.value?.size, onOpenMcpServers = { page = SettingsPage.McpServers },
             showRoot = rootState.suPresent, rootCommands = rootState.commands, onOpenRoot = { page = SettingsPage.Root },
@@ -268,6 +269,7 @@ fun SettingsScreen(
         SettingsPage.AppAccess -> AppAccessScreen(onBack = toHome)
         SettingsPage.SmsLogin -> SmsLoginSettingsScreen(onBack = toHome)
         SettingsPage.Wechat -> WechatSettingsScreen(wechat, onBack = toHome)
+        SettingsPage.Permissions -> PermissionsScreen(onBack = toHome)
         SettingsPage.PhoneOps -> PhoneOpsScreen(
             status, androidRelease, onProblem,
             onRepair = { onFix(Fix.RepairPhoneHelper) }, onUnpair = { onFix(Fix.UnpairPhoneHelper) }, onBack = toHome,
@@ -587,6 +589,7 @@ fun AdvancedSettingsContent(
     onOpenEnvVars: () -> Unit = {},
     showRecovery: Boolean = true,
     onOpenRecovery: () -> Unit = {},
+    onOpenPermissions: () -> Unit = {},
     computerAccess: Boolean? = null,
     onOpenComputerAccess: () -> Unit = {},
     mcpServersCount: Int? = null,
@@ -656,10 +659,11 @@ fun AdvancedSettingsContent(
                 }
             }
         }
-        if (showRecovery) {
-            GroupLabel(stringResource(R.string.settings_maintenance))
-            GroupCard {
-                ListRow(MikaIcons.Wrench, stringResource(R.string.settings_recovery), first = true, onClick = onOpenRecovery) { RowChevron() }
+        GroupLabel(stringResource(R.string.settings_maintenance))
+        GroupCard {
+            ListRow(MikaIcons.Shield, stringResource(R.string.permissions_title), stringResource(R.string.permissions_sub), first = true, onClick = onOpenPermissions) { RowChevron() }
+            if (showRecovery) {
+                ListRow(MikaIcons.Wrench, stringResource(R.string.settings_recovery), first = false, onClick = onOpenRecovery) { RowChevron() }
             }
         }
         if (showDeveloper) {
