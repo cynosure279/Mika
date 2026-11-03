@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,6 +55,31 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 import com.wangzan101.mika.ui.theme.MikaType
 import kotlinx.coroutines.launch
 import java.util.UUID
+
+/** 组成员列表要跟着编辑页一起扛过进程重建:每项压成一行,恢复时还原。 */
+private val GroupMembersSaver = listSaver<List<GroupMember>, String>(
+    save = { members ->
+        members.map { m ->
+            listOf(
+                m.configId, m.priority.toString(), m.weight.toString(), m.enabled.toString(),
+                m.reasoningEffort.orEmpty(), m.costRank?.toString().orEmpty(),
+            ).joinToString("\u001f")
+        }
+    },
+    restore = { rows ->
+        rows.mapNotNull { row ->
+            val p = row.split('\u001f')
+            if (p.size < 6 || p[0].isEmpty()) null else GroupMember(
+                configId = p[0],
+                priority = p[1].toIntOrNull() ?: 0,
+                weight = (p[2].toIntOrNull() ?: 1).coerceIn(1, 100),
+                enabled = p[3].toBooleanStrictOrNull() ?: true,
+                reasoningEffort = p[4].ifBlank { null },
+                costRank = p[5].toIntOrNull(),
+            )
+        }
+    },
+)
 
 /** 模型组列表:名称、成员数、用于哪些用途。点一行编辑。 */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -109,7 +135,7 @@ fun ModelGroupEditorScreen(
     var name by rememberSaveable(groupId) { mutableStateOf(existing?.name.orEmpty()) }
     var strategy by rememberSaveable(groupId) { mutableStateOf((existing?.strategy ?: GroupStrategy.Failover).wire) }
     var sticky by rememberSaveable(groupId) { mutableStateOf(existing?.sticky ?: true) }
-    var members by remember(groupId) { mutableStateOf(existing?.members ?: emptyList()) }
+    var members by rememberSaveable(groupId, stateSaver = GroupMembersSaver) { mutableStateOf(existing?.members ?: emptyList()) }
     var adding by remember { mutableStateOf(false) }
     var contextFor by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }

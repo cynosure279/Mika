@@ -20,6 +20,7 @@ import com.wangzan101.mika.core.tool.FakeScreen
 import com.wangzan101.mika.core.assembly.toolDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -68,6 +69,47 @@ class ModelGroupTest {
         assertEquals(listOf("seeing"), pool.ordered(ModelNeed(toolCalls = true, vision = true, estimatedTokens = 50_000)).map { it.model.name })
         // 上下文不够时放宽窗口限制,交给压缩;工具/看图不够不能放宽
         assertEquals(setOf("no-tools", "blind", "seeing"), pool.ordered(ModelNeed(estimatedTokens = 50_000)).map { it.model.name }.toSet())
+    }
+
+    @Test
+    fun stickyMemberIsKeptEvenIfRawEstimateExceedsItsWindow() {
+        val a = answering("a", c = caps(contextTokens = 64_000))
+        val b = answering("b", c = caps(contextTokens = 200_000))
+        val sticky = StickyTable().also { it.put("g/s", MemberKey("p-a", "a")) }
+        val pool = GroupPool(
+            group(GroupMember("a", priority = 0), GroupMember("b", priority = 1)),
+            listOf(poolMember("a", a, 0), poolMember("b", b, 1)),
+            ModelHealthRegistry(), sticky, "g/s",
+        )
+        // 原始估算超过 a 的窗口,但压缩后可能放得下:粘性成员不能被静默换掉
+        assertEquals("a", pool.ordered(ModelNeed(estimatedTokens = 100_000)).first().model.name)
+    }
+
+    @Test
+    fun visionCapabilityFollowsThePrimaryMember() {
+        val text = answering("text", c = caps(vision = false))
+        val eye = answering("eye", c = caps(vision = true))
+        val pool = GroupPool(
+            group(GroupMember("a", priority = 0), GroupMember("b", priority = 1)),
+            listOf(poolMember("a", text, 0), poolMember("b", eye, 1)),
+            ModelHealthRegistry(), StickyTable(), null,
+        )
+        // 主成员看不了图就不开截图,避免第一张图之后永久换到备用成员
+        assertFalse(pool.capabilities.vision)
+        // 真的需要看图时仍然只把图发给能看图的成员
+        assertEquals(listOf("eye"), pool.ordered(ModelNeed(vision = true, images = 1)).map { it.model.name })
+    }
+
+    @Test
+    fun contentRefusedDoesNotCountAsConsecutiveFailure() {
+        var now = 0L
+        val health = ModelHealthRegistry { now }
+        val key = MemberKey("p", "m")
+        health.noteFailure(key, ModelError.ContentRefused())
+        assertEquals(0, health.snapshot(key).consecutiveFailures)
+        health.noteFailure(key, ModelError.Server(503))
+        assertEquals(1, health.snapshot(key).consecutiveFailures)
+        assertEquals(30_000L, health.snapshot(key).cooldownUntilMs)
     }
 
     @Test
@@ -182,6 +224,18 @@ class ModelGroupTest {
 }
 
 class ModelCallerGroupTest {
+    @Test
+    fun groupOfFallsBackToTheMainPoolWithoutRouter() = runTest {
+        val a = answering("a")
+        val pool = GroupPool(
+            group(GroupMember("a")), listOf(poolMember("a", a)),
+            ModelHealthRegistry(), StickyTable(), null,
+        )
+        val caller = ModelCaller(pool, toolDispatcher(FakeScreen()), null, SpeedFlags.OFF, RetryPolicy.NONE, {}, { 0 })
+        caller.reset("system")
+        assertEquals("主力兜底", caller.groupOf(pool.members.single().model))
+    }
+
     @Test
     fun mainGroupFailsOverToNextMember() = runTest {
         val a = failing("a", ModelError.Auth())
