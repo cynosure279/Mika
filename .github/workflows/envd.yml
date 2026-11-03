@@ -1,0 +1,66 @@
+name: envd
+
+# 远端执行环境只覆盖 tools/envd 和它的文档；Go 测试、真实二进制冒烟、
+# 六个目标交叉编译和 Docker 构建。与主 CI 分开，避免每次 Android PR 都跑。
+
+on:
+  pull_request:
+    paths:
+      - "tools/envd/**"
+      - "docs/dev/remote-env.md"
+      - ".github/workflows/envd.yml"
+  push:
+    branches: [main]
+    paths:
+      - "tools/envd/**"
+      - "docs/dev/remote-env.md"
+      - ".github/workflows/envd.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: envd-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: envd (Go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: tools/envd/go.mod
+          cache: true
+          cache-dependency-path: tools/envd/go.mod
+      - name: Vet and unit tests
+        working-directory: tools/envd
+        run: |
+          go vet ./...
+          go test -race ./...
+      - name: Real binary MCP smoke test
+        run: sh tools/envd/smoke.sh
+      - name: Cross-compile
+        working-directory: tools/envd
+        run: |
+          set -e
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
+            os=${target%/*}
+            arch=${target#*/}
+            out=/tmp/mika-envd-${os}-${arch}
+            if [ "$os" = windows ]; then out="$out.exe"; fi
+            echo "building ${target}"
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -o "$out" .
+          done
+
+  docker:
+    name: envd (Docker)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build image
+        run: docker build -t mika-envd tools/envd

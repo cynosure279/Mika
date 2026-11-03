@@ -95,13 +95,14 @@ Paths are relative to the environment workspace. Absolute paths, `..` and escapi
 ```sh
 go test ./...
 go vet ./...
+sh smoke.sh            # build the real binary, start it on loopback, drive an MCP session
 
 CGO_ENABLED=0 GOOS=linux  GOARCH=arm64 go build -trimpath -o mika-envd-linux-arm64 .
 CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -o mika-envd-darwin-arm64 .
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o mika-envd-windows-amd64.exe
 ```
 
-The Docker build runs the tests before producing the binary.
+The Docker build runs the tests before producing the binary. CI (`.github/workflows/envd.yml`) runs `go vet`, `go test -race`, the smoke script, cross-compiles six targets and builds the image; it is path-filtered to `tools/envd/**` and this document so Android PRs do not run it.
 
 ## License
 

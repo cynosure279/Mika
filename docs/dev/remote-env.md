@@ -180,6 +180,12 @@ CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -o mika-envd-darwin-ar
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o mika-envd-windows-amd64.exe .
 ```
 
+## 验证
+
+- `go vet ./...`、`go test ./...`、`go test -race ./...`。
+- `sh tools/envd/smoke.sh`：构建真实二进制，在回环上起服务，走一遍 `initialize` → `env_create` → `exec` → 写/读 → `env_clone`。
+- `.github/workflows/envd.yml`：只在 `tools/envd/**`、本文档或 workflow 本身变化时运行；包含 vet、race、冒烟、六个目标交叉编译和 Docker 构建。
+
 ## 接入 Mika
 
 1. 设置 › MCP 服务器 › 添加：URL 填 `https://<你的地址>/mcp`，令牌填 `envd_token` 的内容；Mika 会以 `Authorization: Bearer …` 发送。
