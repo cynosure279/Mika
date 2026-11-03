@@ -679,6 +679,7 @@ object ModelsCopy {
     val GROUP_UP: String get() = tr(R.string.models_group_up)
     val GROUP_DOWN: String get() = tr(R.string.models_group_down)
     val GROUP_REMOVE: String get() = tr(R.string.models_group_remove)
+    val GROUP_CONTEXT: String get() = tr(R.string.models_group_member_context)
     val GROUP_ADD_MEMBER: String get() = tr(R.string.models_group_add_member)
     val GROUP_MAIN_NEEDS_TOOLS: String get() = tr(R.string.models_group_main_needs_tools)
     val GROUP_VISION_NEEDS_EYES: String get() = tr(R.string.models_group_vision_needs_eyes)

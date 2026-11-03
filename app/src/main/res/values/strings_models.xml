@@ -230,4 +230,5 @@
     <string name="models_group_delete_title">Delete “%1$s”?</string>
     <string name="models_group_delete_body">Roles using it will go back to unset, none, or the main model.</string>
     <string name="models_group_used_by">Used as %1$s</string>
+    <string name="models_group_member_context">Context</string>
 </resources>

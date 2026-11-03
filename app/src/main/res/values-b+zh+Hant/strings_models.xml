@@ -227,4 +227,5 @@
     <string name="models_group_delete_title">刪除「%1$s」？</string>
     <string name="models_group_delete_body">使用這個群組的用途會退回未選擇、不使用或使用主模型。</string>
     <string name="models_group_used_by">用作 %1$s</string>
+    <string name="models_group_member_context">上下文</string>
 </resources>

@@ -247,4 +247,5 @@
     <string name="models_group_delete_title">حذف «%1$s»؟</string>
     <string name="models_group_delete_body">ستعود الأدوار التي تستخدمها إلى غير محدد أو بلا أو النموذج الرئيسي.</string>
     <string name="models_group_used_by">يُستخدم كـ %1$s</string>
+    <string name="models_group_member_context">السياق</string>
 </resources>

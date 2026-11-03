@@ -225,4 +225,5 @@
     <string name="models_group_delete_title">"%1$s"을(를) 삭제할까요?</string>
     <string name="models_group_delete_body">이 그룹을 사용하는 역할은 미선택, 없음 또는 메인 모델로 돌아갑니다.</string>
     <string name="models_group_used_by">%1$s(으)로 사용</string>
+    <string name="models_group_member_context">컨텍스트</string>
 </resources>

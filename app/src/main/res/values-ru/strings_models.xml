@@ -239,4 +239,5 @@
     <string name="models_group_delete_title">Удалить «%1$s»?</string>
     <string name="models_group_delete_body">Роли, использующие её, вернутся к не выбрано, нет или основной модели.</string>
     <string name="models_group_used_by">Используется как %1$s</string>
+    <string name="models_group_member_context">Контекст</string>
 </resources>

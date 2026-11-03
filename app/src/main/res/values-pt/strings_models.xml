@@ -233,4 +233,5 @@
     <string name="models_group_delete_title">Excluir “%1$s”?</string>
     <string name="models_group_delete_body">Os papéis que o usam voltarão para não definido, nenhum ou o modelo principal.</string>
     <string name="models_group_used_by">Usado como %1$s</string>
+    <string name="models_group_member_context">Contexto</string>
 </resources>
