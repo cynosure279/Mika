@@ -100,7 +100,7 @@ internal fun hasReasoningAction(ui: ModelSetupUi, role: ModelRole): Boolean {
 }
 
 @Composable
-private fun reasoningLabel(effort: String?): String = when (effort) {
+internal fun reasoningLabel(effort: String?): String = when (effort) {
     null -> stringResource(R.string.model_reasoning_default)
     "none" -> stringResource(R.string.model_reasoning_none)
     "minimal" -> stringResource(R.string.model_reasoning_minimal)

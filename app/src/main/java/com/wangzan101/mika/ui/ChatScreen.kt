@@ -590,7 +590,7 @@ fun ChatScreen(
             onVoiceHolding = { voiceHolding = it },
             editRequest = editRequest,
             mainModel = ui.mainModel,
-            onMainModelClick = { modelSheet = true },
+            onMainModelClick = { vm.refreshConversationUi(); modelSheet = true },
             personaBar = if (personas.isNotEmpty() || ui.personaId != null) {
                 {
                     PersonaChip(
@@ -772,6 +772,9 @@ fun ChatScreen(
                 onPick = vm::chooseMainModel,
                 onMore = openModels,
                 onDismiss = { modelSheet = false },
+                onEffort = vm::chooseReasoningEffort,
+                onSkillScope = vm::chooseSkillScope,
+                onMcpScope = vm::chooseMcpScope,
             )
         }
     }

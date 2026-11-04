@@ -646,7 +646,7 @@ private fun MikaRoot(
                 onOpenPersonas = if (personasOn) ({ nav.push(Route.Persona) }) else null,
                 autonomous = autonomous, onAutonomous = app.approvalControl::setAutonomous,
                 updateVersion = updateState.update?.version, onOpenAbout = { nav.push(Route.About) },
-                mcpServers = app.mcpServers,
+                mcpServers = app.mcpServers, workspaceAccess = app.workspaceAccess,
                 openPhoneOps = openPhoneOps, onPhoneOpsOpened = { openPhoneOps = false })
         }
         Route.Models -> ModelsScreen(store, onBack = back, onOpenSpeech = { nav.push(Route.SpeechModel) }, onOpenVoice = { nav.push(Route.VoiceModel) }, onOpenImage = { nav.push(Route.ImageModel) }, onOpenUsage = { nav.push(Route.Usage) })
@@ -741,6 +741,8 @@ private fun MikaRoot(
                         vmScope.launch { routeCount = withContext(Dispatchers.IO) { routeStore.clear(); routeStore.count() } }
                     },
                     onBack = { memoryRuntime.requestOpen(null); nav.back() },
+                    workspaceAccess = app.workspaceAccess,
+                    workspaceCatalog = remember { AppWorkspaceCatalog(app) },
                 )
             }
         }

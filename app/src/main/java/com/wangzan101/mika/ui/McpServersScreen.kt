@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.R
 import com.wangzan101.mika.settings.McpServerConfig
 import com.wangzan101.mika.settings.McpServerStore
+import com.wangzan101.mika.settings.WorkspaceAccessStore
 import com.wangzan101.mika.ui.components.GroupCard
 import com.wangzan101.mika.ui.components.GroupLabel
 import com.wangzan101.mika.ui.components.ListRow
@@ -41,7 +42,7 @@ import kotlinx.coroutines.launch
 
 /** 设置 › MCP 服务器:连接外部 MCP server(outbound),和「连接电脑」的 inbound 设置分开。 */
 @Composable
-fun McpServersScreen(store: McpServerStore, onBack: () -> Unit) {
+fun McpServersScreen(store: McpServerStore, onBack: () -> Unit, access: WorkspaceAccessStore? = null) {
     val servers by store.servers.collectAsState()
     val health by store.health.collectAsState()
     var editing by remember { mutableStateOf<McpServerConfig?>(null) }
@@ -94,6 +95,35 @@ fun McpServersScreen(store: McpServerStore, onBack: () -> Unit) {
             stringResource(R.string.mcp_servers_help_text),
             Modifier.padding(horizontal = 16.dp),
         )
+        if (access != null) {
+            val allowed by access.state.collectAsState()
+            val ids = servers.map { it.id }.toSet()
+            GroupLabel(stringResource(R.string.workspace_mcp_title))
+            GroupCard {
+                ListRow(
+                    null, stringResource(R.string.workspace_mcp_all),
+                    subtitle = stringResource(R.string.workspace_all_note), first = true,
+                ) {
+                    MikaSwitch(allowed.mcpAll, { access.setAllMcp(it, ids) })
+                }
+                if (!allowed.mcpAll) {
+                    servers.forEach { server ->
+                        val on = server.id in allowed.mcpServers
+                        ListRow(
+                            null, server.name,
+                            detail = stringResource(R.string.workspace_new).takeIf { server.id !in allowed.mcpKnown },
+                            onClick = { access.setMcpServer(server.id, !on, ids) },
+                        ) {
+                            Checkbox(on, onCheckedChange = { access.setMcpServer(server.id, it, ids) })
+                        }
+                    }
+                }
+            }
+            Text(
+                stringResource(R.string.workspace_mcp_note),
+                Modifier.padding(horizontal = 16.dp),
+            )
+        }
     }
 
     if (adding || editing != null) {

@@ -107,6 +107,8 @@ fun SettingsScreen(
     onOpenPersonas: (() -> Unit)? = null,
     openPhoneOps: Boolean = false,
     onPhoneOpsOpened: () -> Unit = {},
+    /** 全局允许的工作区技能 / MCP 列表;为空时不显示这一块。 */
+    workspaceAccess: com.wangzan101.mika.settings.WorkspaceAccessStore? = null,
 ) {
     val configs by store.configs.collectAsState()
     val roles by store.roles.collectAsState()
@@ -325,7 +327,7 @@ fun SettingsScreen(
         SettingsPage.Recovery -> RecoveryScreen(onBack = toAdvanced, onOpenSelfCheck = { page = SettingsPage.SelfCheck })
         SettingsPage.SelfCheck -> SelfCheckScreen(status, onBack = back)
         SettingsPage.ComputerAccess -> McpScreen(mcp, onBack = toAdvanced)
-        SettingsPage.McpServers -> mcpServers?.let { McpServersScreen(it, onBack = toAdvanced) }
+        SettingsPage.McpServers -> mcpServers?.let { McpServersScreen(it, onBack = toAdvanced, access = workspaceAccess) }
         SettingsPage.Root -> RootScreen(helperRow = status.sdkInt >= Prerequisites.MIN_SDK, onBack = toAdvanced)
         SettingsPage.Developer -> DeveloperOptionsScreen(
             speed, onSpeed = { flags.setSpeed(it); speed = it }, onBack = toAdvanced,

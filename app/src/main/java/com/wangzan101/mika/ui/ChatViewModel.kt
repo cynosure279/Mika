@@ -14,6 +14,7 @@ import com.wangzan101.mika.chat.RetryAttachmentResult
 import com.wangzan101.mika.chat.RetryAttachmentStatus
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.chat.ConversationSummary
+import com.wangzan101.mika.chat.WorkspaceChoice
 import com.wangzan101.mika.chat.CurrentChat
 import com.wangzan101.mika.chat.DeleteBatch
 import com.wangzan101.mika.chat.DeleteImpact
@@ -323,6 +324,14 @@ data class MainModelUi(
     val fallback: Boolean = false,
     val globalLabel: String? = null,
     val options: List<MainModelOption> = emptyList(),
+    /** 这个对话的目标思考档位;null 跟随模型/用途的默认。 */
+    val reasoningEffort: String? = null,
+    /** 这个主模型能选的档位;空表示不显示档位。 */
+    val efforts: List<String> = emptyList(),
+    val skills: WorkspaceChoice = WorkspaceChoice.FollowGlobal,
+    val mcpServers: WorkspaceChoice = WorkspaceChoice.FollowGlobal,
+    val skillItems: List<WorkspaceItem> = emptyList(),
+    val mcpItems: List<WorkspaceItem> = emptyList(),
 )
 
 data class ChatUi(
@@ -508,6 +517,8 @@ class ChatViewModel(
     private val sharedDraftUri: (String) -> String = { it },
     /** 设置里的主模型/组,对话页据此列出可选项;null 时不显示切换入口(测试、没接设置)。 */
     private val mainModels: MainModelCatalog? = null,
+    /** 技能/MCP 的名字,对话「工具范围」和设置页用;null 时这两项只显示跟随/全部,不列清单。 */
+    private val workspaceItems: WorkspaceCatalog? = null,
     /** 读写对话记录、复制分支在哪儿做。 */
     private val io: CoroutineContext = Dispatchers.IO,
     /** 正在跟用户学习时不另开任务，也不把这句话记成已经开始。 */
@@ -584,138 +595,40 @@ class ChatViewModel(
     private val _ui = MutableStateFlow(ChatUi())
     val ui: StateFlow<ChatUi> = _ui.asStateFlow()
 
-    /** 从搜索或文件库过来的一次性跳转;聊天页滚到目标后清掉。 */
-    private val _jump = MutableStateFlow<ChatJump?>(null)
-    val jump: StateFlow<ChatJump?> = _jump.asStateFlow()
-    private var jumpSerial = 0L
+    /** 还没开始的新对话里的设置:等第一句话定了对话编号再写,免得留下没有对话的旁文件。 */
+    private var pendingSettings: ConversationSettings? = null
+    private var hasPendingSettings = false
 
-    private val drafts = MutableStateFlow<Map<String, ComposerDraft>>(emptyMap())
-    private var draftStateChanged = false
-    private val libraryCopies = mutableMapOf<String, () -> Unit>()
-    private val librarySources = mutableMapOf<String, LibraryFileHandle>()
-    private val libraryImports = mutableMapOf<String, Int>()
-    private val deviceImports = mutableMapOf<String, kotlinx.coroutines.Job>()
-
-    /** 只回收本进程登记的副本；导入中或任何草稿引用中的 URI 继续保留。 */
-    private fun releaseUnusedLibraryCopies() {
-        val referenced = _ui.value.attachments.map { it.uri }.toSet() +
-            drafts.value.values.flatMap { it.attachments.map(PendingAttachment::uri) } + libraryImports.keys
-        val unused = libraryCopies.keys.filter { it !in referenced }
-        unused.forEach { uri ->
-            librarySources.remove(uri)
-            libraryCopies.remove(uri)?.let { runCatching { it() } }
-        }
-    }
-    /** 每次有分享放进当前会话就加一;异步操作靠它分辨草稿是被新分享换掉了,还是用户只改了文字。 */
-    private var sharedDraftSerial = 0L
-
-    /** 尚未发送第一句话的草稿也能从侧栏找回来;已有历史的对话由侧栏沿用原标题。 */
-    val draftConversations = combine(drafts, _ui) { saved, current ->
-        val all = saved + listOfNotNull(current.conversationId?.let { it to current.draft() }).toMap()
-        all.filterValues { it.hasContent }.map { (id, draft) ->
-            ConversationSummary(id,
-                ChatCopy.plainTitle(draft.input).takeIf { it.isNotBlank() }
-                    ?: draft.attachments.firstOrNull()?.name ?: tr(R.string.chat_new), 0L,
-                projectId = projectFor(id) ?: draft.projectId)
-        }
-    }.stateIn(scope, SharingStarted.Eagerly, emptyList())
-
-    fun withDrafts(history: List<ConversationSummary>): List<ConversationSummary> =
-        draftConversations.value.filter { draft -> history.none { it.id == draft.id } }.map {
-            it.copy(title = store.title(it.id) ?: it.title, pinnedAt = store.pinnedAt(it.id),
-                page = store.pageOrigin(it.id), branchOf = store.branchOrigin(it.id), archivedAt = store.archivedAt(it.id),
-                restoredAt = store.restoredAt(it.id), projectId = store.projectId(it.id) ?: it.projectId)
-        } + history
-
-    private fun draftConversation(): String {
-        draftStateChanged = true
-        return _ui.value.conversationId ?: store.newConversation().also { id ->
-            workspaceResolver?.setDraftProject(id, _ui.value.projectId)
-            _ui.update { it.copy(conversationId = id) }
-            markCurrent(CurrentChat.Open(id))
-        }
+    private fun clearPendingSettings() {
+        pendingSettings = null
+        hasPendingSettings = false
     }
 
-    fun input(text: String) {
-        if (text == _ui.value.input) return
-        val id = draftConversation()
-        val currentShared = _ui.value.sharedDraft
-        val updatedShared = currentShared?.copy(text = text)?.takeIf { it.text.isNotBlank() || it.image != null }
-        if (currentShared != null) {
-            if (updatedShared == null) sharedDrafts?.clear(id)
-            else sharedDrafts?.save(updatedShared)
+    /** 这个对话此刻生效的设置:先选的还没落盘的优先。 */
+    private fun currentSettings(): ConversationSettings =
+        if (hasPendingSettings) pendingSettings ?: ConversationSettings()
+        else _ui.value.conversationId?.let { runCatching { store.settings(it) }.getOrNull() } ?: ConversationSettings()
+
+    /** 改这个对话的设置;还没编号的先记着,第一句话时再落盘。 */
+    private fun editSettings(change: (ConversationSettings) -> ConversationSettings): Boolean {
+        val id = _ui.value.conversationId
+        if (id == null) {
+            pendingSettings = change(pendingSettings ?: ConversationSettings())
+            hasPendingSettings = true
+            refreshMainModel()
+            return true
         }
-        _ui.update { it.copy(input = text, sharedDraft = updatedShared) }
-    }
-
-    private fun keepDraft() {
-        draftStateChanged = true
-        val ui = _ui.value
-        val id = ui.conversationId ?: return
-        val shared = ui.sharedDraft?.copy(text = ui.input)?.takeIf { it.text.isNotBlank() || it.image != null }
-        if (ui.sharedDraft != null) {
-            if (shared == null) sharedDrafts?.clear(id)
-            else sharedDrafts?.save(shared)
-        }
-        val draft = ui.draft().copy(sharedDraft = shared)
-        drafts.update { if (draft.hasContent) it + (id to draft) else it - id }
-    }
-
-    private fun restoreDraft(ui: ChatUi): ChatUi {
-        val id = ui.conversationId ?: return ui
-        val draft = drafts.value[id] ?: return ui
-        drafts.update { it - id }
-        return draft.applyTo(ui)
-    }
-
-    private fun updateDraft(id: String, change: (ComposerDraft) -> ComposerDraft) {
-        if (id in _deleted.value) return
-        if (_ui.value.conversationId == id) _ui.update { change(it.draft()).applyTo(it) }
-        else drafts.update { saved ->
-            val draft = change(saved[id] ?: ComposerDraft())
-            if (draft.hasContent) saved + (id to draft) else saved - id
-        }
-    }
-
-    /** 和原输入框一样通过 Android saved state 恢复文字;附件授权仍只在当前进程保留。 */
-    internal fun saveDraftTexts(): List<String> {
-        val ui = _ui.value
-        val texts = drafts.value.mapValues { it.value.input } + listOfNotNull(ui.conversationId?.let { it to ui.input }).toMap()
-        return listOf(ui.conversationId.orEmpty()) + texts.flatMap { (id, text) -> listOf(id, text) }
-    }
-
-    internal fun restoreDraftTexts(saved: List<String>) {
-        // Activity 重建时进程里的状态更新得更近,不拿旧快照盖回去。
-        if (draftStateChanged || saved.isEmpty()) return
-        draftStateChanged = true
-        saved.drop(1).chunked(2).filter { it.size == 2 }.forEach { (id, text) ->
-            updateDraft(id) { it.copy(input = text) }
-        }
-        val id = saved.first().takeIf { it.isNotEmpty() } ?: return
-        if (_ui.value.conversationId == null) {
-            _ui.value = restoreDraft(_ui.value.copy(conversationId = id, exchanges = saved(id)))
-            markCurrent(CurrentChat.Open(id))
-        }
-    }
-    /** 可选的人格;没有人格存储时是空列表。 */
-    val personas: StateFlow<List<Persona>> = personaStore?.personas ?: MutableStateFlow(emptyList())
-
-    /** 还没开始的新对话里选的主模型:等第一句话定了对话编号再写进对话设置,免得留下没有对话的旁文件。 */
-    private var pendingMainChoice: ModelChoice? = null
-    private var hasPendingMainChoice = false
-
-    private fun clearPendingMainChoice() {
-        pendingMainChoice = null
-        hasPendingMainChoice = false
+        val next = change(runCatching { store.settings(id) }.getOrDefault(ConversationSettings()))
+        val ok = store.setSettings(id, next)
+        if (ok) refreshMainModel()
+        return ok
     }
 
     /** 重算输入框上方的主模型入口(跟随设置 / 覆盖 / 覆盖已回退)。换对话、设置里的模型变了、用户选了都走这里。 */
     private fun refreshMainModel() {
         val catalog = mainModels ?: return
-        val id = _ui.value.conversationId
-        // 还没落盘的先选覆盖优先:附件导入失败等情况下编号可能已经定了、但第一句话还没开始
-        val stored = if (hasPendingMainChoice) pendingMainChoice
-            else id?.let { runCatching { store.settings(it).main }.getOrNull() }
+        val settings = currentSettings()
+        val stored = settings.main
         val usable = catalog.usable(stored)
         val global = catalog.globalLabel()
         val options = catalog.options()
@@ -728,23 +641,33 @@ class ChatViewModel(
                 fallback = stored != null && usable == null,
                 globalLabel = global,
                 options = options,
+                reasoningEffort = settings.reasoningEffort,
+                efforts = catalog.reasoningLevels(if (usable != null) stored else null),
+                skills = settings.skills,
+                mcpServers = settings.mcpServers,
+                skillItems = workspaceItems?.skills().orEmpty(),
+                mcpItems = workspaceItems?.mcpServers().orEmpty(),
             ))
         }
     }
+
+    /** 打开模型面板前重读一次技能/MCP 清单(设置里刚增删的项不用重建对话页就能看到)。 */
+    fun refreshConversationUi() = refreshMainModel()
 
     /** 选这个对话下一次任务用的主模型;null 为跟随设置。只写对话设置,不改设置里的用途选择。 */
     fun chooseMainModel(choice: ModelChoice?) {
         val catalog = mainModels ?: return
         if (choice != null && catalog.usable(choice) == null) return
-        val id = _ui.value.conversationId
-        if (id == null) {
-            pendingMainChoice = choice
-            hasPendingMainChoice = true
-            refreshMainModel()
-            return
-        }
-        if (store.setSettings(id, ConversationSettings(choice))) refreshMainModel()
+        editSettings { it.copy(main = choice) }
     }
+
+    /** 选这个对话的目标思考档位;null 跟随模型默认。模型/组成员是否支持由任务开始时核。 */
+    fun chooseReasoningEffort(effort: String?) = editSettings { it.copy(reasoningEffort = effort) }
+
+    /** 这个对话的工具范围:跟随全局 / 全部可用 / 仅选以下。 */
+    fun chooseSkillScope(choice: WorkspaceChoice) = editSettings { it.copy(skills = choice) }
+
+    fun chooseMcpScope(choice: WorkspaceChoice) = editSettings { it.copy(mcpServers = choice) }
 
     /** 删掉了(或正在删)的对话:侧栏当场不再列出,不等删完。 */
     private val _deleted = MutableStateFlow<Set<String>>(emptySet())
@@ -822,6 +745,7 @@ class ChatViewModel(
         // 屏上这个对话的主模型入口按设置和对话文件现算;设置里的模型/组改了也跟着变
         refreshMainModel()
         mainModels?.let { catalog -> scope.launch { catalog.changes.collect { refreshMainModel() } } }
+        workspaceItems?.let { items -> scope.launch { items.changes.collect { refreshMainModel() } } }
         // 开关关着时也按状态带的对话认:别的对话的任务(悬浮胶囊、定时任务开始的)不接到屏上这个对话里
         scope.launch { taskState.collect { s -> if (!parallel()) shownTask.value?.let { onShown(it.first, s) } ?: onState(s) } }
         scope.launch { shownTask.collect { t -> if (t != null && parallel()) onShown(t.first, t.second) } }
@@ -1442,9 +1366,9 @@ class ChatViewModel(
             )
         }
         // 新对话里先选的主模型写进它自己的设置,任务开始时就按这个选(界面已经有编号,重算 chip 不会闪回跟随)
-        if (hasPendingMainChoice) {
-            store.setSettings(id, ConversationSettings(pendingMainChoice))
-            clearPendingMainChoice()
+        if (hasPendingSettings) {
+            store.setSettings(id, pendingSettings ?: ConversationSettings())
+            clearPendingSettings()
             refreshMainModel()
         }
         // 并行时服务忙着(别的对话的任务在跑)也直接交给它
@@ -1593,7 +1517,7 @@ class ChatViewModel(
         when {
             current == null -> {
                 if (!s.active()) return
-                clearPendingMainChoice()
+                clearPendingSettings()
                 _ui.update {
                     it.copy(
                         conversationId = conversationId,
@@ -1624,7 +1548,7 @@ class ChatViewModel(
         cancelPendingSharedDraft()
         keepDraft()
         lingerJob?.cancel()
-        clearPendingMainChoice()
+        clearPendingSettings()
         if (conversationId != _ui.value.conversationId) parkLive()
         val past = saved(conversationId)
         liveIndex = -1
@@ -2041,7 +1965,7 @@ class ChatViewModel(
         refreshParallel()
         if (parallel()) return switchTo(id)
         if (busy()) return
-        clearPendingMainChoice()
+        clearPendingSettings()
         cancelPendingSharedDraft()
         keepDraft()
         val past = saved(id)
@@ -2070,7 +1994,7 @@ class ChatViewModel(
     fun newConversation(projectId: String? = null) {
         val validProject = projectId?.takeIf { projectStore == null || projectStore.get(it) != null }
         refreshParallel()
-        clearPendingMainChoice()
+        clearPendingSettings()
         if (parallel()) {
             cancelPendingSharedDraft()
             keepDraft()
@@ -2317,7 +2241,7 @@ class ChatViewModel(
         pendingStart?.cancel()
         pendingStart = null
         held.clear()
-        clearPendingMainChoice()
+        clearPendingSettings()
         unpark(id)
         liveIndex = -1
         screenSeen = false
