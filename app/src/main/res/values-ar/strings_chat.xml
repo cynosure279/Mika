@@ -178,4 +178,18 @@
     <string name="pip_reopen">عرض الشاشة</string>
     <string name="pip_closed_needs_you">تتطلب تدخّلك</string>
     <string name="pip_closed_hint">أُغلقت لهذه المهمة. انقر على «عرض الشاشة» أسفل اليمين، أو افتح «الشاشات في الخلفية» من القائمة الجانبية.</string>
+    <string name="chat_model_chip_follow">اتّباع الإعدادات</string>
+    <string name="chat_model_chip_follow_named">اتّباع · %1$s</string>
+    <string name="chat_model_chip_model">النموذج: %1$s</string>
+    <string name="chat_model_chip_group">المجموعة: %1$s</string>
+    <string name="chat_model_chip_fallback">تم الرجوع: %1$s</string>
+    <string name="chat_model_sheet_title">النموذج الرئيسي لهذه المحادثة</string>
+    <string name="chat_model_sheet_note">يُطبَّق على المهمة التالية في هذه المحادثة. المهمة الجارية تحتفظ بنموذجها.</string>
+    <string name="chat_model_follow_note">النموذج الرئيسي: %1$s</string>
+    <string name="chat_model_follow_none">لم يُحدَّد نموذج رئيسي</string>
+    <string name="chat_model_group_members">%1$d أعضاء</string>
+    <string name="chat_model_more">المزيد من النماذج</string>
+    <string name="chat_model_next_task">يُطبَّق على المهمة التالية</string>
+    <string name="chat_model_unavailable">هذا الخيار لم يعد متاحًا؛ ستتّبع المهمة التالية الإعدادات.</string>
+    <string name="chat_model_switch">تغيير النموذج الرئيسي</string>
 </resources>

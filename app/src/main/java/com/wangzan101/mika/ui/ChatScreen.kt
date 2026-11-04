@@ -179,6 +179,8 @@ fun ChatScreen(
     voice: VoiceSource? = null,
     /** 「还不能语音输入」里的「去选」。 */
     openSpeechModel: () -> Unit = {},
+    /** 模型面板里的「更多模型」:到设置里的模型页。 */
+    openModels: () -> Unit = {},
 ) {
     val ui by vm.ui.collectAsState()
     val others by vm.otherRunning.collectAsState()
@@ -202,6 +204,7 @@ fun ChatScreen(
     var input by rememberSaveable { mutableStateOf("") }
     var voiceHolding by remember { mutableStateOf(false) }
     var editRequest by remember { mutableIntStateOf(0) }
+    var modelSheet by rememberSaveable { mutableStateOf(false) }
     var composerHeight by rememberSaveable { mutableIntStateOf(0) }
     var topHeight by rememberSaveable { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -374,6 +377,8 @@ fun ChatScreen(
             steerTarget = last?.goal?.let(ChatCopy::plainTitle),
             onVoiceHolding = { voiceHolding = it },
             editRequest = editRequest,
+            mainModel = ui.mainModel,
+            onMainModelClick = { modelSheet = true },
         )
 
         AgentPip(
@@ -455,6 +460,15 @@ fun ChatScreen(
                     vm.editSteer(pending.id)?.let { input = it; editRequest++ }
                 } }) else null,
                 onWithdraw = pending?.let { n -> ({ closeMenu { vm.withdrawSteer(n.id) } }) },
+            )
+        }
+
+        if (modelSheet) {
+            MainModelSheet(
+                ui.mainModel,
+                onPick = vm::chooseMainModel,
+                onMore = openModels,
+                onDismiss = { modelSheet = false },
             )
         }
     }
@@ -1167,6 +1181,9 @@ internal fun Composer(
     steerTarget: String? = null,
     /** 按着说话时为 true:对话内容跟着虚化。 */
     onVoiceHolding: (Boolean) -> Unit = {},
+    /** 这个对话的主模型入口;available 为 false 时不显示。 */
+    mainModel: MainModelUi? = null,
+    onMainModelClick: () -> Unit = {},
 ) {
     val c = MikaTheme.colors
     val vh = rememberVoiceHold(voice, onVoiceText)
@@ -1242,6 +1259,7 @@ internal fun Composer(
             .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
     ) {
         Column(Modifier.fillMaxWidth()) {
+            mainModel?.takeIf { it.available }?.let { MainModelChip(it, busy = mode != ComposerMode.Idle, onClick = onMainModelClick) }
             quote?.let { QuoteChip(it, onRemoveQuote, Modifier.padding(bottom = 6.dp)) }
             if (attachments.isNotEmpty()) PendingTray(attachments, onRemove, Modifier.padding(bottom = 2.dp))
             if (importing || rejected.isNotEmpty() || overLimit > 0) {

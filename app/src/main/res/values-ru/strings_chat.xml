@@ -168,4 +168,18 @@
     <string name="pip_closed_hint">Закрыто для этой задачи. Нажмите «Показать экран» справа внизу или откройте «Фоновые экраны» в боковом меню.</string>
     <string name="chat_conversation_tokens">Этот чат: %1$s</string>
     <string name="chat_conversation_tokens_partial">Этот чат: не меньше %1$s</string>
+    <string name="chat_model_chip_follow">По настройкам</string>
+    <string name="chat_model_chip_follow_named">По настройкам · %1$s</string>
+    <string name="chat_model_chip_model">Модель: %1$s</string>
+    <string name="chat_model_chip_group">Группа: %1$s</string>
+    <string name="chat_model_chip_fallback">Откат: %1$s</string>
+    <string name="chat_model_sheet_title">Основная модель этого чата</string>
+    <string name="chat_model_sheet_note">Применяется к следующей задаче в этом чате. Текущая задача сохраняет свою модель.</string>
+    <string name="chat_model_follow_note">Основная модель: %1$s</string>
+    <string name="chat_model_follow_none">Основная модель не выбрана</string>
+    <string name="chat_model_group_members">Участников: %1$d</string>
+    <string name="chat_model_more">Другие модели</string>
+    <string name="chat_model_next_task">Применяется к следующей задаче</string>
+    <string name="chat_model_unavailable">Этот вариант больше недоступен; следующая задача будет по настройкам.</string>
+    <string name="chat_model_switch">Сменить основную модель</string>
 </resources>

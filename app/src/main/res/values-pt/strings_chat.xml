@@ -163,4 +163,18 @@
     <string name="pip_closed_hint">Fechada para esta tarefa. Toque em “Mostrar tela” no canto inferior direito ou abra “Telas em segundo plano” no menu lateral.</string>
     <string name="chat_conversation_tokens">Esta conversa: %1$s</string>
     <string name="chat_conversation_tokens_partial">Esta conversa: pelo menos %1$s</string>
+    <string name="chat_model_chip_follow">Seguir as configurações</string>
+    <string name="chat_model_chip_follow_named">Seguindo · %1$s</string>
+    <string name="chat_model_chip_model">Modelo: %1$s</string>
+    <string name="chat_model_chip_group">Grupo: %1$s</string>
+    <string name="chat_model_chip_fallback">Revertido: %1$s</string>
+    <string name="chat_model_sheet_title">Modelo principal desta conversa</string>
+    <string name="chat_model_sheet_note">Aplica-se à próxima tarefa desta conversa. A tarefa em execução mantém o modelo.</string>
+    <string name="chat_model_follow_note">Modelo principal: %1$s</string>
+    <string name="chat_model_follow_none">Nenhum modelo principal selecionado</string>
+    <string name="chat_model_group_members">%1$d membros</string>
+    <string name="chat_model_more">Mais modelos</string>
+    <string name="chat_model_next_task">Aplica-se à próxima tarefa</string>
+    <string name="chat_model_unavailable">Esta opção não está mais disponível; a próxima tarefa seguirá as configurações.</string>
+    <string name="chat_model_switch">Alterar o modelo principal</string>
 </resources>

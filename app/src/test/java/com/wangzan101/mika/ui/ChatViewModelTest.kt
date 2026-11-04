@@ -20,6 +20,7 @@ import com.wangzan101.mika.core.risk.IrrevAction
 import com.wangzan101.mika.core.agent.Turn
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.settings.AccessibilityState
+import com.wangzan101.mika.settings.ModelChoice
 import com.wangzan101.mika.settings.Prerequisites
 import com.wangzan101.mika.settings.Problem
 import com.wangzan101.mika.core.shell.BuiltinShellStatus
@@ -31,6 +32,7 @@ import com.wangzan101.mika.ui.PipPhysics.Corner
 import com.wangzan101.mika.core.cap.web.AttachedPage
 import com.wangzan101.mika.core.userscreen.UserScreenMessage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -2182,4 +2184,80 @@ class ChatViewModelTest {
         assertTrue(vm.send("新一句", ok))
         assertNull(vm.branchBefore(0))
     }
+
+    /** 新对话先选模型:给对话编号,写进对话设置,不碰设置里的用途选择。 */
+    @Test fun choosingMainModelWritesConversationSettings() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val choice = ModelChoice.Model("cfg-2")
+        val catalog = FakeMainModelCatalog(
+            global = "m1", options = listOf(MainModelOption(choice, "m2")),
+            labels = mapOf(choice to "m2"), allowed = setOf(choice),
+        )
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, store, mainModels = catalog).also { runCurrent() }
+
+        vm.chooseMainModel(choice)
+        runCurrent()
+        // 还没说话的对话没有编号,先记在内存里,不写旁文件
+        assertNull(vm.ui.value.conversationId)
+        assertEquals(choice, vm.ui.value.mainModel.override)
+        assertEquals("m2", vm.ui.value.mainModel.label)
+        assertFalse(vm.ui.value.mainModel.fallback)
+
+        // 第一句话定下对话编号时才写进这个对话的设置
+        assertTrue(vm.send("用新模型", ok))
+        val id = vm.ui.value.conversationId
+        assertNotNull(id)
+        assertEquals(choice, store.settings(id!!).main)
+
+        // 回到跟随设置:旁文件删掉
+        vm.chooseMainModel(null)
+        runCurrent()
+        assertNull(store.settings(id).main)
+        assertNull(vm.ui.value.mainModel.override)
+        assertEquals("m1", vm.ui.value.mainModel.label)
+    }
+
+    /** 设置里删掉了对话选的那个模型:chip 显示回退到设置里的主模型。 */
+    @Test fun unavailableChoiceFallsBackOnTheChip() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val id = store.newConversation()
+        store.append(id, Turn("一", "甲", "succeeded"))
+        store.setSettings(id, com.wangzan101.mika.chat.ConversationSettings(ModelChoice.Model("gone")))
+        val catalog = FakeMainModelCatalog(global = "m1", allowed = emptySet())
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, store, mainModels = catalog).also { runCurrent() }
+
+        vm.openConversation(id)
+        runCurrent()
+        assertTrue(vm.ui.value.mainModel.fallback)
+        assertEquals("m1", vm.ui.value.mainModel.label)
+        assertEquals(ModelChoice.Model("gone"), vm.ui.value.mainModel.override)
+    }
+
+    /** 设置里的模型/组改了:chip 跟着重算(覆盖没变,跟随的名字变)。 */
+    @Test fun catalogChangesRefreshTheChip() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val catalog = FakeMainModelCatalog(global = "m1")
+        val vm = ChatViewModel(backgroundScope, state, stage, actions, store, mainModels = catalog).also { runCurrent() }
+        assertEquals("m1", vm.ui.value.mainModel.label)
+
+        catalog.global = "m3"
+        catalog.changes.emit(Unit)
+        runCurrent()
+        assertEquals("m3", vm.ui.value.mainModel.label)
+    }
+}
+
+/** 对话页模型入口的假目录;测试里直接改字段来模拟设置变化。 */
+private class FakeMainModelCatalog(
+    var global: String? = null,
+    private val options: List<MainModelOption> = emptyList(),
+    private val labels: Map<ModelChoice, String> = emptyMap(),
+    private val allowed: Set<ModelChoice> = emptySet(),
+) : MainModelCatalog {
+    override val changes = MutableSharedFlow<Unit>()
+    override fun options(): List<MainModelOption> = options
+    override fun usable(choice: ModelChoice?): ModelChoice? = choice?.takeIf { it in allowed }
+    override fun label(choice: ModelChoice): String? = labels[choice]
+    override fun globalLabel(): String? = global
+    override fun isGroup(choice: ModelChoice): Boolean = choice is ModelChoice.Group
 }

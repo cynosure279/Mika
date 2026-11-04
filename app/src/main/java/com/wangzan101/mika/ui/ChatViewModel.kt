@@ -9,6 +9,7 @@ import com.wangzan101.mika.core.tool.LegacyNames
 import com.wangzan101.mika.chat.BranchCopyResult
 import com.wangzan101.mika.chat.BranchOrigin
 import com.wangzan101.mika.chat.BranchWorkspace
+import com.wangzan101.mika.chat.ConversationSettings
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.chat.CurrentChat
 import com.wangzan101.mika.chat.DeleteImpact
@@ -29,6 +30,7 @@ import com.wangzan101.mika.core.skills.SkillNote
 import com.wangzan101.mika.memory.RunNotes
 import com.wangzan101.mika.settings.Prerequisites
 import com.wangzan101.mika.settings.Problem
+import com.wangzan101.mika.settings.ModelChoice
 import com.wangzan101.mika.takeover.Takeover
 import com.wangzan101.mika.task.SteerNote
 import com.wangzan101.mika.task.SteerState
@@ -260,6 +262,21 @@ enum class ComposerMode {
     Answer,
 }
 
+/**
+ * 对话页底下那个主模型入口。没配任何模型时 [available] 为 false,不显示。
+ * [override] 是对话设置里存的选择(可能已经不可用);[label] 是 chip 上要显示的名字。
+ */
+data class MainModelUi(
+    val available: Boolean = false,
+    val override: ModelChoice? = null,
+    val label: String? = null,
+    val group: Boolean = false,
+    /** 存的选择在设置里已经不可用;下一次任务按设置执行,[label] 是设置里的主模型。 */
+    val fallback: Boolean = false,
+    val globalLabel: String? = null,
+    val options: List<MainModelOption> = emptyList(),
+)
+
 data class ChatUi(
     val conversationId: String? = null,
     val exchanges: List<Exchange> = emptyList(),
@@ -279,6 +296,8 @@ data class ChatUi(
     val overLimit: Int = 0,
     /** 输入框上方要随下一句话发出去的引用(长按消息选「引用」);没有为 null。换对话时清掉。 */
     val quote: QuoteMessage.Quote? = null,
+    /** 这个对话的主模型覆盖;没配模型时 [MainModelUi.available] 为 false,输入框上方不显示入口。 */
+    val mainModel: MainModelUi = MainModelUi(),
 ) {
     /** 任务此刻正在后台的虚拟屏上操作(输入框上方那行提示):开过屏、在干活,不在等你或等解锁。 */
     val operatingPhone: Boolean
@@ -365,6 +384,8 @@ class ChatViewModel(
     private val branchWorkspace: BranchWorkspace? = null,
     /** 分支标题:在源标题或第一句话后面加本地化后缀(太长时截断);默认原样。 */
     private val branchTitle: (String) -> String = { it },
+    /** 设置里的主模型/组,对话页据此列出可选项;null 时不显示切换入口(测试、没接设置)。 */
+    private val mainModels: MainModelCatalog? = null,
     /** 读写对话记录、复制分支在哪儿做。 */
     private val io: CoroutineContext = Dispatchers.IO,
 ) {
@@ -373,6 +394,52 @@ class ChatViewModel(
 
     private val _ui = MutableStateFlow(ChatUi())
     val ui: StateFlow<ChatUi> = _ui.asStateFlow()
+
+    /** 还没开始的新对话里选的主模型:等第一句话定了对话编号再写进对话设置,免得留下没有对话的旁文件。 */
+    private var pendingMainChoice: ModelChoice? = null
+    private var hasPendingMainChoice = false
+
+    private fun clearPendingMainChoice() {
+        pendingMainChoice = null
+        hasPendingMainChoice = false
+    }
+
+    /** 重算输入框上方的主模型入口(跟随设置 / 覆盖 / 覆盖已回退)。换对话、设置里的模型变了、用户选了都走这里。 */
+    private fun refreshMainModel() {
+        val catalog = mainModels ?: return
+        val id = _ui.value.conversationId
+        // 还没落盘的先选覆盖优先:附件导入失败等情况下编号可能已经定了、但第一句话还没开始
+        val stored = if (hasPendingMainChoice) pendingMainChoice
+            else id?.let { runCatching { store.settings(it).main }.getOrNull() }
+        val usable = catalog.usable(stored)
+        val global = catalog.globalLabel()
+        val options = catalog.options()
+        _ui.update { ui ->
+            ui.copy(mainModel = MainModelUi(
+                available = global != null || options.isNotEmpty(),
+                override = stored,
+                label = usable?.let(catalog::label) ?: global,
+                group = usable?.let(catalog::isGroup) == true,
+                fallback = stored != null && usable == null,
+                globalLabel = global,
+                options = options,
+            ))
+        }
+    }
+
+    /** 选这个对话下一次任务用的主模型;null 为跟随设置。只写对话设置,不改设置里的用途选择。 */
+    fun chooseMainModel(choice: ModelChoice?) {
+        val catalog = mainModels ?: return
+        if (choice != null && catalog.usable(choice) == null) return
+        val id = _ui.value.conversationId
+        if (id == null) {
+            pendingMainChoice = choice
+            hasPendingMainChoice = true
+            refreshMainModel()
+            return
+        }
+        if (store.setSettings(id, ConversationSettings(choice))) refreshMainModel()
+    }
 
     /** 删掉了(或正在删)的对话:侧栏当场不再列出,不等删完。 */
     private val _deleted = MutableStateFlow<Set<String>>(emptySet())
@@ -448,13 +515,20 @@ class ChatViewModel(
     private var pipClosed = false
 
     init {
+        // 屏上这个对话的主模型入口按设置和对话文件现算;设置里的模型/组改了也跟着变
+        refreshMainModel()
+        mainModels?.let { catalog -> scope.launch { catalog.changes.collect { refreshMainModel() } } }
         // 开关关着时也按状态带的对话认:别的对话的任务(悬浮胶囊、定时任务开始的)不接到屏上这个对话里
         scope.launch { taskState.collect { s -> if (!parallel()) shownTask.value?.let { onShown(it.first, s) } ?: onState(s) } }
         scope.launch { shownTask.collect { t -> if (t != null && parallel()) onShown(t.first, t.second) } }
         // 不论是谁存进屏上这个对话的(悬浮胶囊、定时任务、这里),都按存下的那份补上
         scope.launch {
             store.changes.collect { id ->
-                if (id == _ui.value.conversationId) syncSaved(id)
+                if (id == _ui.value.conversationId) {
+                    syncSaved(id)
+                    // 对话设置也走这个 flow(别处改了覆盖、分支复制过来),主模型入口跟着重算
+                    refreshMainModel()
+                }
                 // 删掉的对话又有人往里存了:重新列出来
                 if (id in _deleted.value && id !in deleting && store.turns(id).isNotEmpty()) _deleted.update { it - id }
             }
@@ -728,6 +802,12 @@ class ChatViewModel(
                 composer = ComposerMode.Busy,
             )
         }
+        // 新对话里先选的主模型写进它自己的设置,任务开始时就按这个选(界面已经有编号,重算 chip 不会闪回跟随)
+        if (hasPendingMainChoice) {
+            store.setSettings(id, ConversationSettings(pendingMainChoice))
+            clearPendingMainChoice()
+            refreshMainModel()
+        }
         // 并行时服务忙着(别的对话的任务在跑)也直接交给它
         if (serviceBusy.value && !parallel()) {
             // 等着的这段时间说清楚在等什么,不让它看着像卡住了;交给服务后由任务自己的状态接着写
@@ -806,7 +886,9 @@ class ChatViewModel(
         when {
             current == null -> {
                 if (!s.active()) return
+                clearPendingMainChoice()
                 _ui.update { it.copy(conversationId = conversationId, exchanges = saved(conversationId)) }
+                refreshMainModel()
             }
             current != conversationId -> {
                 val live = _ui.value.exchanges.getOrNull(liveIndex)
@@ -825,11 +907,13 @@ class ChatViewModel(
         refreshParallel()
         if (!parallel()) return openConversation(conversationId)
         lingerJob?.cancel()
+        clearPendingMainChoice()
         if (conversationId != _ui.value.conversationId) parkLive()
         val past = saved(conversationId)
         liveIndex = -1
         // 没有任务的对话不带别的任务的接管进度
         _ui.update { ChatUi(conversationId = conversationId, exchanges = past, takeoverStage = Takeover.Stage.None) }
+        refreshMainModel()
         markCurrent(CurrentChat.Open(conversationId))
         if (conversationId !in activeConversations.value) { unpark(conversationId); return }
         follow(conversationId, unpark(conversationId))
@@ -982,9 +1066,11 @@ class ChatViewModel(
         refreshParallel()
         if (parallel()) return switchTo(id)
         if (busy()) return
+        clearPendingMainChoice()
         val past = saved(id)
         liveIndex = -1
         _ui.update { ChatUi(conversationId = id, exchanges = past, takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled) }
+        refreshMainModel()
         markCurrent(CurrentChat.Open(id))
         // 这个对话的任务是别处开始的(悬浮胶囊、定时任务):打开就接上它
         if (id in activeConversations.value) follow(id)
@@ -1000,12 +1086,14 @@ class ChatViewModel(
 
     fun newConversation() {
         refreshParallel()
+        clearPendingMainChoice()
         if (parallel()) {
             // 别的任务可能还在跑:先给新对话编号,它的状态就不会被当成这个对话的
             lingerJob?.cancel()
             parkLive()
             liveIndex = -1
             _ui.update { ChatUi(conversationId = store.newConversation(), takeoverStage = Takeover.Stage.None, attachEnabled = it.attachEnabled) }
+            refreshMainModel()
             // 还没说过话:胶囊上是一张新对话卡片(编号等说出来再定,见 begin)
             markCurrent(CurrentChat.Fresh)
             return
@@ -1013,6 +1101,7 @@ class ChatViewModel(
         if (busy()) return
         liveIndex = -1
         _ui.update { ChatUi(takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled) }
+        refreshMainModel()
         markCurrent(CurrentChat.Fresh)
     }
 
@@ -1113,12 +1202,14 @@ class ChatViewModel(
         pendingStart?.cancel()
         pendingStart = null
         held.clear()
+        clearPendingMainChoice()
         unpark(id)
         liveIndex = -1
         screenSeen = false
         pipClosed = false
         val fresh = if (parallel()) store.newConversation() else null
         _ui.update { ChatUi(conversationId = fresh, takeoverStage = Takeover.Stage.None, attachEnabled = it.attachEnabled) }
+        refreshMainModel()
         // 屏上换成了一个新的空对话:胶囊不再接着删掉的那个
         markCurrent(CurrentChat.Fresh)
     }

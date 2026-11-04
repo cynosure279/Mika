@@ -46,6 +46,7 @@ import com.wangzan101.mika.task.TriggerOutcomes
 import com.wangzan101.mika.task.TaskService
 import com.wangzan101.mika.task.TaskCenterState
 import com.wangzan101.mika.ui.ChatViewModel
+import com.wangzan101.mika.ui.ProviderMainModelCatalog
 import com.wangzan101.mika.ui.TaskActions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -313,7 +314,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             branchWorkspace = AndroidBranchWorkspace(app),
             // 标题后面加当前界面语言的「分支」后缀;源标题太长时先截短,后缀留着
             branchTitle = { base -> ChatCopy.branchTitle(base, tr(R.string.chat_branch_title_suffix)) },
-        )
+            // 对话页输入框上方的主模型 chip:选项和显示名都来自设置里的模型/组
+            mainModels = ProviderMainModelCatalog(com.wangzan101.mika.settings.ProviderStore.get(app)),        )
     }
 
     override fun onCreate() {

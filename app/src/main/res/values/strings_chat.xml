@@ -158,4 +158,18 @@
     <string name="pip_closed_hint">Closed for this task. Tap “Show screen” at the bottom right, or open “Background screens” in the side menu.</string>
     <string name="chat_conversation_tokens">This chat: %1$s</string>
     <string name="chat_conversation_tokens_partial">This chat: at least %1$s</string>
+    <string name="chat_model_chip_follow">Following Settings</string>
+    <string name="chat_model_chip_follow_named">Following · %1$s</string>
+    <string name="chat_model_chip_model">Model: %1$s</string>
+    <string name="chat_model_chip_group">Group: %1$s</string>
+    <string name="chat_model_chip_fallback">Fell back: %1$s</string>
+    <string name="chat_model_sheet_title">Main model for this chat</string>
+    <string name="chat_model_sheet_note">Applies to the next task in this chat. A running task keeps its model.</string>
+    <string name="chat_model_follow_note">Main model: %1$s</string>
+    <string name="chat_model_follow_none">No main model selected</string>
+    <string name="chat_model_group_members">%1$d members</string>
+    <string name="chat_model_more">More models</string>
+    <string name="chat_model_next_task">Applies to the next task</string>
+    <string name="chat_model_unavailable">This choice is no longer available; the next task follows Settings.</string>
+    <string name="chat_model_switch">Change main model</string>
 </resources>

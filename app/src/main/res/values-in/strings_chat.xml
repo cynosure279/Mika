@@ -153,4 +153,18 @@
     <string name="pip_closed_hint">Ditutup untuk tugas ini. Ketuk “Tampilkan layar” di kanan bawah, atau buka “Layar latar belakang” di menu samping.</string>
     <string name="chat_conversation_tokens">Percakapan ini: %1$s</string>
     <string name="chat_conversation_tokens_partial">Percakapan ini: setidaknya %1$s</string>
+    <string name="chat_model_chip_follow">Ikuti pengaturan</string>
+    <string name="chat_model_chip_follow_named">Mengikuti · %1$s</string>
+    <string name="chat_model_chip_model">Model: %1$s</string>
+    <string name="chat_model_chip_group">Grup: %1$s</string>
+    <string name="chat_model_chip_fallback">Dialihkan: %1$s</string>
+    <string name="chat_model_sheet_title">Model utama untuk chat ini</string>
+    <string name="chat_model_sheet_note">Berlaku untuk tugas berikutnya di chat ini. Tugas yang sedang berjalan tetap memakai modelnya.</string>
+    <string name="chat_model_follow_note">Model utama: %1$s</string>
+    <string name="chat_model_follow_none">Belum ada model utama dipilih</string>
+    <string name="chat_model_group_members">%1$d anggota</string>
+    <string name="chat_model_more">Model lainnya</string>
+    <string name="chat_model_next_task">Berlaku untuk tugas berikutnya</string>
+    <string name="chat_model_unavailable">Pilihan ini tidak tersedia lagi; tugas berikutnya mengikuti pengaturan.</string>
+    <string name="chat_model_switch">Ganti model utama</string>
 </resources>

@@ -176,6 +176,12 @@ data class ModelContextSettings(val windowTokens: Int? = null, val triggerTokens
         (triggerTokens == null || (triggerTokens > 0 && triggerTokens == limits(modelWindow).trigger))
 }
 
+/** 对话里对主模型的覆盖:一个具体模型或一个模型组。null 表示跟随设置。 */
+sealed interface ModelChoice {
+    data class Model(val configId: String) : ModelChoice
+    data class Group(val groupId: String) : ModelChoice
+}
+
 /** 一个用途选了什么:一个具体模型、一个模型组、用主模型,或不用(只有看图可以不用)。 */
 sealed interface RoleChoice {
     /** 用 [configId] 这条模型配置。 */
@@ -676,21 +682,36 @@ class ProviderStore(
      * 看图这一路总是 true(用户选了它来看图);别的用途按 [ModelOptions.seesImages]——用户在这个模型上说过的为准,
      * 没说过而看图也用这条配置(选了同一个模型,或「用主模型」)的,同样算能看,截图直接附给它,不必另调一次看图。
      */
-    fun configFor(role: ModelRole): ProviderConfig? {
-        val choices = _roles.value
+    fun configFor(role: ModelRole): ProviderConfig? = configFor(role, _roles.value)
+
+    /** 按一份用途选择取配置;对话覆盖主模型时用它算轻量、看图的跟随结果。 */
+    private fun configFor(role: ModelRole, choices: RoleChoices): ProviderConfig? {
         // 组按「排在最前的启用成员」给界面一个代表;真正的路由在 modelFor 里按成员走
-        val id = choices.resolveConfig(role) ?: groupFor(role)?.enabledMembers?.firstOrNull()?.configId ?: return null
+        val id = choices.resolveConfig(role)
+            ?: choices.resolveGroup(role)?.let(::group)?.enabledMembers?.firstOrNull()?.configId
+            ?: return null
         val cfg = _configs.value.firstOrNull { it.id == id } ?: return null
         val sees = role == ModelRole.Vision || ModelOptions.seesImages(cfg.capabilities.vision,
             provider(cfg.providerId)?.visionOverrides?.get(cfg.model), usedForVision = choices.resolveConfig(ModelRole.Vision) == cfg.id)
         return if (sees == cfg.capabilities.vision) cfg else cfg.copy(capabilities = cfg.capabilities.copy(vision = sees))
     }
 
-    /** 主模型在它那家还没测试通过时给出那一家(见 [Provider.untested]);任务因模型失败时据此提示去「重新测试」。 */
-    fun untestedMainProvider(): Provider? {
-        val cfg = configFor(ModelRole.Main) ?: return null
-        val candidates = groupFor(ModelRole.Main)?.enabledMembers?.mapNotNull { m -> _configs.value.firstOrNull { it.id == m.configId } }
-            ?: listOf(cfg)
+    /**
+     * 主模型在它那家还没测试通过时给出那一家(见 [Provider.untested]);任务因模型失败时据此提示去「重新测试」。
+     * [choice] 是这个对话的主模型覆盖;覆盖不可用或为空时按设置里的主模型找。
+     */
+    fun untestedMainProvider(choice: ModelChoice? = null): Provider? {
+        val usable = usableMainChoice(choice)
+        val candidates = when (usable) {
+            is ModelChoice.Model -> listOfNotNull(_configs.value.firstOrNull { it.id == usable.configId })
+            is ModelChoice.Group -> group(usable.groupId)?.enabledMembers
+                ?.mapNotNull { m -> _configs.value.firstOrNull { it.id == m.configId } }.orEmpty()
+            null -> {
+                val cfg = configFor(ModelRole.Main) ?: return null
+                groupFor(ModelRole.Main)?.enabledMembers?.mapNotNull { m -> _configs.value.firstOrNull { it.id == m.configId } }
+                    ?: listOf(cfg)
+            }
+        }
         return candidates.firstNotNullOfOrNull { c -> provider(c.providerId)?.takeIf { it.untested(c.model) } }
     }
 
@@ -700,21 +721,59 @@ class ProviderStore(
      * 选了模型组时返回 [GroupPool]:成员各自计量,组本身只负责选择和转移。
      * [session] 是这次调用属于的对话(同一段对话里建的模型都给同一个);服务商声明了会话头的,每个请求都带上它。
      */
-    fun modelFor(role: ModelRole, session: ModelSession = ModelSession.fresh()): ChatModel? {
-        groupFor(role)?.let { group -> return groupModelFor(role, group, session) }
-        return configFor(role)?.let { cfg ->
+    fun modelFor(role: ModelRole, session: ModelSession = ModelSession.fresh()): ChatModel? =
+        modelFor(role, session, _roles.value)
+
+    /**
+     * 这个对话这一轮用的模型:主模型被 [mainChoice] 覆盖时,轻量、看图的「用主模型」跟着覆盖走。
+     * 覆盖里的配置/组已经不在了、或组不满足这个用途时,这个用途按设置取;主模型本身回退设置。
+     * 覆盖只影响建出来的模型,不改设置里存的用途选择。思考档位仍按设置里的用途走,模型不支持这一档时不传
+     * (按对话的档位在后续 PR 里接)。
+     */
+    @Synchronized
+    fun modelFor(role: ModelRole, session: ModelSession, mainChoice: ModelChoice?): ChatModel? {
+        val usable = usableMainChoice(mainChoice) ?: return modelFor(role, session, _roles.value)
+        val current = _roles.value
+        val sameAsGlobal = when (usable) {
+            is ModelChoice.Model -> current.main == usable.configId && current.mainGroup == null
+            is ModelChoice.Group -> current.mainGroup == usable.groupId && current.main == null
+        }
+        if (sameAsGlobal) return modelFor(role, session, current)
+        val choices = when (usable) {
+            is ModelChoice.Model -> current.copy(main = usable.configId, mainGroup = null)
+            is ModelChoice.Group -> current.copy(main = null, mainGroup = usable.groupId)
+        }
+        // 「用主模型」跟到覆盖的组时,这个用途也必须被这个组接受(比如看图组要有一个成员能看图)
+        val group = choices.resolveGroup(role)?.let(::group)
+        if (group != null && !groupUsable(group, role)) return null
+        return modelFor(role, session, choices)
+    }
+
+    /**
+     * 对话覆盖的主模型选择现在还能不能用:配置还在、组还在且满足主模型的要求(全员支持工具)。
+     * 不能用(删了、改名成不支持工具的组)时为 null,下一次任务按设置执行。
+     */
+    fun usableMainChoice(choice: ModelChoice?): ModelChoice? = when (choice) {
+        is ModelChoice.Model -> choice.takeIf { c -> _configs.value.any { it.id == c.configId } }
+        is ModelChoice.Group -> choice.takeIf { groupUsable(it.groupId, ModelRole.Main) }
+        null -> null
+    }
+
+    private fun modelFor(role: ModelRole, session: ModelSession, choices: RoleChoices): ChatModel? {
+        choices.resolveGroup(role)?.let { id -> group(id)?.let { group -> return groupModelFor(role, group, session, choices) } }
+        return configFor(role, choices)?.let { cfg ->
             val p = provider(cfg.providerId)
             val source = UsageSource(cfg.providerId, p?.name ?: cfg.name, cfg.model, UsagePurpose.of(role))
-            builtModel(cfg, p, session, _roles.value.reasoningEffort(role)).metered(source, usage)
+            builtModel(cfg, p, session, supportedEffort(cfg, choices.reasoningEffort(role))).metered(source, usage)
         }
     }
 
     /** 按组的成员顺序建出每个成员;成员的上下文设置、思考档位、请求头都按各自的配置来。 */
-    private fun groupModelFor(role: ModelRole, group: ModelGroup, session: ModelSession): ChatModel? {
+    private fun groupModelFor(role: ModelRole, group: ModelGroup, session: ModelSession, choices: RoleChoices): ChatModel? {
         val members = group.members.filter { it.enabled }.mapNotNull { m ->
             val cfg = _configs.value.firstOrNull { it.id == m.configId } ?: return@mapNotNull null
             val p = provider(cfg.providerId) ?: return@mapNotNull null
-            val effort = memberReasoningEffort(cfg, p, m.reasoningEffort ?: _roles.value.reasoningEffort(role))
+            val effort = supportedEffort(cfg, m.reasoningEffort ?: choices.reasoningEffort(role))
             val model = builtModel(cfg, p, session, effort)
                 .metered(UsageSource(p.id, p.name, cfg.model, UsagePurpose.of(role)), usage)
             PoolMember(
@@ -730,8 +789,8 @@ class ProviderStore(
         )
     }
 
-    /** 成员不支持角色选的档位时传 null,免得把一个服务商不认的值发出去。 */
-    private fun memberReasoningEffort(cfg: ProviderConfig, p: Provider, effort: String?): String? {
+    /** 方案不支持这个档位时传 null,免得把一个服务商不认的值发出去。 */
+    private fun supportedEffort(cfg: ProviderConfig, effort: String?): String? {
         if (effort == null) return null
         val levels = ReasoningOptions.of(cfg, listedOf(cfg))?.levels ?: return null
         return effort.takeIf { it in levels }

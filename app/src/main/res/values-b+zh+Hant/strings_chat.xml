@@ -153,4 +153,18 @@
     <string name="pip_closed_hint">這個任務不再浮出小畫面。點右下角「顯示畫面」，或在側欄「背景螢幕」裡看。</string>
     <string name="chat_conversation_tokens">本對話共 %1$s</string>
     <string name="chat_conversation_tokens_partial">本對話至少 %1$s</string>
+    <string name="chat_model_chip_follow">跟隨設定</string>
+    <string name="chat_model_chip_follow_named">跟隨 · %1$s</string>
+    <string name="chat_model_chip_model">模型：%1$s</string>
+    <string name="chat_model_chip_group">組：%1$s</string>
+    <string name="chat_model_chip_fallback">已回退：%1$s</string>
+    <string name="chat_model_sheet_title">這個對話的主模型</string>
+    <string name="chat_model_sheet_note">只影響這個對話的下一次任務；正在跑的任務保持原來的模型。</string>
+    <string name="chat_model_follow_note">主模型：%1$s</string>
+    <string name="chat_model_follow_none">還沒選主模型</string>
+    <string name="chat_model_group_members">%1$d 個成員</string>
+    <string name="chat_model_more">更多模型</string>
+    <string name="chat_model_next_task">下一件事生效</string>
+    <string name="chat_model_unavailable">這個選擇已不可用，下一次任務按設定執行。</string>
+    <string name="chat_model_switch">切換主模型</string>
 </resources>

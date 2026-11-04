@@ -307,8 +307,10 @@ class TaskService : Service() {
                 val env = TaskEnvironment.of(this@TaskService)
                 // 起标题也属于这段对话,和对话里的任务用同一个会话号
                 val session = ModelSession.of(id)
+                // 这个对话可能选了别的主模型:轻量优先,跟着覆盖走
+                val choice = runCatching { store.settings(id).main }.getOrNull()
                 ConversationTitler.ensure(store, id, first) {
-                    listOfNotNull(env.lightModelFactory(this@TaskService, session), env.modelFactory(this@TaskService, session))
+                    listOfNotNull(env.lightModel(this@TaskService, session, choice), env.mainModel(this@TaskService, session, choice))
                 }
             }.onFailure { if (it is CancellationException) throw it }
         }

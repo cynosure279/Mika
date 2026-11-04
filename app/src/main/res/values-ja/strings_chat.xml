@@ -153,4 +153,18 @@
     <string name="pip_closed_hint">このタスクでは閉じました。右下の「画面を表示」をタップするか、サイドメニューの「バックグラウンドの画面」を開いてください。</string>
     <string name="chat_conversation_tokens">この会話: %1$s</string>
     <string name="chat_conversation_tokens_partial">この会話: %1$s 以上</string>
+    <string name="chat_model_chip_follow">設定に従う</string>
+    <string name="chat_model_chip_follow_named">設定に従う · %1$s</string>
+    <string name="chat_model_chip_model">モデル: %1$s</string>
+    <string name="chat_model_chip_group">グループ: %1$s</string>
+    <string name="chat_model_chip_fallback">フォールバック: %1$s</string>
+    <string name="chat_model_sheet_title">このチャットのメインモデル</string>
+    <string name="chat_model_sheet_note">このチャットの次のタスクに適用されます。実行中のタスクはモデルを変えません。</string>
+    <string name="chat_model_follow_note">メインモデル: %1$s</string>
+    <string name="chat_model_follow_none">メインモデルが未選択です</string>
+    <string name="chat_model_group_members">%1$d 個のメンバー</string>
+    <string name="chat_model_more">その他のモデル</string>
+    <string name="chat_model_next_task">次のタスクから適用</string>
+    <string name="chat_model_unavailable">この選択は利用できなくなりました。次のタスクは設定に従います。</string>
+    <string name="chat_model_switch">メインモデルを切り替え</string>
 </resources>

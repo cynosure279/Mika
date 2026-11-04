@@ -51,6 +51,7 @@ import com.wangzan101.mika.core.skills.SkillDrafter
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.memory.MemoryRuntime
 import com.wangzan101.mika.settings.MemorySwitches
+import com.wangzan101.mika.settings.ModelChoice
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.replay.RouteMatcher
@@ -174,6 +175,8 @@ class TaskRun(
     private val env = TaskEnvironment.of(service)
     /** 这段对话对外的会话号:这次运行建的模型(主、轻量、看图,及核查、意图判断、停止交代等旁路)都用它。 */
     private val session = ModelSession.of(conversationId)
+    /** 这次任务开始时用的对话主模型覆盖;模型失败时据此提示是哪一家没测试通过。 */
+    @Volatile private var conversationMainChoice: ModelChoice? = null
     /** App 给的手机服务(共用的 shell 连接、「去设置」提示)、记忆、经验路线、异常退出后的恢复。 */
     private val phoneServices = PhoneServices.of(service)
     private val memoryRuntime = MemoryRuntime.of(service)
@@ -448,7 +451,7 @@ class TaskRun(
     /** 因模型失败、主模型在它那家还没测试通过时,提示去那家「重新测试」(见 [RetestHint])。测试换了主模型时不看设置里的配置。 */
     private fun withRetestHint(end: TaskState): TaskState {
         if (end !is TaskState.Failed || env.modelFactory !== TaskEnvironment.defaultModelFactory) return end
-        return RetestHint.apply(end, ProviderStore.get(service).untestedMainProvider()) { tr(R.string.fail_model_untested, it) }
+        return RetestHint.apply(end, ProviderStore.get(service).untestedMainProvider(conversationMainChoice)) { tr(R.string.fail_model_untested, it) }
     }
 
     suspend fun execute(priorTurns: List<Turn>): TaskState {
@@ -491,11 +494,16 @@ class TaskRun(
             // 前一个任务替这个拿着的那份,自己的拿上了就放开
             wakeHandoff?.release()
             wakeHandoff = null
-            val model = env.modelFactory(service, session) ?: return TaskState.Failed(tr(R.string.fail_no_main_model), FailKind.Environment)
+            // 这个对话的主模型覆盖:只在任务开始时读一次,运行中改了也不影响这一件事(见 CHAT-MODEL-WORKSPACE-PLAN)
+            val mainChoice = withContext(Dispatchers.IO) {
+                runCatching { ConversationStore.shared(service).settings(conversationId).main }.getOrNull()
+            }.also { conversationMainChoice = it }
+            val model = env.mainModel(service, session, mainChoice)
+                ?: return TaskState.Failed(tr(R.string.fail_no_main_model), FailKind.Environment)
             // 用户在浏览器页上对着一页问的:那一页借给这个任务当当前网页标签(见 PageLoans);开跑时页面还开着才借得到
             val pageLoan = if (provenance.origin == RunOrigin.Ui) withContext(Dispatchers.Main) { UserBrowser.existing()?.claim(conversationId, key) } else null
-            val light = env.lightModelFactory(service, session)
-            val vision = env.visionModelFactory(service, session)
+            val light = env.lightModel(service, session, mainChoice)
+            val vision = env.visionModel(service, session, mainChoice)
 
             val (knowledge, skills) = withContext(Dispatchers.IO) {
                 // 用户对某个 App/站点的补充放在私有目录 personal/apps、personal/sites 下
@@ -1086,9 +1094,11 @@ class TaskRun(
         val recorded = withContext(Dispatchers.IO) { runId?.let { id -> runCatching { k?.runStore?.events(id) }.getOrNull() } }
         val events = recorded?.takeIf { e -> e.any { it is RunEvent.Activity } } ?: synchronized(activityLog) { activityLog.toList() }
         if (!StopSummary.worthSaying(events, draft)) return null
-        // 还没开出模型就停下的(准备阶段):按设置现取
+        // 还没开出模型就停下的(准备阶段):按这个对话的设置现取
         val (main, light) = if (k != null) k.model to k.light else withContext(Dispatchers.IO) {
-            runCatching { env.modelFactory(service, session) }.getOrNull() to runCatching { env.lightModelFactory(service, session) }.getOrNull()
+            val choice = runCatching { ConversationStore.shared(service).settings(conversationId).main }.getOrNull()
+            runCatching { env.mainModel(service, session, choice) }.getOrNull() to
+                runCatching { env.lightModel(service, session, choice) }.getOrNull()
         }
         val labels = ToolLabels(knownTools())
         return StopSummary(light ?: main, main).summarize(k?.agent?.taskText ?: goal, events, draft, labels::label) {
