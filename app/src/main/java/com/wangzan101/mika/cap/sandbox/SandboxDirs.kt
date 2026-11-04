@@ -29,10 +29,16 @@ class SandboxDirs internal constructor(
     val rootfs: File get() = File(root, "rootfs")
     val work: File get() = File(root, "work")
     val skills: File get() = File(root, "skills")
+
+    /** 受限对话自己的技能脚本目录;绑定到沙箱里和全局 [skills] 同一个位置。 */
+    val skillSets: File get() = File(root, "skill-sets")
     val procStandIns: File get() = File(root, "proc")
 
     /** 一个工作区对应一个目录:项目为 `p-<ID>`,对话为 `c-<ID>` 或 `h-<哈希>`(与 `p-` 永不撞名)。 */
     fun workspace(key: WorkspaceKey): File = File(work, dirName(key))
+
+    /** 受限对话的脚本子集;默认任务不用它(仍用全局 [skills])。 */
+    fun skillsFor(conversationId: String): File = File(skillSets, dirName(WorkspaceKey.Conversation(conversationId)))
 
     fun lib(name: String): File = File(nativeDir, name)
 
@@ -46,6 +52,11 @@ class SandboxDirs internal constructor(
 
     /** 删掉 [key] 对应的整个工作区(按句柄删、不跟进链接,见 [exclusiveWrite])。 */
     suspend fun deleteWorkspace(key: WorkspaceKey) = deleteWorkDir(workspace(key).name)
+
+    /** 删掉受限制的对话留下的脚本子集目录;默认任务没有这个目录。 */
+    suspend fun deleteSkillSet(conversationId: String) = exclusiveWrite {
+        if (skillSets.exists()) gate.deleteTree(skillSets, dirName(WorkspaceKey.Conversation(conversationId)))
+    }
 
     /**
      * 删掉 `work/` 下名为 [dirName] 的工作区。本来就没有(没往里写过东西)时直接返回,不拿独占许可:
@@ -62,8 +73,8 @@ class SandboxDirs internal constructor(
      * 绑定前把要绑的目录都建好:源目录不存在时 PRoot 会往标准错误写一句警告,
      * 而标准错误并进了命令输出,模型会看到。技能目录还没同步时就是空目录。
      */
-    fun ensureBindSources(workspace: File) {
-        for (d in listOf(workspace, skills, tmp)) d.mkdirs()
+    fun ensureBindSources(workspace: File, skillsDir: File = skills) {
+        for (d in listOf(workspace, skillsDir, tmp)) d.mkdirs()
     }
 
     private fun dirName(key: WorkspaceKey): String = when (key) {

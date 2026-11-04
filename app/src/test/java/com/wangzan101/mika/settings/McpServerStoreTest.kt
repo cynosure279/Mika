@@ -47,6 +47,20 @@ class McpServerStoreTest {
 
     private fun store() = McpServerStore(tmp.root, ReverseCipher(), OkHttpClient())
 
+    @Test fun allowedIdsFilterWhichServersAreTried() = runBlocking {
+        val s = store()
+        s.add("A", "https://a.example.com/mcp").getOrThrow()
+        s.add("B", "https://b.example.com/mcp").getOrThrow()
+        // 空集 = 这个对话不连任何外部 MCP;不去连、也不记失败
+        val none = s.connections(allowedServerIds = emptySet())
+        assertTrue(none.connections.isEmpty())
+        assertTrue(none.failures.isEmpty())
+        // 不存在的编号同理
+        val missing = s.connections(allowedServerIds = setOf("nope"))
+        assertTrue(missing.connections.isEmpty())
+        assertTrue(missing.failures.isEmpty())
+    }
+
     @Test fun addsKeepsAndEncryptsToken() {
         val s = store()
         val added = s.add("Demo", "https://mcp.example.com/mcp", "secret-token").getOrThrow()

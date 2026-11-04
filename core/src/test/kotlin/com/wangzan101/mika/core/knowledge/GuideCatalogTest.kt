@@ -74,6 +74,33 @@ class GuideCatalogTest {
         assertEquals(setOf("skills/report/scripts/manifest.json", "skills/report/scripts/tabulate.py", "skills/report/scripts/fetch.mjs"), catalog.scriptFiles().keys)
     }
 
+    @Test fun allowedSkillsOnlyFiltersSkillKinds() {
+        val c = testCatalog(
+            appMd("phone", listOf("com.phone")), siteMd("shop.example"),
+            skillMd("a"), skillMd("b"),
+        )
+        val filtered = c.withAllowedSkills(setOf("a"))
+        assertEquals(setOf("a"), filtered.items.filter { it.kind in SKILL_KINDS }.map { it.name }.toSet())
+        // App / 站点知识不动
+        assertTrue(filtered.items.any { it.kind == "app" && it.name == "phone" })
+        assertTrue(filtered.items.any { it.kind == "site" && it.name == "shop.example" })
+        assertTrue(filtered.find("a").any { it.name == "a" })
+        assertTrue(filtered.find("b").isEmpty())
+        // 直接写名字 / 前缀都不能绕过
+        assertEquals("skill_not_found", (filtered.view("b") as GuideView.Failed).error)
+        assertEquals("skill_not_found", (filtered.view("skill:b") as GuideView.Failed).error)
+        assertTrue(filtered.view("a", note = toolsNote(true)) is GuideView.Found)
+    }
+
+    @Test fun allowedSkillsFilterTheScriptSubset() {
+        val only = catalog.withAllowedSkills(setOf("report"))
+        assertEquals(setOf("skills/report/scripts/manifest.json", "skills/report/scripts/tabulate.py", "skills/report/scripts/fetch.mjs"), only.scriptFiles().keys)
+        assertTrue(only.runnableScripts().isNotEmpty())
+        val none = catalog.withAllowedSkills(emptySet())
+        assertTrue(none.scriptFiles().isEmpty())
+        assertTrue(none.runnableScripts().isEmpty())
+    }
+
     @Test fun skillViewListsScripts() = runTest {
         val sb = FakeSandbox()
         sb.manifests["skills/report"] = listOf(

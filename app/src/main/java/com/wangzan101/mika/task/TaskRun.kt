@@ -20,6 +20,7 @@ import com.wangzan101.mika.cap.sandbox.SandboxState
 import com.wangzan101.mika.cap.sandbox.AndroidSandbox
 import com.wangzan101.mika.cap.sandbox.SandboxDirs
 import com.wangzan101.mika.cap.sandbox.WorkspaceKey
+import com.wangzan101.mika.chat.ConversationSettings
 import com.wangzan101.mika.chat.SharedFile
 import com.wangzan101.mika.chat.WorkspaceResolver
 import android.graphics.Bitmap
@@ -64,6 +65,8 @@ import com.wangzan101.mika.settings.MemorySwitches
 import com.wangzan101.mika.settings.ModelChoice
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.core.model.ModelRole
+import com.wangzan101.mika.settings.mcpFor
+import com.wangzan101.mika.settings.skillsFor
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.replay.RouteMatcher
 import com.wangzan101.mika.core.replay.RouteRecorder
@@ -222,6 +225,8 @@ class TaskRun(
     private val session = ModelSession.of(conversationId)
     /** 这次任务开始时用的对话主模型覆盖;模型失败时据此提示是哪一家没测试通过。 */
     @Volatile private var conversationMainChoice: ModelChoice? = null
+    /** 这次任务允许的技能名;null = 全部(沙箱用全局目录),集合 = 这个对话自己的脚本子集。 */
+    @Volatile private var conversationSkillNames: Set<String>? = null
     /** App 给的手机服务(共用的 shell 连接、「去设置」提示)、记忆、经验路线、异常退出后的恢复。 */
     private val phoneServices = PhoneServices.of(service)
     private val memoryRuntime = MemoryRuntime.of(service)
@@ -399,8 +404,11 @@ class TaskRun(
     fun queue(position: Int) = runControl.queue(position)
     fun dequeue() = runControl.dequeue()
 
-    /** 本任务的沙箱:一个任务一份(导出额度按任务算),工作区是本对话的。 */
-    private val sandbox by lazy { AndroidSandbox(service, SandboxState.get(service), onShared = ::addShared) }
+    /** 本任务的沙箱:一个任务一份(导出额度按任务算),工作区是本对话的。受限对话的技能脚本也只在它自己的目录里。 */
+    private val sandbox by lazy {
+        AndroidSandbox(service, SandboxState.get(service), onShared = ::addShared,
+            conversationId = conversationId, skillNames = conversationSkillNames)
+    }
 
     private val audioSettings by lazy { com.wangzan101.mika.settings.VoiceSettings.get(service) }
 
@@ -612,22 +620,29 @@ class TaskRun(
             // 前一个任务替这个拿着的那份,自己的拿上了就放开
             wakeHandoff?.release()
             wakeHandoff = null
-            // 这个对话的主模型覆盖:只在任务开始时读一次,运行中改了也不影响这一件事(见 CHAT-MODEL-WORKSPACE-PLAN)
-            val mainChoice = withContext(Dispatchers.IO) {
-                runCatching { ConversationStore.shared(service).settings(conversationId).main }.getOrNull()
-            }.also { conversationMainChoice = it }
-            val model = env.mainModel(service, session, mainChoice)
+            // 这个对话自己的运行设置:只在任务开始时读一次,运行中改了也不影响这一件事(见 CHAT-MODEL-WORKSPACE-PLAN)
+            val conversation = withContext(Dispatchers.IO) {
+                runCatching { ConversationStore.shared(service).settings(conversationId) }.getOrDefault(ConversationSettings())
+            }
+            val mainChoice = conversation.main.also { conversationMainChoice = it }
+            val effort = conversation.reasoningEffort
+            // 全局允许列表也在开始时固定一份;受限任务只挂选中的技能和 MCP
+            val workspace = (service.application as MikaApp).workspaceAccess.current()
+            val allowedSkills = workspace.skillsFor(conversation.skills)
+            val allowedMcp = workspace.mcpFor(conversation.mcpServers)
+            conversationSkillNames = allowedSkills
+            val model = env.mainModel(service, session, mainChoice, effort)
                 ?: return TaskState.Failed(tr(R.string.fail_no_main_model), FailKind.Environment)
             // 用户在浏览器页上对着一页问的:那一页借给这个任务当当前网页标签(见 PageLoans);开跑时页面还开着才借得到
             val pageLoan = if (provenance.origin == RunOrigin.Ui) withContext(Dispatchers.Main) { UserBrowser.existing()?.claim(conversationId, key) } else null
-            val light = env.lightModel(service, session, mainChoice)
+            val light = env.lightModel(service, session, mainChoice, effort)
             val decision = env.decisionModel(service)
             // 同一模型分成两个实例并不会更便宜或更快;禁止它给批量/收尾工具反而只会增加改派和逐步操作。
             // 这只跳过逐步分工,轻量角色仍可用于意图判断、标题和收尾等辅助调用。
             val routedLight = light?.takeIf {
                 !ProviderStore.get(service).roles.value.sameModel(ModelRole.Main, ModelRole.Light)
             }
-            val vision = env.visionModel(service, session, mainChoice)
+            val vision = env.visionModel(service, session, mainChoice, effort)
             val visionFallbacks = env.visionFallbackFactory(service, session)
             val lightFallbacks = env.lightFallbackFactory(service, session)
 
@@ -851,7 +866,7 @@ class TaskRun(
             val catalog = GuideCatalog.withPersonal(
                 skills, memoryRuntime.skills(), legacyNames()::rewrite,
                 plugins = (service.application as MikaApp).plugins.skillsSnapshot(),
-            )
+            ).withAllowedSkills(allowedSkills)
             // 内置浏览器:每个任务自己的后台网页显示、标签池和脚本引擎,第一次打开网址时才建(只用手机的任务不建);
             // 系统里没有 WebView 时不提供网页工具
             val webInstalled = runCatching { WebViewCompat.getCurrentWebViewPackage(service) != null }.getOrDefault(false)
@@ -930,6 +945,7 @@ class TaskRun(
                     resources,
                     com.wangzan101.mika.mcp.ConversationMcpResultStore(SandboxDirs(service), workspaceKey),
                     workspaceKey.wire,
+                    allowedServerIds = allowedMcp,
                 )
                 // 连接失败、超过总时限没连上的只在任务卡片上提示一句,不打断任务;详情在设置页的健康状态里
                 mcpConnections?.failures?.takeIf { it.isNotEmpty() }?.let { failures ->

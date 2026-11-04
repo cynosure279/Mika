@@ -54,6 +54,7 @@ import com.wangzan101.mika.task.TaskService
 import com.wangzan101.mika.task.TaskCenterState
 import com.wangzan101.mika.teach.TeachRuntime
 import com.wangzan101.mika.ui.ChatViewModel
+import com.wangzan101.mika.ui.AppWorkspaceCatalog
 import com.wangzan101.mika.ui.ProviderMainModelCatalog
 import com.wangzan101.mika.ui.TaskActions
 import kotlinx.coroutines.CoroutineScope
@@ -310,7 +311,10 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             schedulesOf = { id -> TriggerRuntime.list(app).filter { it.threadId == id }.map { it.id } },
             deleteWorkspace = { id ->
                 // 工作区里有附件、用户发来的屏幕、任务写的文件;沙箱里的命令碰得到这里,和命令、导入、重置互斥着删
-                SandboxDirs(app).deleteWorkspace(WorkspaceKey.Conversation(id))
+                val dirs = SandboxDirs(app)
+                dirs.deleteWorkspace(WorkspaceKey.Conversation(id))
+                // 受限对话留下的技能脚本子集
+                dirs.deleteSkillSet(id)
             },
             isSharedWorkspace = { id -> workspaceResolver.isShared(id) },
             onDeleted = { id -> com.wangzan101.mika.task.DeviceImportStore.get(app).removeConversation(id) },
@@ -349,6 +353,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             java.io.File(filesDir, com.wangzan101.mika.chat.SavedChecklistStore.FILE),
             com.wangzan101.mika.settings.KeystoreKeyCipher("mika-saved-checklists"),
         )
+    /** 全局允许的工作区技能 / MCP server 列表;任务开始时取一份,运行中不重连。 */
+    val workspaceAccess: com.wangzan101.mika.settings.WorkspaceAccessStore by lazy {
+        com.wangzan101.mika.settings.WorkspaceAccessStore(java.io.File(filesDir, "settings/workspace-access.json"))
     }
 
     /** 全局的询问 / 自主和各任务自己的那一份;开发者选项里的「自主模式」经它改。 */
@@ -540,6 +547,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             workspaceResolver = workspaceResolver,
             // 对话页输入框上方的主模型 chip:选项和显示名都来自设置里的模型/组
             mainModels = ProviderMainModelCatalog(com.wangzan101.mika.settings.ProviderStore.get(app)),
+            workspaceItems = AppWorkspaceCatalog(app),
         )
     }
 

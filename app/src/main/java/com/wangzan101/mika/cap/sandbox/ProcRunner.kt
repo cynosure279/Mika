@@ -30,6 +30,8 @@ object ProcRunner {
         dirs: SandboxDirs, workspace: File, cwd: String, timeoutSec: Int, network: Boolean, standIns: List<String>, command: List<String>,
         devices: List<String> = ProotDevices.bindArgs(),
         pty: Boolean = false, ptyCols: Int = 80, ptyRows: Int = 24, ptySizePath: File? = null,
+        /** 绑到 `/opt/mika/skills` 的宿主目录;受限对话用 [SandboxDirs.skillsFor] 的子集。 */
+        skillsDir: File = dirs.skills,
     ): List<String> = buildList {
         add(dirs.lib("libmikarun.so").path)
         if (timeoutSec > 0) addAll(listOf("--timeout", timeoutSec.toString()))
@@ -45,7 +47,7 @@ object ProcRunner {
         addAll(
             listOf(
                 "-b", "${workspace.path}:${SandboxPaths.WORKSPACE}",
-                "-b", "${dirs.skills.path}:${SandboxPaths.SKILLS}",
+                "-b", "${skillsDir.path}:${SandboxPaths.SKILLS}",
                 "-w", if (cwd.isEmpty()) SandboxPaths.WORKSPACE else "${SandboxPaths.WORKSPACE}/$cwd",
             ),
         )
