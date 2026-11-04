@@ -38,19 +38,19 @@ class TaskEnvironment {
      * 这个对话这一段要用的主模型:有对话覆盖时按覆盖解析,覆盖不可用回退设置。
      * 测试换过 [modelFactory] 时仍然用测试的工厂(不碰设置里的真模型)。
      */
-    fun mainModel(context: Context, session: ModelSession, override: ModelChoice?): ChatModel? =
+    fun mainModel(context: Context, session: ModelSession, override: ModelChoice?, effort: String? = null): ChatModel? =
         if (modelFactory !== defaultModelFactory) modelFactory(context, session)
-        else ProviderStore.get(context).modelFor(ModelRole.Main, session, override)
+        else ProviderStore.get(context).modelFor(ModelRole.Main, session, override, effort)
 
     /** 轻量模型;对话覆盖主模型时「用主模型」跟着覆盖走。测试工厂的处理同 [mainModel]。 */
-    fun lightModel(context: Context, session: ModelSession, override: ModelChoice?): ChatModel? =
+    fun lightModel(context: Context, session: ModelSession, override: ModelChoice?, effort: String? = null): ChatModel? =
         if (lightModelFactory !== defaultLightModelFactory) lightModelFactory(context, session)
-        else ProviderStore.get(context).modelFor(ModelRole.Light, session, override)
+        else ProviderStore.get(context).modelFor(ModelRole.Light, session, override, effort)
 
     /** 视觉模型;对话覆盖主模型时「用主模型」跟着覆盖走。测试工厂的处理同 [mainModel]。 */
-    fun visionModel(context: Context, session: ModelSession, override: ModelChoice?): ChatModel? =
+    fun visionModel(context: Context, session: ModelSession, override: ModelChoice?, effort: String? = null): ChatModel? =
         if (visionModelFactory !== defaultVisionModelFactory) visionModelFactory(context, session)
-        else ProviderStore.get(context).modelFor(ModelRole.Vision, session, override)
+        else ProviderStore.get(context).modelFor(ModelRole.Vision, session, override, effort)
 
     /** 评测跑器用的钩子;产品里全是默认值。 */
     val evalHooks = EvalHooks()

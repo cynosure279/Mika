@@ -61,7 +61,7 @@ class GeminiModel(
         if (text.isNotEmpty()) return parse(text).also { reply ->
             reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.takeIf(String::isNotEmpty)?.let(onText)
         }
-        return stream.finish()
+        return stream.finish().copy(reasoningEffort = reasoningEffort)
     }
 
     private suspend fun request(system: String, messages: List<Message>, tools: List<ToolSpec>, stream: Boolean): Request {
@@ -224,7 +224,7 @@ class GeminiModel(
                     if (usable) StopReason.Other else throw ModelError.ContentRefused()
                 else -> if (calls > 0 && fr.isNotEmpty()) StopReason.ToolUse else StopReason.Other
             }
-            return ModelReply(parts, stop, parseUsage(root["usageMetadata"]))
+            return ModelReply(parts, stop, parseUsage(root["usageMetadata"]), reasoningEffort)
         } catch (e: ModelError) {
             throw e
         } catch (e: Exception) {

@@ -79,8 +79,8 @@ class ResponsesModel(
             if (status in 200..299) {
                 if (text.isNotEmpty()) return stream.fromBody(text).also { reply ->
                     reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.takeIf(String::isNotEmpty)?.let(onText)
-                }
-                return stream.finish()
+                }.copy(reasoningEffort = reasoningEffort)
+                return stream.finish().copy(reasoningEffort = reasoningEffort)
             }
             val err = errorBody(text)
             when {

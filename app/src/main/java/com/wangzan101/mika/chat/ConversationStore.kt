@@ -17,6 +17,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -207,8 +208,34 @@ class ConversationStore(private val dir: File) {
                 else -> null
             }
         }
-        ConversationSettings(main)
+        ConversationSettings(
+            main = main,
+            reasoningEffort = str(o, "reasoningEffort")?.takeIf(String::isNotBlank),
+            skills = workspaceChoice(o["skills"] as? JsonObject),
+            mcpServers = workspaceChoice(o["mcpServers"] as? JsonObject),
+        )
     }.getOrDefault(ConversationSettings())
+
+    /** `{"kind":"all"}` / `{"kind":"only","ids":[…]}`;没有、不认识的一律跟随全局。 */
+    private fun workspaceChoice(o: JsonObject?): WorkspaceChoice = when (o?.let { str(it, "kind") }) {
+        "all" -> WorkspaceChoice.All
+        "only" -> WorkspaceChoice.Only(
+            (o["ids"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotEmpty) }.toSet(),
+        )
+        else -> WorkspaceChoice.FollowGlobal
+    }
+
+    /** 跟随全局不写,省得旧文件里多一个默认值;其余两种写明。 */
+    private fun JsonObjectBuilder.putWorkspaceChoice(key: String, choice: WorkspaceChoice) {
+        when (choice) {
+            WorkspaceChoice.FollowGlobal -> Unit
+            WorkspaceChoice.All -> put(key, buildJsonObject { put("kind", "all") })
+            is WorkspaceChoice.Only -> put(key, buildJsonObject {
+                put("kind", "only")
+                put("ids", JsonArray(choice.ids.sorted().map(::JsonPrimitive)))
+            })
+        }
+    }
 
     /**
      * 改这个对话自己的运行设置;空的(全部跟随设置)删掉旁文件,不留默认值。删掉的对话不动。
@@ -233,6 +260,9 @@ class ConversationStore(private val dir: File) {
                             })
                         })
                     }
+                    settings.reasoningEffort?.let { put("reasoningEffort", it) }
+                    putWorkspaceChoice("skills", settings.skills)
+                    putWorkspaceChoice("mcpServers", settings.mcpServers)
                 }
                 val tmp = File(dir, "${f.name}.tmp")
                 tmp.writeText(json.toString())
@@ -288,8 +318,8 @@ class ConversationStore(private val dir: File) {
         title?.let { writeTitle(targetId, it) }
         pageOrigin(sourceId)?.let { setPageOrigin(targetId, it) }
         origin?.let { writeBranchOrigin(targetId, it) }
-        // 分支是这个对话的延续:主模型覆盖也带过去(没有覆盖时目标保持默认)
-        settings(sourceId).main?.let { setSettings(targetId, ConversationSettings(it)) }
+        // 分支是这个对话的延续:主模型、思考档位、技能/MCP 范围都带过去(没有设置时目标保持默认)
+        settings(sourceId).takeIf { it != ConversationSettings() }?.let { setSettings(targetId, it) }
         return true
     }
 

@@ -500,6 +500,7 @@ class AgentLoop(
                 reply.usage?.inputTokens, reply.usage?.outputTokens, reply.usage?.cachedInputTokens, latencyMs,
                 if (caller.recordRoles) used.name else null, if (caller.recordRoles) caller.roleOf(used) else null, retryWaitMs = retryWaitMs,
                 group = caller.groupOf(used),
+                reasoningEffort = reply.reasoningEffort,
                 repliedAtMs = repliedAtMs,
             ))
 
@@ -964,7 +965,7 @@ class AgentLoop(
                 now(), step, RunEvent.clip(Redactor.text(text)), call?.name, call?.let { Redactor.args(tools.verb(it.name), it.argsJson, secretField = false) },
                 reply.usage?.inputTokens, reply.usage?.outputTokens, reply.usage?.cachedInputTokens, latencyMs, retryWaitMs = retryWaitMs,
                 model = used.name, role = if (caller.recordRoles) caller.roleOf(used) else null,
-                group = caller.groupOf(used), repliedAtMs = repliedAtMs,
+                group = caller.groupOf(used), reasoningEffort = reply.reasoningEffort, repliedAtMs = repliedAtMs,
             ))
             // 收尾模型也可能正在生成时收到插话。最多重答两次，其余交给下一任务。
             if (attempt < 2 && keepFinished(history, inbox)) return@repeat

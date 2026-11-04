@@ -138,7 +138,7 @@ internal class ModelCaller(
         emit(RunEvent.ModelReply(
             now(), step, RunEvent.clip(Redactor.text(text)), first?.name, first?.let { Redactor.args(tools.verb(it.name), it.argsJson, secretField = true) },
             reply?.usage?.inputTokens, reply?.usage?.outputTokens, reply?.usage?.cachedInputTokens, now() - asked,
-            used?.name ?: picked.name, ROLE_LIGHT_REJECTED, group = r.groupOf(picked),
+            used?.name ?: picked.name, ROLE_LIGHT_REJECTED, group = r.groupOf(picked), reasoningEffort = reply?.reasoningEffort,
         ))
         emit(RunEvent.State(now(), "light_to_main", first?.name ?: if (light == null) "light_error" else "no_tool"))
         onText?.invoke("")

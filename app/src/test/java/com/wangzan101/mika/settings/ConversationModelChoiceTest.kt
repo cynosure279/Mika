@@ -131,9 +131,46 @@ class ConversationModelChoiceTest {
         assertEquals("high", setups["m1"]!!.reasoningEffort)
     }
 
-    /** 「重新测试」提示跟着对话覆盖走:覆盖到没测过的那家时提示那一家,而不是设置里的主模型。 */
-    @Test fun retestHintFollowsTheConversationOverride() {
+    /** 对话的目标档位跟着主模型走;具体模型支持就原样发。 */
+    @Test fun conversationEffortTargetReachesTheMainModel() {
         val s = store()
+        val p = s.connect("R", ProviderConfig.Kind.OpenAiResponses, "https://r.test/v1", "k", listOf(ListedModel("m1")))
+        val a = s.ensureConfig(p.id, "m1", caps())!!
+        assertTrue(s.choose(ModelRole.Main, RoleChoice.Model(a)))
+
+        s.modelFor(ModelRole.Main, session, null, "high")
+        assertEquals("high", setups["m1"]!!.reasoningEffort)
+        // 这个模型能选的档位也报给界面
+        assertEquals(listOf("none", "minimal", "low", "medium", "high", "xhigh", "max"), s.reasoningLevels(null))
+    }
+
+    /** 组员对目标档位夹取:最高更低降到最高、最低更高升到最低。 */
+    @Test fun groupMembersClampToTheirNearestLevel() {
+        val s = store()
+        val p = s.connect(
+            "R", ProviderConfig.Kind.OpenAiResponses, "https://r.test/v1", "k",
+            listOf(
+                ListedModel("m1", reasoningEfforts = listOf("low", "medium")),
+                ListedModel("m2", reasoningEfforts = listOf("high", "max")),
+            ),
+        )
+        val a = s.ensureConfig(p.id, "m1", caps())!!
+        val b = s.ensureConfig(p.id, "m2", caps())!!
+        assertTrue(s.saveGroup(ModelGroup("g", "g", members = listOf(GroupMember(a), GroupMember(b)))))
+        assertTrue(s.choose(ModelRole.Main, RoleChoice.Model(a)))
+
+        s.modelFor(ModelRole.Main, session, ModelChoice.Group("g"), "high")
+        assertEquals("medium", setups["m1"]!!.reasoningEffort)
+        assertEquals("high", setups["m2"]!!.reasoningEffort)
+        assertEquals(listOf("low", "medium", "high", "max"), s.reasoningLevels(ModelChoice.Group("g")))
+
+        s.modelFor(ModelRole.Main, session, ModelChoice.Group("g"), "low")
+        assertEquals("low", setups["m1"]!!.reasoningEffort)
+        assertEquals("high", setups["m2"]!!.reasoningEffort)
+    }
+
+    /** 「重新测试」提示跟着对话覆盖走:覆盖到没测过的那家时提示那一家,而不是设置里的主模型。 */
+    @Test fun retestHintFollowsTheConversationOverride() {        val s = store()
         val good = s.connect("Good", ProviderConfig.Kind.OpenAiCompat, "https://good.test/v1", "k", listOf(ListedModel("m1")))
         val bad = s.connect("Bad", ProviderConfig.Kind.OpenAiCompat, "https://bad.test/v1", "k", emptyList(), untested = true)
         val a = s.ensureConfig(good.id, "m1", caps())!!

@@ -727,22 +727,20 @@ class ProviderStore(
     /**
      * 这个对话这一轮用的模型:主模型被 [mainChoice] 覆盖时,轻量、看图的「用主模型」跟着覆盖走。
      * 覆盖里的配置/组已经不在了、或组不满足这个用途时,这个用途按设置取;主模型本身回退设置。
-     * 覆盖只影响建出来的模型,不改设置里存的用途选择。思考档位仍按设置里的用途走,模型不支持这一档时不传
-     * (按对话的档位在后续 PR 里接)。
+     * [reasoningEffort] 是这个对话的目标档位:主模型(以及跟主模型的轻量/看图)用它;具体模型不支持就不传,
+     * 组成员按各自的档位夹取(见 [memberEffort])。覆盖只影响建出来的模型,不改设置里存的用途选择。
      */
     @Synchronized
-    fun modelFor(role: ModelRole, session: ModelSession, mainChoice: ModelChoice?): ChatModel? {
-        val usable = usableMainChoice(mainChoice) ?: return modelFor(role, session, _roles.value)
+    fun modelFor(role: ModelRole, session: ModelSession, mainChoice: ModelChoice?, reasoningEffort: String? = null): ChatModel? {
         val current = _roles.value
-        val sameAsGlobal = when (usable) {
-            is ModelChoice.Model -> current.main == usable.configId && current.mainGroup == null
-            is ModelChoice.Group -> current.mainGroup == usable.groupId && current.main == null
-        }
-        if (sameAsGlobal) return modelFor(role, session, current)
-        val choices = when (usable) {
-            is ModelChoice.Model -> current.copy(main = usable.configId, mainGroup = null)
-            is ModelChoice.Group -> current.copy(main = null, mainGroup = usable.groupId)
-        }
+        val base = usableMainChoice(mainChoice)?.let { usable ->
+            when (usable) {
+                is ModelChoice.Model -> current.copy(main = usable.configId, mainGroup = null)
+                is ModelChoice.Group -> current.copy(main = null, mainGroup = usable.groupId)
+            }
+        } ?: current
+        val choices = if (reasoningEffort != null) base.copy(reasoningEfforts = base.reasoningEfforts + (ModelRole.Main to reasoningEffort)) else base
+        if (choices == current) return modelFor(role, session, current)
         // 「用主模型」跟到覆盖的组时,这个用途也必须被这个组接受(比如看图组要有一个成员能看图)
         val group = choices.resolveGroup(role)?.let(::group)
         if (group != null && !groupUsable(group, role)) return null
@@ -759,6 +757,25 @@ class ProviderStore(
         null -> null
     }
 
+    /**
+     * 这个主模型(或对话覆盖)能选的思考档位。具体模型就是它支持的;组取所有成员并集(没写的成员按默认),
+     * 由 [memberEffort] 在执行时夹到各自最近的档位。空列表表示这个选择不提供档位。
+     */
+    fun reasoningLevels(choice: ModelChoice?): List<String> {
+        val usable = usableMainChoice(choice)
+        val cfgs = when (usable) {
+            is ModelChoice.Model -> listOfNotNull(_configs.value.firstOrNull { it.id == usable.configId })
+            is ModelChoice.Group -> group(usable.groupId)?.enabledMembers
+                ?.mapNotNull { m -> _configs.value.firstOrNull { it.id == m.configId } }.orEmpty()
+            null -> groupFor(ModelRole.Main)?.enabledMembers
+                ?.mapNotNull { m -> _configs.value.firstOrNull { it.id == m.configId } }
+                ?: listOfNotNull(configFor(ModelRole.Main))
+        }
+        val all = cfgs.flatMap { cfg -> ReasoningOptions.of(cfg, listedOf(cfg))?.levels.orEmpty() }.toSet()
+        val ordered = EFFORT_ORDER.filter { it in all }
+        return ordered + (all - ordered.toSet()).sorted()
+    }
+
     private fun modelFor(role: ModelRole, session: ModelSession, choices: RoleChoices): ChatModel? {
         choices.resolveGroup(role)?.let { id -> group(id)?.let { group -> return groupModelFor(role, group, session, choices) } }
         return configFor(role, choices)?.let { cfg ->
@@ -773,7 +790,7 @@ class ProviderStore(
         val members = group.members.filter { it.enabled }.mapNotNull { m ->
             val cfg = _configs.value.firstOrNull { it.id == m.configId } ?: return@mapNotNull null
             val p = provider(cfg.providerId) ?: return@mapNotNull null
-            val effort = supportedEffort(cfg, m.reasoningEffort ?: choices.reasoningEffort(role))
+            val effort = memberEffort(cfg, m.reasoningEffort ?: choices.reasoningEffort(role))
             val model = builtModel(cfg, p, session, effort)
                 .metered(UsageSource(p.id, p.name, cfg.model, UsagePurpose.of(role)), usage)
             PoolMember(
@@ -795,6 +812,29 @@ class ProviderStore(
         val levels = ReasoningOptions.of(cfg, listedOf(cfg))?.levels ?: return null
         return effort.takeIf { it in levels }
     }
+
+    /**
+     * 组员对目标档位的夹取:支持就原样;成员最高档更低就降到它的最高档;成员最低档更高就升到它的最低档;
+     * 档位无从比较或没写档位时不传(用服务商默认)。这样组里所有成员都能参与,不会因一个人不支持 high 就卡住。
+     */
+    private fun memberEffort(cfg: ProviderConfig, target: String?): String? {
+        if (target == null) return null
+        val levels = ReasoningOptions.of(cfg, listedOf(cfg))?.levels ?: return null
+        if (target in levels) return target
+        val targetRank = EFFORT_ORDER.indexOf(target).takeIf { it >= 0 } ?: return null
+        val known = levels.mapNotNull { level -> EFFORT_ORDER.indexOf(level).takeIf { it >= 0 }?.let { it to level } }
+        if (known.isEmpty()) return null
+        val max = known.maxBy { it.first }
+        val min = known.minBy { it.first }
+        return when {
+            max.first < targetRank -> max.second
+            min.first > targetRank -> min.second
+            else -> null
+        }
+    }
+
+    /** 从浅到深;服务商给的档位不在表里时只按「支持就原样」处理,不猜相对强弱。 */
+    private val EFFORT_ORDER = listOf("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
     /** 按配置、上下文设置、请求头建一个可调用的模型(不含计量)。 */
     private fun builtModel(cfg: ProviderConfig, p: Provider?, session: ModelSession, effort: String?): ChatModel {

@@ -56,6 +56,8 @@ sealed interface RunEvent {
         val role: String? = null,
         /** 实际回答的成员属于哪个模型组;单模型为 null。 */
         val group: String? = null,
+        /** 这次请求实际用的思考档位;没指定为 null。 */
+        val reasoningEffort: String? = null,
         /** 重试前花掉的时间:失败的那几次请求加退避等待。 */
         val retryWaitMs: Long = 0,
         /**
