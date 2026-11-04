@@ -175,7 +175,7 @@
     <string name="mcp_servers_allowlist">Разрешённые инструменты (через запятую, пусто — все)</string>
     <string name="permissions_title">Разрешения</string>
     <string name="permissions_sub">Возможности, ресурсы и значения по умолчанию (предпросмотр)</string>
-    <string name="permissions_preview_note">Только предпросмотр: существующие настройки показаны как разрешения, но пока не применяются. Применение будет на следующем шаге.</string>
+    <string name="permissions_preview_note">Предпросмотр: явные запреты уже действуют. «Спрашивать» выполняется, пока не добавлена карточка подтверждения.</string>
     <string name="permissions_group_defaults">По умолчанию</string>
     <string name="permissions_group_phone">Телефон</string>
     <string name="permissions_group_web">Веб</string>

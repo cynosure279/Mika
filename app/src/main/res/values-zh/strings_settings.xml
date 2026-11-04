@@ -163,7 +163,7 @@
     <string name="mcp_servers_allowlist">允许的工具(英文逗号分隔,留空为全部)</string>
     <string name="permissions_title">权限</string>
     <string name="permissions_sub">能力、资源和默认值（预览）</string>
-    <string name="permissions_preview_note">仅预览：现有设置已映射为授权，但还没有真正执行；执行会在下一步接入。</string>
+    <string name="permissions_preview_note">预览：明确拒绝的权限已经生效；“每次询问”在确认卡片接入前仍会放行。</string>
     <string name="permissions_group_defaults">默认值</string>
     <string name="permissions_group_phone">手机</string>
     <string name="permissions_group_web">网页</string>

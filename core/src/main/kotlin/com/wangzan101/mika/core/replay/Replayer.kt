@@ -95,6 +95,8 @@ class Replayer(
                     }
                     "target_unresolved" -> return diverged("cannot tell which element the tap would hit", seen)
                     "own_app" -> return diverged("it acts on Mika itself", seen)
+                    "permission_denied", "permission_unattended", "permission_unknown" ->
+                        return diverged("the capability is not permitted now", seen)
                     else -> error("unexpected refusal ${o.code}")
                 }
                 is ActionOutcome.Cancelled -> return diverged("cancelled", seen)

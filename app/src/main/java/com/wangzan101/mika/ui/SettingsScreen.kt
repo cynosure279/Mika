@@ -174,7 +174,7 @@ fun SettingsScreen(
             onBack = toHome,
         )
         SettingsPage.AppAccess -> AppAccessScreen(onBack = toHome)
-        SettingsPage.Permissions -> PermissionsScreen(onBack = toHome)
+        SettingsPage.Permissions -> PermissionsScreen(onBack = toAdvanced)
         SettingsPage.PhoneOps -> PhoneOpsScreen(
             status, androidRelease, onProblem,
             onRepair = { onFix(Fix.RepairPhoneHelper) }, onUnpair = { onFix(Fix.UnpairPhoneHelper) }, onBack = toHome,

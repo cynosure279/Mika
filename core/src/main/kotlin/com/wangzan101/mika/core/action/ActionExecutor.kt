@@ -110,17 +110,17 @@ class ActionExecutor(
         var args = givenArgs
         var note: JsonObject? = null
         tools.interfaces.checkAppAccess(tools.declared(call.name))
+        // 权限闸门在操作守卫之前:没权限的动作不读屏、不停留、不留副作用
+        tools.permissionDenied(call.name)?.let { denied ->
+            tools.notePermissionDecision(call.name, origin.step, "denied")
+            return permissionRefused(call, args, origin, denied, followUp)
+        }
         when (val d = tools.interfaces.described(tools.declared(call.name), args)) {
             is Described.Failed -> return ran(Step(call, args, origin, emptyList(), writing = false, offScreen, verb, null, followUp, reads, preset = d.result))
             is Described.Resolved -> { args = d.args; call = call.copy(argsJson = d.args.toString()); note = d.note }
             null -> Unit
         }
         val policy = origin.policy
-        // 权限闸门在操作守卫之前:没权限的动作不读屏、不停留、不留副作用
-        tools.permissionDenied(call.name)?.let { denied ->
-            tools.notePermissionDecision(call.name, origin.step, "denied")
-            return refuse(denied.code, origin, emptyList())
-        }
         val readScope = reads?.takeIf { verb in PAGE_READ_VERBS }
         val before = when {
             offScreen -> emptyList()
@@ -311,6 +311,19 @@ class ActionExecutor(
 
     private fun refuse(code: String, origin: Origin, before: List<GuardVerdict>) =
         ActionOutcome.Refused(code, Refusals.content(code, origin.policy.refusals, before, null, null), before)
+
+    /** 权限拒绝:作为这次调用的结果交给模型(和应用访问拒绝一样),不结束任务。 */
+    private fun permissionRefused(
+        call: Part.ToolCall, args: JsonObject, origin: Origin, denied: com.wangzan101.mika.core.permission.PermissionVerdict.Deny,
+        followUp: FollowUp,
+    ): ActionOutcome {
+        val content = Refusals.content(denied.code, origin.policy.refusals, emptyList(), null, null)
+        if (origin.policy.recordsRefusal) {
+            followUp.refused(content)
+            recorder.result(origin.step, call.name, tools.verb(call.name), content, tools.portRecord(call.name, args), null, null, 0, origin.policy.source, call.id)
+        }
+        return ActionOutcome.Refused(denied.code, content, emptyList())
+    }
 
     private fun approvalUnavailable(
         call: Part.ToolCall, args: JsonObject, origin: Origin, before: List<GuardVerdict>, hit: Irreversible, followUp: FollowUp,

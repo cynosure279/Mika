@@ -163,7 +163,7 @@
     <string name="mcp_servers_allowlist">許可するツール(カンマ区切り、空欄はすべて)</string>
     <string name="permissions_title">権限</string>
     <string name="permissions_sub">機能・リソース・既定値（プレビュー）</string>
-    <string name="permissions_preview_note">プレビューのみ：既存の設定を権限として表示していますが、まだ適用されません。適用は次のステップです。</string>
+    <string name="permissions_preview_note">プレビュー：明示的に拒否された権限は適用されます。“毎回確認”は確認カードが入るまで実行されます。</string>
     <string name="permissions_group_defaults">既定値</string>
     <string name="permissions_group_phone">スマホ</string>
     <string name="permissions_group_web">ウェブ</string>

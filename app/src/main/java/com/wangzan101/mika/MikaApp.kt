@@ -223,18 +223,18 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         com.wangzan101.mika.settings.AppAccessStore(java.io.File(filesDir, "app-access.json"))
     }
 
-    /** 权限授权;第一次打开时把旧开关映射进来。Phase 1 只记录和展示,执行层尚未接。 */
+    /** 权限授权;旧开关的同步在 [onCreate] 的后台任务里做,不在主线程写文件。Phase 2a 只拦明确拒绝。 */
     val permissions: com.wangzan101.mika.settings.PermissionStore by lazy {
-        com.wangzan101.mika.settings.PermissionStore(java.io.File(filesDir, "settings/permissions.json")).also { store ->
-            store.migrateOnce(com.wangzan101.mika.settings.PermissionMigration.Legacy(
-                blockedApps = appAccess.current().blocked,
-                shareAllowedApps = appAccess.current().shareAllowed,
-                sandboxNetwork = com.wangzan101.mika.cap.sandbox.SandboxState.get(this).networkAllowed,
-                selfConfig = com.wangzan101.mika.settings.FeatureFlags.get(this).selfConfig(),
-                enabledMcpServers = mcpServers.servers.value.filter { it.enabled }.map { it.id },
-            ))
-        }
+        com.wangzan101.mika.settings.PermissionStore(java.io.File(filesDir, "settings/permissions.json"))
     }
+
+    private fun legacyPermissions() = com.wangzan101.mika.settings.PermissionMigration.Legacy(
+        blockedApps = appAccess.current().blocked,
+        shareAllowedApps = appAccess.current().shareAllowed,
+        sandboxNetwork = com.wangzan101.mika.cap.sandbox.SandboxState.get(this).networkAllowed,
+        selfConfig = com.wangzan101.mika.settings.FeatureFlags.get(this).selfConfig(),
+        enabledMcpServers = mcpServers.servers.value.filter { it.enabled }.map { it.id },
+    )
 
     /** 全局的询问 / 自主和各任务自己的那一份;开发者选项里的「自主模式」经它改。 */
     val approvalControl: ApprovalControl by lazy { ApprovalControl(approvals) }
@@ -341,6 +341,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         // 内置浏览器:设了代理才给 WebView 设上(读设置要解密,放到后台;没设代理不为此加载 WebView)
         scope.launch(Dispatchers.IO) { runCatching { com.wangzan101.mika.cap.web.WebProxy.apply(this@MikaApp) } }
         capsule.start()
+        // 权限:把旧开关(应用访问、沙箱联网、SelfConfig、MCP)同步成授权;写文件放到后台
+        scope.launch(Dispatchers.IO) { runCatching { permissions.syncLegacy(legacyPermissions()) } }
         // 内置助手的真实现,并开始看着助手(Mika 进程起来后,还活着的助手会自己交接 Binder)
         phone.shellManager.start()
         // 连接一可用就补上默认打开的几项能力

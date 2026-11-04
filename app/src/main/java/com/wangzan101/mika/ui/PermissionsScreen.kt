@@ -36,7 +36,7 @@ private val GROUPS = listOf(
     },
 )
 
-/** 权限预览:按分类看当前默认值,以及从旧设置迁移来的授权。Phase 1 不执行,只展示。 */
+/** 权限预览:按分类看当前默认值,以及从旧设置迁移来的授权。Phase 2a 已执行明确拒绝,Ask 仍放行。 */
 @Composable
 fun PermissionsScreen(onBack: () -> Unit) {
     val app = LocalContext.current.applicationContext as MikaApp

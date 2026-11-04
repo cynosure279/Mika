@@ -163,7 +163,7 @@
     <string name="mcp_servers_allowlist">허용할 도구(쉼표로 구분, 비우면 전체)</string>
     <string name="permissions_title">권한</string>
     <string name="permissions_sub">기능, 리소스 및 기본값(미리보기)</string>
-    <string name="permissions_preview_note">미리보기 전용: 기존 설정을 권한으로 표시하지만 아직 적용되지 않습니다. 적용은 다음 단계입니다.</string>
+    <string name="permissions_preview_note">미리보기: 명시적으로 거부된 권한은 적용됩니다. “매번 확인”은 확인 카드가 추가될 때까지 실행됩니다.</string>
     <string name="permissions_group_defaults">기본값</string>
     <string name="permissions_group_phone">휴대폰</string>
     <string name="permissions_group_web">웹</string>

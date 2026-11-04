@@ -163,7 +163,7 @@
     <string name="mcp_servers_allowlist">Alat yang diizinkan (dipisah koma, kosong = semua)</string>
     <string name="permissions_title">Izin</string>
     <string name="permissions_sub">Kemampuan, resource, dan default (pratinjau)</string>
-    <string name="permissions_preview_note">Hanya pratinjau: pengaturan yang ada ditampilkan sebagai izin, tetapi belum diterapkan. Penerapan ada di langkah berikutnya.</string>
+    <string name="permissions_preview_note">Pratinjau: penolakan eksplisit sudah diterapkan. “Tanya” masih dijalankan sampai kartu konfirmasi ditambahkan.</string>
     <string name="permissions_group_defaults">Default</string>
     <string name="permissions_group_phone">Ponsel</string>
     <string name="permissions_group_web">Web</string>

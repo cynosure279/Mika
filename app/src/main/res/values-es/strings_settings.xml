@@ -171,7 +171,7 @@
     <string name="mcp_servers_allowlist">Herramientas permitidas (separadas por comas, vacío = todas)</string>
     <string name="permissions_title">Permisos</string>
     <string name="permissions_sub">Capacidades, recursos y valores predeterminados (vista previa)</string>
-    <string name="permissions_preview_note">Solo vista previa: los ajustes existentes se muestran como permisos, pero aún no se aplican. La aplicación llega en el siguiente paso.</string>
+    <string name="permissions_preview_note">Vista previa: las denegaciones explícitas ya se aplican. «Preguntar» se ejecuta hasta que se añada la tarjeta de confirmación.</string>
     <string name="permissions_group_defaults">Valores predeterminados</string>
     <string name="permissions_group_phone">Teléfono</string>
     <string name="permissions_group_web">Web</string>

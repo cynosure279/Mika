@@ -177,7 +177,7 @@
     <string name="mcp_servers_allowlist">Allowed tools (comma separated, empty = all)</string>
     <string name="permissions_title">Permissions</string>
     <string name="permissions_sub">Capabilities, resources and defaults (preview)</string>
-    <string name="permissions_preview_note">Preview only: existing settings are shown as grants, but permissions are not enforced yet. Enforcement comes in the next step.</string>
+    <string name="permissions_preview_note">Preview: explicit denials are enforced. “Ask” still runs until the confirmation card is added.</string>
     <string name="permissions_group_defaults">Defaults</string>
     <string name="permissions_group_phone">Phone</string>
     <string name="permissions_group_web">Web</string>

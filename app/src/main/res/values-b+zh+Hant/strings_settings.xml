@@ -163,7 +163,7 @@
     <string name="mcp_servers_allowlist">允許的工具(英文逗號分隔,留空為全部)</string>
     <string name="permissions_title">權限</string>
     <string name="permissions_sub">能力、資源和預設值（預覽）</string>
-    <string name="permissions_preview_note">僅預覽：現有設定已對應為授權，但還沒有真正執行；執行會在下一步接入。</string>
+    <string name="permissions_preview_note">預覽：明確拒絕的權限已經生效；“每次詢問”在確認卡片接入前仍會放行。</string>
     <string name="permissions_group_defaults">預設值</string>
     <string name="permissions_group_phone">手機</string>
     <string name="permissions_group_web">網頁</string>

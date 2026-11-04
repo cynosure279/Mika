@@ -1,12 +1,21 @@
 package com.wangzan101.mika.core.action
 
 import com.wangzan101.mika.core.assembly.toolDispatcher
+import com.wangzan101.mika.core.agent.AgentLoop
+import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.core.guard.OperationGuards
+import com.wangzan101.mika.core.model.Capabilities
+import com.wangzan101.mika.core.model.ChatModel
+import com.wangzan101.mika.core.model.Message
+import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.Part
+import com.wangzan101.mika.core.model.StopReason
+import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.permission.PermissionGate
 import com.wangzan101.mika.core.permission.PermissionVerdict
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.core.record.RunSink
+import com.wangzan101.mika.core.testing.answerReply
 import com.wangzan101.mika.core.tool.FakeScreen
 import com.wangzan101.mika.core.uistate.ActionResult
 import com.wangzan101.mika.core.uistate.ScreenPort
@@ -73,5 +82,28 @@ class PermissionEnforcementTest {
         val denied = events.single { it.tool == "phone_observe" }
         assertEquals("denied", denied.decision)
         assertEquals("phone.observe", denied.permission)
+    }
+
+    /** 权限拒绝要作为工具结果交给模型,不能像未知的拒绝码那样让循环抛错结束任务。 */
+    @Test fun aPermissionRefusalReachesTheModelInsteadOfFailingTheTask() = runTest {
+        var calls = 0
+        var result: String? = null
+        val model = object : ChatModel {
+            override val capabilities = Capabilities(toolCalls = true, vision = false, contextTokens = 128_000, reasoning = false)
+            override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+                calls++
+                if (calls == 1) {
+                    return ModelReply(listOf(Part.ToolCall("c1", "phone_tap", """{"x":10,"y":10}""")), StopReason.ToolUse, null)
+                }
+                result = messages.asReversed().flatMap { it.parts }.filterIsInstance<Part.ToolResult>()
+                    .firstOrNull { it.callId == "c1" }?.content
+                return answerReply("这个能力被关掉了")
+            }
+        }
+        val end = AgentLoop(model, toolDispatcher(FakeScreen(), permissionGate = gate(setOf("phone_tap"))), "BASE", 10)
+            .run("试试")
+        assertTrue("$end", end is TaskState.Succeeded)
+        assertEquals(2, calls)
+        assertTrue(result.orEmpty().contains("permission_denied"))
     }
 }

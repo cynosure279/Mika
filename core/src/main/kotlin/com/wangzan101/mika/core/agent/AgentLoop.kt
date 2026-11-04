@@ -654,8 +654,8 @@ class AgentLoop(
                         recordReply(Redactor.args(tools.verb(first.name), first.argsJson, secretField = true))
                         return StopRules.guard(it)
                     }
-                    // 应用权限拒绝已经由执行入口作为工具结果交给模型:不结束任务,让模型换路线或向用户说明
-                    if (AppAccessDenied.isAppAccessCode(action.code)) {
+                    // 应用权限和 Mika 权限的拒绝已经由执行入口作为工具结果交给模型:不结束任务,让模型换路线或向用户说明
+                    if (AppAccessDenied.isAppAccessCode(action.code) || action.code.startsWith("permission_")) {
                         track.after(tools.verb(first.name), ok = false, guard = false, changed = null, recovery = false, app = null)
                         continue
                     }

@@ -171,7 +171,7 @@
     <string name="mcp_servers_allowlist">Ferramentas permitidas (separadas por vírgulas, vazio = todas)</string>
     <string name="permissions_title">Permissões</string>
     <string name="permissions_sub">Capacidades, recursos e padrões (prévia)</string>
-    <string name="permissions_preview_note">Apenas prévia: as configurações existentes aparecem como permissões, mas ainda não são aplicadas. A aplicação vem no próximo passo.</string>
+    <string name="permissions_preview_note">Prévia: as negações explícitas já são aplicadas. «Perguntar» ainda é executado até a confirmação ser adicionada.</string>
     <string name="permissions_group_defaults">Padrões</string>
     <string name="permissions_group_phone">Telefone</string>
     <string name="permissions_group_web">Web</string>

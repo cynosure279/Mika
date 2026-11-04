@@ -56,11 +56,16 @@ internal object Refusals {
         "with item as the product (variant, quantity), amount as the amount due shown on screen, and address as the delivery address."
     const val PERMISSION_DENIED = "The user turned off this capability for this task. Do not retry or try to bypass it; continue without it or tell the user where to change it."
     const val PERMISSION_UNATTENDED = "This needs the user's approval, but this task cannot ask for it. Do not retry; continue without this capability or stop and tell the user."
+    const val PERMISSION_UNKNOWN = "This capability has no permission mapping, so it was not run. Do not retry; continue without it or tell the user."
 
     fun content(code: String, style: RefusalStyle, before: List<GuardVerdict>, hit: Irreversible?, reason: String?): JsonObject = when (style) {
         // 模型单步被守卫叫停时任务就此结束,用不到说明
         RefusalStyle.Model -> if (code.startsWith("permission_")) notRun(code,
-            if (code == "permission_denied") PERMISSION_DENIED else PERMISSION_UNATTENDED) {
+            when (code) {
+                "permission_denied" -> PERMISSION_DENIED
+                "permission_unattended" -> PERMISSION_UNATTENDED
+                else -> PERMISSION_UNKNOWN
+            }) {
             put("counts_as_failure", false)
         } else if (code == "approval_unavailable") notRun(code,
             "This step spends money, but this run cannot collect the user's approval. The action was not run. " +

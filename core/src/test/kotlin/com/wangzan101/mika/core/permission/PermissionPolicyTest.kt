@@ -46,6 +46,15 @@ class PermissionPolicyTest {
             (PermissionPolicy.evaluate(request(), PermissionGrants.NONE, autonomous = true) as PermissionVerdict.Deny).code)
     }
 
+    @Test fun askStaysAskWhenTheCallerIsNotEnforcingItYet() {
+        val verdict = PermissionPolicy.evaluate(
+            request(origin = RunOrigin.Trigger, attendance = Attendance.Unattended),
+            PermissionGrants.NONE,
+            downgradeAsk = false,
+        )
+        assertEquals(PermissionVerdict.Ask("Share text to one app"), verdict)
+    }
+
     @Test fun aMoreSpecificGrantWins() {
         val globalAsk = grant(access = Access.Ask, scope = GrantScope.Global)
         val conversationAllow = grant(access = Access.Allow, scope = GrantScope.Conversation)
