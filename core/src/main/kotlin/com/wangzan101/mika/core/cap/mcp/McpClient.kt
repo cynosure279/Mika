@@ -28,8 +28,8 @@ import kotlinx.serialization.json.put
 /** 传输层只须实现这两个操作；每个 Run 开局调用一次 tools，之后目录不变。 */
 interface McpEndpoint {
     val serverId: String
-    /** HTTP server host; a signed file_link may be allowed to download from this host even on a private network. */
-    val host: String? get() = null
+    /** HTTP server origin (scheme://host:port); a signed file_link may be allowed to download from this origin even on a private network. */
+    val origin: String? get() = null
     fun tools(): List<McpToolDescriptor>
     suspend fun call(name: String, arguments: JsonObject): McpResult
     /** 支持进度的传输覆盖它;默认忽略进度，旧实现不用改。 */
@@ -320,7 +320,7 @@ private class McpClientTool(
             val direction = (a.o["direction"] as? JsonPrimitive)?.contentOrNull ?: "download"
             if (descriptor.name == "file_link" && !result.isError && direction == "download") {
                 val url = fileLinkUrl(result.text)
-                val note = if (url != null) ctx.config.onRemoteFileLink?.invoke(url, null, endpoint.host) else null
+                val note = if (url != null) ctx.config.onRemoteFileLink?.invoke(url, null, endpoint.origin) else null
                 if (note.isNullOrBlank()) result else result.copy(text = result.text + "\n" + note)
             } else result
         },

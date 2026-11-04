@@ -206,7 +206,7 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o mika-envd-windows-
 2. 连接测试通过后，任务里会出现 `mcp_<服务器名>__exec`、`mcp_<服务器名>__read_file` 等工具。
 3. 工具名前缀由 Mika 的 MCP 客户端加，envd 自己不感知。
 
-第一版不需要改 App 代码；等环境管理器和会话 `envId` 落地后，才能做到「新对话时选一个环境」。
+接入不需要改 App 代码：在设置里加 MCP 服务器即可；App 侧已经自动接住 `file_link` 的下载结果。环境管理器和会话 `envId` 还没落地，所以还不能在新建对话时选环境。
 
 `file_link` 的下载结果会由 App 自动接住：下载到本对话工作区的 `downloads/`，再导出到「下载/Mika」并在对话里显示文件卡片；上传链接不自动处理，需要用户自己打开或后续界面接。设备级 MCP 流式测试在 `app/src/androidTest/java/com/wangzan101/mika/cap/RemoteEnvironmentDeviceTest.kt`，没有设备时只做编译验证。
 

@@ -122,7 +122,7 @@ interface WebPort : ScreenPort {
      * 直接下载一个 http(s) 地址到本对话的 downloads/(签名 file_link 也走这里),等它结束或超时再返回。
      * 不支持时抛 [UnsupportedOperationException]。
      */
-    suspend fun downloadUrl(url: String, name: String?, timeoutMs: Long, allowedPrivateHost: String? = null): DownloadInfo =
+    suspend fun downloadUrl(url: String, name: String?, timeoutMs: Long, allowedPrivateOrigin: String? = null, onProgress: ((Long) -> Unit)? = null): DownloadInfo =
         throw UnsupportedOperationException("direct downloads are not available")
     suspend fun upload(ref: String, snapshotId: String, paths: List<String>): ActionResult
     suspend fun historyBack(): ActionResult

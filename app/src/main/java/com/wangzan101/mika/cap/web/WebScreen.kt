@@ -1046,15 +1046,15 @@ class WebScreen(
         files?.downloads?.list() ?: throw UnsupportedOperationException(DOWNLOADS_UNAVAILABLE)
 
     /** 直接下载一个地址到 downloads/,等它结束或超时。 */
-    override suspend fun downloadUrl(url: String, name: String?, timeoutMs: Long, allowedPrivateHost: String?): DownloadInfo {
+    override suspend fun downloadUrl(url: String, name: String?, timeoutMs: Long, allowedPrivateOrigin: String?, onProgress: ((Long) -> Unit)?): DownloadInfo {
         val f = files ?: throw UnsupportedOperationException(DOWNLOADS_UNAVAILABLE)
-        val downloads = allowedPrivateHost?.takeIf { it.isNotBlank() }?.let { f.downloads.withTrustedHost(it) } ?: f.downloads
-        val path = downloads.start(url, "", null, null, null, name)
+        val path = f.downloads.start(url, "Mika/1.0", null, null, null, name, trustedOrigin = allowedPrivateOrigin, onProgress = onProgress)
         val deadline = clock() + timeoutMs
         while (true) {
-            val done = downloads.list().firstOrNull { it.file == path }
+            val done = f.downloads.list().firstOrNull { it.file == path }
             if (done != null && done.status != "running") return done
             if (clock() >= deadline) {
+                f.downloads.cancel(path)
                 return done ?: DownloadInfo(path, 0, null, "failed", "timed_out")
             }
             delay(100)

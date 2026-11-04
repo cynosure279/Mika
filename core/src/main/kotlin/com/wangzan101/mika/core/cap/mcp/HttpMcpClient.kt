@@ -61,7 +61,10 @@ class HttpMcpEndpoint private constructor(
     val serverName: String?,
     val instructions: String?,
 ) : McpEndpoint, Closeable {
-    override val host: String get() = url.host
+    override val origin: String get() {
+        val host = if (':' in url.host) "[${url.host}]" else url.host
+        return "${url.scheme}://$host:${url.port}"
+    }
     private val json = Json { ignoreUnknownKeys = true }
     // MCP 端点不应该靠重定向跳转;禁止重定向,避免把请求(含认证头)带去别的主机
     private val client = http.newBuilder().followRedirects(false).followSslRedirects(false).build()

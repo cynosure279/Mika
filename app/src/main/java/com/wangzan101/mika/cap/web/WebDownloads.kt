@@ -10,6 +10,7 @@ import com.wangzan101.mika.core.cap.web.DownloadInfo
 import com.wangzan101.mika.core.cap.web.WebUrlPolicy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -67,6 +68,8 @@ class WebDownloads(
         /** 占着任务额度(一个文件 + [charged] 个已写的字节)。 */
         var counted = false
         var charged = 0L
+        /** 这次下载的协程;超时取消时用它停掉。 */
+        @Volatile var job: Job? = null
     }
 
     private val entries = mutableListOf<Entry>()
@@ -89,28 +92,40 @@ class WebDownloads(
 
     private val baseHttp = http
     private val baseCookies = cookies
-    private val baseScope = scope
-    private val baseAddressRefusal = addressRefusal
     private val baseDns = dns
 
-    /**
-     * 复制一个只对 [host] 放行私网/本机下载的实例。用于 MCP file_link:签名 URL 就指向用户自己的
-     * envd,可能在局域网或本机;其他地址仍按原来的地址规则拒绝,重定向到别的主机也会被拒绝。
-     */
-    fun withTrustedHost(host: String): WebDownloads {
-        val wanted = host.trim().lowercase()
-        val refusal: (String) -> String? = { url ->
-            if (url.toHttpUrlOrNull()?.host?.lowercase() == wanted) null else baseAddressRefusal(url)
+    /** 只对精确 origin 放行私网/本机下载的客户端(用于 MCP file_link)。 */
+    private val trustedClients = java.util.concurrent.ConcurrentHashMap<String, OkHttpClient>()
+
+    private fun originOf(url: String): String? =
+        url.toHttpUrlOrNull()?.let {
+            val host = if (':' in it.host) "[${it.host}]" else it.host
+            "${it.scheme}://$host:${it.port}"
         }
-        val trustedDns = object : Dns {
-            override fun lookup(hostname: String): List<InetAddress> =
-                if (hostname.trim().lowercase() == wanted) Dns.SYSTEM.lookup(hostname) else baseDns.lookup(hostname)
+
+    private fun refusal(url: String, trustedOrigin: String?): String? =
+        if (trustedOrigin != null && originOf(url) == trustedOrigin) null else addressRefusal(url)
+
+    private fun clientFor(trustedOrigin: String?): OkHttpClient {
+        if (trustedOrigin == null) return client
+        return trustedClients.getOrPut(trustedOrigin) {
+            val parsed = trustedOrigin.toHttpUrlOrNull() ?: return@getOrPut client
+            val host = parsed.host.lowercase()
+            val dns = object : Dns {
+                override fun lookup(hostname: String): List<InetAddress> =
+                    if (hostname.trim().lowercase() == host) Dns.SYSTEM.lookup(hostname) else baseDns.lookup(hostname)
+            }
+            baseHttp.newBuilder()
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .dns(dns)
+                .addNetworkInterceptor { chain ->
+                    val req = chain.request()
+                    val c = baseCookies(req.url.toString())
+                    chain.proceed(if (c.isNullOrEmpty()) req else req.newBuilder().header("Cookie", c).build())
+                }
+                .build()
         }
-        return WebDownloads(
-            workspaceDir, gate, tree, baseHttp, baseCookies, baseScope,
-            maxBytes, maxBlobBytes, maxFiles, maxTotalBytes, timeoutMs,
-            refusal, trustedDns,
-        )
     }
 
     /** 正在问页面要名字、还没登记的下载。 */
@@ -146,17 +161,21 @@ class WebDownloads(
     fun start(
         url: String, ua: String, contentDisposition: String?, mime: String?, referer: String?, suggested: String? = null,
         viaPage: (suspend (Long) -> Pair<ByteArray, String?>?)? = null,
+        /** 精确 origin:只对这一个 scheme://host:port 放行私网/本机(用于 MCP file_link)。 */
+        trustedOrigin: String? = null,
+        /** 已写字节数;节流由调用方做。 */
+        onProgress: ((Long) -> Unit)? = null,
     ): String {
         val name = fileName(contentDisposition, url, mime, suggested)
         if (WebUrlPolicy.checkNavigable(url) != null || !(url.startsWith("http://", true) || url.startsWith("https://", true))) {
             return failed(name, mime, "not_a_web_address")
         }
-        if (addressRefusal(url) != null) return failed(name, mime, BLOCKED_ADDRESS)
+        if (refusal(url, trustedOrigin) != null) return failed(name, mime, BLOCKED_ADDRESS)
         val entry = reserve(name, mime)
         if (entry.status == FAILED) return entry.file
-        scope.launch {
+        entry.job = scope.launch {
             val unreached = try {
-                tree.shared { fetch(url, ua, referer, entry) }
+                tree.shared { fetch(url, ua, referer, entry, trustedOrigin, onProgress) }
             } catch (e: CancellationException) {
                 fail(entry, "cancelled")
                 throw e
@@ -164,17 +183,23 @@ class WebDownloads(
                 Log.w(TAG, "download failed", e)
                 networkError(e)
             }
-            if (unreached != null) fallBack(entry, url, unreached, viaPage)
+            if (unreached != null) fallBack(entry, url, unreached, viaPage, trustedOrigin)
         }
         return entry.file
+    }
+
+    /** 取消一次还在跑的下载(超时时用);找不到或已结束为无操作。 */
+    fun cancel(file: String) {
+        val entry = synchronized(entries) { entries.firstOrNull { it.file == file } } ?: return
+        entry.job?.cancel()
     }
 
     /**
      * 自己没连上([reason] 带着真实的出错类型):是 TLS / 握手一类、给了 [viaPage]、地址仍过得了规则时改由页面去取,
      * 取到就存下;否则照原因记失败。
      */
-    private suspend fun fallBack(entry: Entry, url: String, reason: String, viaPage: (suspend (Long) -> Pair<ByteArray, String?>?)?) {
-        val usable = viaPage?.takeIf { reason.startsWith(TLS_ERROR) && addressRefusal(url) == null }
+    private suspend fun fallBack(entry: Entry, url: String, reason: String, viaPage: (suspend (Long) -> Pair<ByteArray, String?>?)?, trustedOrigin: String?) {
+        val usable = viaPage?.takeIf { reason.startsWith(TLS_ERROR) && refusal(url, trustedOrigin) == null }
         val got = usable?.let { read ->
             try { read(maxBlobBytes) } catch (e: CancellationException) { fail(entry, "cancelled"); throw e } catch (e: Exception) { null }
         }
@@ -271,7 +296,7 @@ class WebDownloads(
      * 一跳一跳地取:每一跳先查地址;整个下载(含跳转与读正文)不超过 [timeoutMs]。
      * 连不上(还没写进任何字节)时不记失败,返回原因交给调用方换路;其余情况自己记完,返回 null。
      */
-    private fun fetch(url: String, ua: String, referer: String?, entry: Entry): String? {
+    private fun fetch(url: String, ua: String, referer: String?, entry: Entry, trustedOrigin: String?, onProgress: ((Long) -> Unit)?): String? {
         val deadline = System.nanoTime() + timeoutMs * 1_000_000
         var current = url.toHttpUrlOrNull() ?: return fail(entry, "not_a_web_address").let { null }
         var hops = 0
@@ -279,7 +304,7 @@ class WebDownloads(
             val left = (deadline - System.nanoTime()) / 1_000_000
             if (left <= 0) return fail(entry, TIMED_OUT).let { null }
             val req = Request.Builder().url(current).header("User-Agent", ua).apply { referer?.let { header("Referer", it) } }.build()
-            val call = client.newCall(req)
+            val call = clientFor(trustedOrigin).newCall(req)
             call.timeout().timeout(left, TimeUnit.MILLISECONDS)
             val resp = try {
                 call.execute()
@@ -293,7 +318,7 @@ class WebDownloads(
                 if (resp.isRedirect) {
                     val next = resp.header("Location")?.let { resp.request.url.resolve(it) } ?: return fail(entry, "http_${resp.code}").let { null }
                     if (++hops > MAX_REDIRECTS) return fail(entry, "too_many_redirects").let { null }
-                    if (addressRefusal(next.toString()) != null) return fail(entry, BLOCKED_REDIRECT).let { null }
+                    if (refusal(next.toString(), trustedOrigin) != null) return fail(entry, BLOCKED_REDIRECT).let { null }
                     current = next
                     continue
                 }
@@ -312,6 +337,7 @@ class WebDownloads(
                     if (!charge(entry, n.toLong())) return fail(entry, DOWNLOAD_LIMIT).let { null }
                     out.write(if (n == buf.size) buf else buf.copyOf(n))
                     entry.bytes = total
+                    onProgress?.invoke(total)
                     if (System.nanoTime() > deadline) return fail(entry, TIMED_OUT).let { null }
                 }
                 return done(entry).let { null }

@@ -78,4 +78,10 @@ class RedactorTest {
         val c = scriptCode("const a = 'it\\'s hunter2'; const b = \"say \\\"hi\\\"\";")
         assertEquals("const a = '***'; const b = \"***\";", c)
     }
+
+    @Test fun signedFileLinkQueryMasked() {
+        val out = Redactor.text("https://host/files/download?env=e&path=a.txt&exp=123&sig=abcdef123456")
+        assertFalse(out, out.contains("abcdef123456"))
+        assertTrue(out, out.contains("sig=***"))
+    }
 }

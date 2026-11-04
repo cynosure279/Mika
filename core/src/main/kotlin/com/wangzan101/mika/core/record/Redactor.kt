@@ -20,6 +20,8 @@ object Redactor {
     /** Google 新格式的认证 Key:`AQ.` 开头,后面一长串 base64url 字符。 */
     private val GOOGLE_AUTH_KEY = Regex("""\bAQ\.[0-9A-Za-z_\-]{20,}""")
     private val GITHUB_TOKEN = Regex("""\bgh[pousr]_[A-Za-z0-9]{20,}""")
+    /** 签名下载链接里的 sig/signature 是短期能力,不能原样进运行记录。 */
+    private val SIGNED_QUERY = Regex("""([?&](?:sig|signature)=)[^&\s"'<>]+""", RegexOption.IGNORE_CASE)
 
     /** [secretField]:端口报告这次输入的目标是密码框。 */
     /** [verb]:调用的工具做的动作(不认识的工具为 null)。 */
@@ -119,7 +121,7 @@ object Redactor {
     }
 
     fun text(s: String): String {
-        var out = s
+        var out = SIGNED_QUERY.replace(s, "${'$'}1$MASK")
         for (re in listOf(SK_KEY, GOOGLE_KEY, GOOGLE_AUTH_KEY, GITHUB_TOKEN)) out = re.replace(out, MASK)
         return BEARER.replace(out, "Bearer $MASK")
     }
