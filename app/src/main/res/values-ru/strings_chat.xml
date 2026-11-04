@@ -204,4 +204,6 @@
     <string name="workspace_new">Новый</string>
     <string name="workspace_skills_note">По умолчанию — все навыки. После снятия любого включается явный список; навыки, добавленные позже, не добавляются автоматически.</string>
     <string name="workspace_mcp_note">По умолчанию — все включённые серверы. После снятия любого включается явный список; серверы, добавленные позже, не добавляются автоматически.</string>
+    <string name="workspace_select_all">Выбрать все</string>
+    <string name="workspace_select_none">Снять выбор</string>
 </resources>

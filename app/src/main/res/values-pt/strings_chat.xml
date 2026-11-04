@@ -199,4 +199,6 @@
     <string name="workspace_new">Novo</string>
     <string name="workspace_skills_note">O padrão é todas as habilidades. Desativar uma passa para uma lista explícita; habilidades adicionadas depois não entram automaticamente.</string>
     <string name="workspace_mcp_note">O padrão é todos os servidores habilitados. Desativar um passa para uma lista explícita; servidores adicionados depois não entram automaticamente.</string>
+    <string name="workspace_select_all">Selecionar tudo</string>
+    <string name="workspace_select_none">Selecionar nenhum</string>
 </resources>

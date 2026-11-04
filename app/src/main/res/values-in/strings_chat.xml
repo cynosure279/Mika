@@ -189,4 +189,6 @@
     <string name="workspace_new">Baru</string>
     <string name="workspace_skills_note">Bawaannya semua keterampilan. Menonaktifkan salah satu mengubahnya menjadi daftar eksplisit; keterampilan yang ditambahkan nanti tidak otomatis masuk.</string>
     <string name="workspace_mcp_note">Bawaannya semua server yang aktif. Menonaktifkan salah satu mengubahnya menjadi daftar eksplisit; server yang ditambahkan nanti tidak otomatis masuk.</string>
+    <string name="workspace_select_all">Pilih semua</string>
+    <string name="workspace_select_none">Hapus semua pilihan</string>
 </resources>

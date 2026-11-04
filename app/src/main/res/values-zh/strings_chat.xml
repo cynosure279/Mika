@@ -189,4 +189,6 @@
     <string name="workspace_new">新</string>
     <string name="workspace_skills_note">默认全部技能。取消任意一项后改为明确列表；以后新增的技能不会自动加入。</string>
     <string name="workspace_mcp_note">默认全部已启用的 server。取消任意一项后改为明确列表；以后新增的 server 不会自动加入。</string>
+    <string name="workspace_select_all">全选</string>
+    <string name="workspace_select_none">全不选</string>
 </resources>

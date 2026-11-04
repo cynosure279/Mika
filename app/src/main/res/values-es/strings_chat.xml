@@ -199,4 +199,6 @@
     <string name="workspace_new">Nuevo</string>
     <string name="workspace_skills_note">Por defecto, todas las habilidades. Al desactivar una, se pasa a una lista explícita; las habilidades añadidas después no se incluyen automáticamente.</string>
     <string name="workspace_mcp_note">Por defecto, todos los servidores habilitados. Al desactivar uno, se pasa a una lista explícita; los servidores añadidos después no se incluyen automáticamente.</string>
+    <string name="workspace_select_all">Seleccionar todo</string>
+    <string name="workspace_select_none">No seleccionar ninguno</string>
 </resources>

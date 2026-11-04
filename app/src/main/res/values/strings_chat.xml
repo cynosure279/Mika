@@ -194,4 +194,6 @@
     <string name="workspace_new">New</string>
     <string name="workspace_skills_note">Default is every skill. Turning one off switches to an explicit list; skills added later are not included automatically.</string>
     <string name="workspace_mcp_note">Default is every enabled server. Turning one off switches to an explicit list; servers added later are not included automatically.</string>
+    <string name="workspace_select_all">Select all</string>
+    <string name="workspace_select_none">Select none</string>
 </resources>

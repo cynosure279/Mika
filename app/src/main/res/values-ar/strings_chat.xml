@@ -214,4 +214,6 @@
     <string name="workspace_new">جديد</string>
     <string name="workspace_skills_note">الافتراضي هو كل المهارات. إلغاء أي عنصر يحوّلها إلى قائمة صريحة؛ والمهارات المضافة لاحقًا لا تُضاف تلقائيًا.</string>
     <string name="workspace_mcp_note">الافتراضي هو كل الخوادم المفعّلة. إلغاء أي عنصر يحوّلها إلى قائمة صريحة؛ والخوادم المضافة لاحقًا لا تُضاف تلقائيًا.</string>
+    <string name="workspace_select_all">تحديد الكل</string>
+    <string name="workspace_select_none">إلغاء تحديد الكل</string>
 </resources>

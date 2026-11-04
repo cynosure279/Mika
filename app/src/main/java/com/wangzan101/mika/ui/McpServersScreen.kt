@@ -107,6 +107,8 @@ fun McpServersScreen(store: McpServerStore, onBack: () -> Unit, access: Workspac
                     MikaSwitch(allowed.mcpAll, { access.setAllMcp(it, ids) })
                 }
                 if (!allowed.mcpAll) {
+                    ListRow(null, stringResource(R.string.workspace_select_all), onClick = { access.setAllMcp(true, ids) })
+                    ListRow(null, stringResource(R.string.workspace_select_none), onClick = { access.setAllMcp(false, ids) })
                     servers.forEach { server ->
                         val on = server.id in allowed.mcpServers
                         ListRow(

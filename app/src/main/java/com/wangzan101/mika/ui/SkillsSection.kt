@@ -128,6 +128,8 @@ internal fun SkillsSection(
                     MikaSwitch(allowed.skillsAll, { access.setAllSkills(it, ids) })
                 }
                 if (!allowed.skillsAll) {
+                    ListRow(null, stringResource(R.string.workspace_select_all), onClick = { access.setAllSkills(true, ids) })
+                    ListRow(null, stringResource(R.string.workspace_select_none), onClick = { access.setAllSkills(false, ids) })
                     items.forEach { item ->
                         val on = item.id in allowed.skills
                         ListRow(

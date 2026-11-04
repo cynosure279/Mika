@@ -189,4 +189,6 @@
     <string name="workspace_new">新規</string>
     <string name="workspace_skills_note">デフォルトはすべてのスキルです。一つでも外すと明示的なリストになり、後から追加されたスキルは自動では入りません。</string>
     <string name="workspace_mcp_note">デフォルトは有効なすべてのサーバーです。一つでも外すと明示的なリストになり、後から追加されたサーバーは自動では入りません。</string>
+    <string name="workspace_select_all">すべて選択</string>
+    <string name="workspace_select_none">選択を解除</string>
 </resources>
