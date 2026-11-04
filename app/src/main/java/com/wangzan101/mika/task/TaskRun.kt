@@ -769,10 +769,10 @@ class TaskRun(
                 onSandboxCommand = { sandboxNote(StatusCopy.sandboxCommand(it, sandboxOnline())) },
                 onSandboxProgress = { sandboxNote(StatusCopy.sandboxProgress(it, sandboxOnline())) },
                 onToolProgress = { sandboxNote(StatusCopy.toolProgress(it)) },
-                onRemoteFileLink = { url, name ->
+                onRemoteFileLink = { url, name, allowedHost ->
                     val port = web
                     if (port == null) null else try {
-                        val d = port.downloadUrl(url, name, 120_000)
+                        val d = port.downloadUrl(url, name, 120_000, allowedHost)
                         if (d.status != "done") {
                             "Download failed: ${d.error ?: d.status}"
                         } else {

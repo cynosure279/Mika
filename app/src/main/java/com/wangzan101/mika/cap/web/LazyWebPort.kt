@@ -87,8 +87,8 @@ class LazyWebPort(private val create: suspend () -> WebPort) : WebPort {
     override suspend fun switchTab(tabId: String): TabInfo? = port?.switchTab(tabId)
     override suspend fun closeTab(tabId: String) = port?.closeTab(tabId) ?: false
     override suspend fun downloads(): List<DownloadInfo> = port?.downloads() ?: throw UnsupportedOperationException("downloads are not available yet")
-    override suspend fun downloadUrl(url: String, name: String?, timeoutMs: Long): DownloadInfo =
-        built().downloadUrl(url, name, timeoutMs)
+    override suspend fun downloadUrl(url: String, name: String?, timeoutMs: Long, allowedPrivateHost: String?): DownloadInfo =
+        built().downloadUrl(url, name, timeoutMs, allowedPrivateHost)
     override suspend fun upload(ref: String, snapshotId: String, paths: List<String>) = port?.upload(ref, snapshotId, paths) ?: NO_TAB
     override suspend fun historyBack() = port?.historyBack() ?: NO_TAB
     override suspend fun setSiteMode(mobile: Boolean) = port?.setSiteMode(mobile)

@@ -41,7 +41,7 @@ class RemoteEnvironmentSimulationTest {
             val tools = toolDispatcher(
                 FakeScreen(),
                 mcpServers = listOf(McpConnection(endpoint)),
-                onRemoteFileLink = { url, _ -> seen = url; "saved to Downloads" },
+                onRemoteFileLink = { url, _, _ -> seen = url; "saved to Downloads" },
             )
             val result = tools.execute(
                 Part.ToolCall("c1", "mcp_envd__file_link", """{"env":"env-1","path":"a.txt"}"""),

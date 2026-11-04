@@ -49,8 +49,7 @@ class McpClientException(message: String, cause: Throwable? = null) : Exception(
  */
 class HttpMcpEndpoint private constructor(
     override val serverId: String,
-    private val url: HttpUrl,
-    private val http: OkHttpClient,
+    private val url: HttpUrl,    private val http: OkHttpClient,
     private val headers: Map<String, String>,
     private val protocolVersion: String,
     private val sessionId: String?,
@@ -62,6 +61,7 @@ class HttpMcpEndpoint private constructor(
     val serverName: String?,
     val instructions: String?,
 ) : McpEndpoint, Closeable {
+    override val host: String get() = url.host
     private val json = Json { ignoreUnknownKeys = true }
     // MCP 端点不应该靠重定向跳转;禁止重定向,避免把请求(含认证头)带去别的主机
     private val client = http.newBuilder().followRedirects(false).followSslRedirects(false).build()

@@ -47,7 +47,7 @@ internal class ToolConfig(
     /** 外部 MCP 工具在运行中报的进度(任务卡片上的一行)。 */
     val onToolProgress: (String) -> Unit = {},
     /** MCP file_link 返回下载 URL 时交给 App:下载并保存,返回给模型的一句说明;null 表示不处理。 */
-    val onRemoteFileLink: (suspend (url: String, name: String?) -> String?)? = null,
+    val onRemoteFileLink: (suspend (url: String, name: String?, allowedHost: String?) -> String?)? = null,
 )
 
 /**

@@ -19,6 +19,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+import java.net.InetAddress
 import java.net.URI
 import java.net.URLDecoder
 import java.util.Base64
@@ -85,6 +86,32 @@ class WebDownloads(
             chain.proceed(if (c.isNullOrEmpty()) req else req.newBuilder().header("Cookie", c).build())
         }
         .build()
+
+    private val baseHttp = http
+    private val baseCookies = cookies
+    private val baseScope = scope
+    private val baseAddressRefusal = addressRefusal
+    private val baseDns = dns
+
+    /**
+     * 复制一个只对 [host] 放行私网/本机下载的实例。用于 MCP file_link:签名 URL 就指向用户自己的
+     * envd,可能在局域网或本机;其他地址仍按原来的地址规则拒绝,重定向到别的主机也会被拒绝。
+     */
+    fun withTrustedHost(host: String): WebDownloads {
+        val wanted = host.trim().lowercase()
+        val refusal: (String) -> String? = { url ->
+            if (url.toHttpUrlOrNull()?.host?.lowercase() == wanted) null else baseAddressRefusal(url)
+        }
+        val trustedDns = object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> =
+                if (hostname.trim().lowercase() == wanted) Dns.SYSTEM.lookup(hostname) else baseDns.lookup(hostname)
+        }
+        return WebDownloads(
+            workspaceDir, gate, tree, baseHttp, baseCookies, baseScope,
+            maxBytes, maxBlobBytes, maxFiles, maxTotalBytes, timeoutMs,
+            refusal, trustedDns,
+        )
+    }
 
     /** 正在问页面要名字、还没登记的下载。 */
     private val naming = AtomicInteger()
