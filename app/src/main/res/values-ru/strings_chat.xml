@@ -182,4 +182,26 @@
     <string name="chat_model_next_task">Применяется к следующей задаче</string>
     <string name="chat_model_unavailable">Этот вариант больше недоступен; следующая задача будет по настройкам.</string>
     <string name="chat_model_switch">Сменить основную модель</string>
+    <string name="chat_model_effort">Усилие рассуждения</string>
+    <string name="chat_model_effort_default">По умолчанию модели</string>
+    <string name="chat_model_effort_default_note">Не указано; берётся значение модели или настроек</string>
+    <string name="chat_model_effort_unavailable">Выбранный уровень больше не поддерживается; следующая задача будет по умолчанию.</string>
+    <string name="chat_model_effort_group_note">Если участник группы не поддерживает этот уровень, он использует ближайший.</string>
+    <string name="chat_skills">Навыки</string>
+    <string name="chat_mcp_servers">Серверы MCP</string>
+    <string name="chat_scope_follow">По общим настройкам</string>
+    <string name="chat_scope_all">Всё доступное</string>
+    <string name="chat_scope_only">Только выбранное</string>
+    <string name="chat_scope_no_items">Здесь нечего выбирать.</string>
+    <string name="chat_scope_none">Ничего не выбрано: у следующей задачи не будет навыков и подключений к внешним серверам MCP.</string>
+    <string name="chat_scope_skills_note">Знания о приложениях и сайтах остаются доступны.</string>
+    <string name="chat_scope_mcp_note">Следующая задача подключится только к выбранным и включённым серверам.</string>
+    <string name="workspace_skills_title">Навыки, доступные задачам</string>
+    <string name="workspace_skills_all">Все навыки</string>
+    <string name="workspace_mcp_title">Серверы MCP, доступные задачам</string>
+    <string name="workspace_mcp_all">Все серверы MCP</string>
+    <string name="workspace_all_note">Включая добавленные позже</string>
+    <string name="workspace_new">Новый</string>
+    <string name="workspace_skills_note">По умолчанию — все навыки. После снятия любого включается явный список; навыки, добавленные позже, не добавляются автоматически.</string>
+    <string name="workspace_mcp_note">По умолчанию — все включённые серверы. После снятия любого включается явный список; серверы, добавленные позже, не добавляются автоматически.</string>
 </resources>

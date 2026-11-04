@@ -167,4 +167,26 @@
     <string name="chat_model_next_task">다음 작업부터 적용</string>
     <string name="chat_model_unavailable">이 선택은 더 이상 사용할 수 없습니다. 다음 작업은 설정을 따릅니다.</string>
     <string name="chat_model_switch">기본 모델 변경</string>
+    <string name="chat_model_effort">사고 강도</string>
+    <string name="chat_model_effort_default">모델 기본값</string>
+    <string name="chat_model_effort_default_note">지정하지 않고 모델 또는 설정의 기본값을 따릅니다</string>
+    <string name="chat_model_effort_unavailable">선택한 강도를 더 이상 지원하지 않습니다. 다음 작업은 기본값으로 실행합니다.</string>
+    <string name="chat_model_effort_group_note">그룹 멤버가 이 강도를 지원하지 않으면 각자 가장 가까운 강도를 사용합니다.</string>
+    <string name="chat_skills">스킬</string>
+    <string name="chat_mcp_servers">MCP 서버</string>
+    <string name="chat_scope_follow">전역 설정 따르기</string>
+    <string name="chat_scope_all">모두 사용 가능</string>
+    <string name="chat_scope_only">선택한 항목만</string>
+    <string name="chat_scope_no_items">여기에 선택할 항목이 없습니다.</string>
+    <string name="chat_scope_none">아무것도 선택하지 않았습니다. 다음 작업에는 스킬이 없고 외부 MCP 서버에 연결하지 않습니다.</string>
+    <string name="chat_scope_skills_note">앱과 사이트 지식은 계속 사용할 수 있습니다.</string>
+    <string name="chat_scope_mcp_note">다음 작업에서는 선택된, 사용 중인 서버에만 연결합니다.</string>
+    <string name="workspace_skills_title">작업에서 사용할 수 있는 스킬</string>
+    <string name="workspace_skills_all">모든 스킬</string>
+    <string name="workspace_mcp_title">작업에서 사용할 수 있는 MCP 서버</string>
+    <string name="workspace_mcp_all">모든 MCP 서버</string>
+    <string name="workspace_all_note">나중에 추가된 항목 포함</string>
+    <string name="workspace_new">새 항목</string>
+    <string name="workspace_skills_note">기본값은 모든 스킬입니다. 하나라도 해제하면 명시적 목록으로 바뀌며, 나중에 추가된 스킬은 자동으로 포함되지 않습니다.</string>
+    <string name="workspace_mcp_note">기본값은 사용 중인 모든 서버입니다. 하나라도 해제하면 명시적 목록으로 바뀌며, 나중에 추가된 서버는 자동으로 포함되지 않습니다.</string>
 </resources>

@@ -37,6 +37,9 @@ interface MainModelCatalog {
     fun globalLabel(): String?
 
     fun isGroup(choice: ModelChoice): Boolean
+
+    /** 这个覆盖(或全局主模型)能选的思考档位;空表示不提供。 */
+    fun reasoningLevels(choice: ModelChoice?): List<String>
 }
 
 /** 设置里的模型配置/组;显示名就是组名、模型名和服务商名,不走界面文字。 */
@@ -81,4 +84,6 @@ class ProviderMainModelCatalog(private val store: ProviderStore) : MainModelCata
     }
 
     override fun isGroup(choice: ModelChoice): Boolean = choice is ModelChoice.Group
+
+    override fun reasoningLevels(choice: ModelChoice?): List<String> = store.reasoningLevels(choice)
 }

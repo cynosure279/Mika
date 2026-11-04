@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import com.wangzan101.mika.ui.components.MikaDialog
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +27,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.core.knowledge.AppKnowledgeStage
 import com.wangzan101.mika.core.skills.SkillImport
+import com.wangzan101.mika.settings.WorkspaceAccessStore
 import com.wangzan101.mika.ui.components.ActionSheet
 import com.wangzan101.mika.ui.components.ButtonKind
 import com.wangzan101.mika.ui.components.ButtonSize
@@ -46,7 +49,10 @@ import com.wangzan101.mika.ui.theme.MikaType
  * 个人技能可以分享全文出去,别人分享来的全文从「导入技能」粘进来,先进「待确认」(#165)。
  */
 @Composable
-internal fun SkillsSection(vm: MemoryViewModel, ui: SkillsUi, pending: Boolean) {
+internal fun SkillsSection(
+    vm: MemoryViewModel, ui: SkillsUi, pending: Boolean,
+    access: WorkspaceAccessStore? = null, workspace: WorkspaceCatalog? = null,
+) {
     var viewing by remember { mutableStateOf<String?>(null) }
     var editing by remember { mutableStateOf<SkillRow?>(null) }
     var acting by remember { mutableStateOf<SkillRow?>(null) }
@@ -108,6 +114,37 @@ internal fun SkillsSection(vm: MemoryViewModel, ui: SkillsUi, pending: Boolean) 
             GroupCard {
                 inUse.forEachIndexed { i, row -> AppKnowledgeItem(vm, row, i == 0, viewing == row.id) { toggle(row.id) } }
             }
+        }
+        if (access != null && workspace != null) {
+            val allowed by access.state.collectAsState()
+            val items = workspace.skills()
+            val ids = items.map { it.id }.toSet()
+            GroupLabel(stringResource(R.string.workspace_skills_title))
+            GroupCard {
+                ListRow(
+                    null, stringResource(R.string.workspace_skills_all),
+                    subtitle = stringResource(R.string.workspace_all_note), first = true,
+                ) {
+                    MikaSwitch(allowed.skillsAll, { access.setAllSkills(it, ids) })
+                }
+                if (!allowed.skillsAll) {
+                    items.forEach { item ->
+                        val on = item.id in allowed.skills
+                        ListRow(
+                            null, item.label,
+                            detail = stringResource(R.string.workspace_new).takeIf { item.id !in allowed.skillsKnown },
+                            onClick = { access.setSkill(item.id, !on, ids) },
+                        ) {
+                            Checkbox(on, onCheckedChange = { access.setSkill(item.id, it, ids) })
+                        }
+                    }
+                }
+            }
+            Text(
+                stringResource(R.string.workspace_skills_note),
+                Modifier.padding(horizontal = 16.dp),
+                style = MikaType.Hint, color = MikaTheme.colors.ink3,
+            )
         }
     }
 

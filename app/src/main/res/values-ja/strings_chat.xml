@@ -167,4 +167,26 @@
     <string name="chat_model_next_task">次のタスクから適用</string>
     <string name="chat_model_unavailable">この選択は利用できなくなりました。次のタスクは設定に従います。</string>
     <string name="chat_model_switch">メインモデルを切り替え</string>
+    <string name="chat_model_effort">思考の強さ</string>
+    <string name="chat_model_effort_default">モデルのデフォルト</string>
+    <string name="chat_model_effort_default_note">指定せず、モデルまたは設定のデフォルトに従います</string>
+    <string name="chat_model_effort_unavailable">選択した強さは使えなくなりました。次のタスクはデフォルトで実行します。</string>
+    <string name="chat_model_effort_group_note">グループのメンバーがこの強さに対応していない場合は、それぞれ最も近い強さを使います。</string>
+    <string name="chat_skills">スキル</string>
+    <string name="chat_mcp_servers">MCPサーバー</string>
+    <string name="chat_scope_follow">グローバルに従う</string>
+    <string name="chat_scope_all">すべて利用可能</string>
+    <string name="chat_scope_only">選択したものだけ</string>
+    <string name="chat_scope_no_items">選択できる項目はありません。</string>
+    <string name="chat_scope_none">何も選択されていません。次のタスクではスキルなし、外部MCPサーバーへの接続なしになります。</string>
+    <string name="chat_scope_skills_note">アプリとサイトの知識は引き続き利用できます。</string>
+    <string name="chat_scope_mcp_note">次のタスクでは、選択された有効なサーバーだけに接続します。</string>
+    <string name="workspace_skills_title">タスクで利用できるスキル</string>
+    <string name="workspace_skills_all">すべてのスキル</string>
+    <string name="workspace_mcp_title">タスクで利用できるMCPサーバー</string>
+    <string name="workspace_mcp_all">すべてのMCPサーバー</string>
+    <string name="workspace_all_note">後から追加されたものも含みます</string>
+    <string name="workspace_new">新規</string>
+    <string name="workspace_skills_note">デフォルトはすべてのスキルです。一つでも外すと明示的なリストになり、後から追加されたスキルは自動では入りません。</string>
+    <string name="workspace_mcp_note">デフォルトは有効なすべてのサーバーです。一つでも外すと明示的なリストになり、後から追加されたサーバーは自動では入りません。</string>
 </resources>

@@ -167,4 +167,26 @@
     <string name="chat_model_next_task">下一件事生效</string>
     <string name="chat_model_unavailable">這個選擇已不可用，下一次任務按設定執行。</string>
     <string name="chat_model_switch">切換主模型</string>
+    <string name="chat_model_effort">思考檔位</string>
+    <string name="chat_model_effort_default">模型預設</string>
+    <string name="chat_model_effort_default_note">不指定，跟隨模型或用途的設定</string>
+    <string name="chat_model_effort_unavailable">選中的檔位已不可用，下一次任務按預設執行。</string>
+    <string name="chat_model_effort_group_note">組內成員不支援這一檔時，按各自最接近的檔位執行。</string>
+    <string name="chat_skills">技能</string>
+    <string name="chat_mcp_servers">MCP server</string>
+    <string name="chat_scope_follow">跟隨全域</string>
+    <string name="chat_scope_all">全部可用</string>
+    <string name="chat_scope_only">僅選以下</string>
+    <string name="chat_scope_no_items">這裡還沒有可選項。</string>
+    <string name="chat_scope_none">什麼都沒選：下一次任務沒有技能、不連接外部 MCP。</string>
+    <string name="chat_scope_skills_note">App 和站點知識照常可用。</string>
+    <string name="chat_scope_mcp_note">下一次任務只連接選中的、已啟用的 server。</string>
+    <string name="workspace_skills_title">任務可用的技能</string>
+    <string name="workspace_skills_all">全部技能</string>
+    <string name="workspace_mcp_title">任務可用的 MCP server</string>
+    <string name="workspace_mcp_all">全部 MCP server</string>
+    <string name="workspace_all_note">包括以後新增的</string>
+    <string name="workspace_new">新</string>
+    <string name="workspace_skills_note">預設全部技能。取消任意一項後改為明確列表；以後新增的技能不會自動加入。</string>
+    <string name="workspace_mcp_note">預設全部已啟用的 server。取消任意一項後改為明確列表；以後新增的 server 不會自動加入。</string>
 </resources>

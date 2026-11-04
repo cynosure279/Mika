@@ -8,6 +8,7 @@ import com.wangzan101.mika.chat.BranchOrigin
 import com.wangzan101.mika.chat.BranchWorkspace
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.chat.CurrentChat
+import com.wangzan101.mika.chat.WorkspaceChoice
 import com.wangzan101.mika.confirm.ConfirmationNotifier
 import com.wangzan101.mika.core.agent.FailKind
 import com.wangzan101.mika.core.agent.GateReason
@@ -2233,6 +2234,38 @@ class ChatViewModelTest {
         assertEquals(ModelChoice.Model("gone"), vm.ui.value.mainModel.override)
     }
 
+    /** 新对话先选模型、档位和工具范围:第一句话时整份设置落盘,不是只留主模型。 */
+    @Test fun effortAndToolScopesAreKeptWithTheConversation() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val choice = ModelChoice.Model("cfg-2")
+        val catalog = FakeMainModelCatalog(
+            global = "m1", options = listOf(MainModelOption(choice, "m2")),
+            labels = mapOf(choice to "m2"), allowed = setOf(choice),
+            levels = listOf("low", "high"),
+        )
+        val workspace = FakeWorkspaceCatalog(skills = listOf(WorkspaceItem("documents", "Documents")), mcp = listOf(WorkspaceItem("mcp-1", "Server")))
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, store, mainModels = catalog, workspaceItems = workspace,
+        ).also { runCurrent() }
+
+        vm.chooseMainModel(choice)
+        vm.chooseReasoningEffort("high")
+        vm.chooseSkillScope(WorkspaceChoice.Only(setOf("documents")))
+        vm.chooseMcpScope(WorkspaceChoice.All)
+        runCurrent()
+        assertEquals(listOf("low", "high"), vm.ui.value.mainModel.efforts)
+        assertEquals("high", vm.ui.value.mainModel.reasoningEffort)
+        assertEquals(listOf("Documents"), vm.ui.value.mainModel.skillItems.map { it.label })
+
+        assertTrue(vm.send("用新设置", ok))
+        val id = vm.ui.value.conversationId!!
+        val saved = store.settings(id)
+        assertEquals(choice, saved.main)
+        assertEquals("high", saved.reasoningEffort)
+        assertEquals(WorkspaceChoice.Only(setOf("documents")), saved.skills)
+        assertEquals(WorkspaceChoice.All, saved.mcpServers)
+    }
+
     /** 设置里的模型/组改了:chip 跟着重算(覆盖没变,跟随的名字变)。 */
     @Test fun catalogChangesRefreshTheChip() = runTest {
         val store = ConversationStore(tmp.newFolder())
@@ -2253,6 +2286,7 @@ private class FakeMainModelCatalog(
     private val options: List<MainModelOption> = emptyList(),
     private val labels: Map<ModelChoice, String> = emptyMap(),
     private val allowed: Set<ModelChoice> = emptySet(),
+    private val levels: List<String> = emptyList(),
 ) : MainModelCatalog {
     override val changes = MutableSharedFlow<Unit>()
     override fun options(): List<MainModelOption> = options
@@ -2260,4 +2294,14 @@ private class FakeMainModelCatalog(
     override fun label(choice: ModelChoice): String? = labels[choice]
     override fun globalLabel(): String? = global
     override fun isGroup(choice: ModelChoice): Boolean = choice is ModelChoice.Group
+    override fun reasoningLevels(choice: ModelChoice?): List<String> = levels
+}
+
+private class FakeWorkspaceCatalog(
+    private val skills: List<WorkspaceItem> = emptyList(),
+    private val mcp: List<WorkspaceItem> = emptyList(),
+) : WorkspaceCatalog {
+    override val changes = MutableSharedFlow<Unit>()
+    override fun skills(): List<WorkspaceItem> = skills
+    override fun mcpServers(): List<WorkspaceItem> = mcp
 }

@@ -67,6 +67,8 @@ fun MemoryDataScreen(
     routes: Int?,
     onClearRoutes: () -> Unit,
     onBack: () -> Unit,
+    workspaceAccess: com.wangzan101.mika.settings.WorkspaceAccessStore? = null,
+    workspaceCatalog: WorkspaceCatalog? = null,
 ) {
     var page by rememberSaveable { mutableStateOf(MemoryDataPage.Home) }
     val toHome = { page = MemoryDataPage.Home }
@@ -76,6 +78,7 @@ fun MemoryDataScreen(
             vm, onBack,
             webSitesCount = webSites.sites.size, onOpenWebSites = { page = MemoryDataPage.WebSites },
             routes = routes, onOpenRoutes = { page = MemoryDataPage.Routes },
+            workspaceAccess = workspaceAccess, workspaceCatalog = workspaceCatalog,
         )
         MemoryDataPage.WebSites -> WebSitesScreen(webSites, onBack = toHome)
         MemoryDataPage.Routes -> RoutesScreen(routes, onClear = onClearRoutes, onBack = toHome)
@@ -91,6 +94,8 @@ fun MemoryScreen(
     onOpenWebSites: () -> Unit = {},
     routes: Int? = null,
     onOpenRoutes: () -> Unit = {},
+    workspaceAccess: com.wangzan101.mika.settings.WorkspaceAccessStore? = null,
+    workspaceCatalog: WorkspaceCatalog? = null,
 ) {
     BackHandler(onBack = onBack)
     val ui by vm.ui.collectAsState()
@@ -141,7 +146,7 @@ fun MemoryScreen(
                     ListRow(MikaIcons.Plus, stringResource(R.string.memory_add), first = true, titleColor = MikaTheme.colors.accent, tone = TileTone.Accent, onClick = { adding = true })
                 }
             }
-            Segment.Skills -> SkillsSection(vm, ui.skills, pending = false)
+            Segment.Skills -> SkillsSection(vm, ui.skills, pending = false, access = workspaceAccess, workspace = workspaceCatalog)
             Segment.Pending -> {
                 if (ui.pendingCount == 0) {
                     GroupLabel("")

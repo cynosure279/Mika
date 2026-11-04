@@ -346,7 +346,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
                 onOpenModels = { nav.push(Route.Models) },
                 autonomous = autonomous, onAutonomous = app.approvalControl::setAutonomous,
                 updateVersion = updateState.update?.version, onOpenAbout = { nav.push(Route.About) },
-                mcpServers = app.mcpServers)
+                mcpServers = app.mcpServers, workspaceAccess = app.workspaceAccess)
         }
         Route.Models -> ModelsScreen(store, onBack = back, onOpenSpeech = { nav.push(Route.SpeechModel) }, onOpenUsage = { nav.push(Route.Usage) })
         Route.Usage -> UsageScreen(app.usage, store.providers, onBack = back)
@@ -409,6 +409,8 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
                         vmScope.launch { routeCount = withContext(Dispatchers.IO) { routeStore.clear(); routeStore.count() } }
                     },
                     onBack = { memoryRuntime.requestOpen(null); nav.back() },
+                    workspaceAccess = app.workspaceAccess,
+                    workspaceCatalog = remember { AppWorkspaceCatalog(app) },
                 )
             }
         }

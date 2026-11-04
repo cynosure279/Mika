@@ -167,4 +167,26 @@
     <string name="chat_model_next_task">Berlaku untuk tugas berikutnya</string>
     <string name="chat_model_unavailable">Pilihan ini tidak tersedia lagi; tugas berikutnya mengikuti pengaturan.</string>
     <string name="chat_model_switch">Ganti model utama</string>
+    <string name="chat_model_effort">Tingkat penalaran</string>
+    <string name="chat_model_effort_default">Bawaan model</string>
+    <string name="chat_model_effort_default_note">Tidak ditentukan; mengikuti bawaan model atau pengaturan</string>
+    <string name="chat_model_effort_unavailable">Tingkat yang dipilih tidak lagi didukung; tugas berikutnya memakai bawaan.</string>
+    <string name="chat_model_effort_group_note">Jika anggota grup tidak mendukung tingkat ini, ia memakai yang terdekat.</string>
+    <string name="chat_skills">Keterampilan</string>
+    <string name="chat_mcp_servers">Server MCP</string>
+    <string name="chat_scope_follow">Ikuti pengaturan global</string>
+    <string name="chat_scope_all">Semua yang tersedia</string>
+    <string name="chat_scope_only">Hanya yang dipilih</string>
+    <string name="chat_scope_no_items">Belum ada yang bisa dipilih di sini.</string>
+    <string name="chat_scope_none">Tidak ada yang dipilih: tugas berikutnya tidak mendapat keterampilan dan tidak terhubung ke server MCP eksternal.</string>
+    <string name="chat_scope_skills_note">Pengetahuan aplikasi dan situs tetap tersedia.</string>
+    <string name="chat_scope_mcp_note">Tugas berikutnya hanya terhubung ke server yang dipilih dan aktif.</string>
+    <string name="workspace_skills_title">Keterampilan yang tersedia untuk tugas</string>
+    <string name="workspace_skills_all">Semua keterampilan</string>
+    <string name="workspace_mcp_title">Server MCP yang tersedia untuk tugas</string>
+    <string name="workspace_mcp_all">Semua server MCP</string>
+    <string name="workspace_all_note">Termasuk yang ditambahkan nanti</string>
+    <string name="workspace_new">Baru</string>
+    <string name="workspace_skills_note">Bawaannya semua keterampilan. Menonaktifkan salah satu mengubahnya menjadi daftar eksplisit; keterampilan yang ditambahkan nanti tidak otomatis masuk.</string>
+    <string name="workspace_mcp_note">Bawaannya semua server yang aktif. Menonaktifkan salah satu mengubahnya menjadi daftar eksplisit; server yang ditambahkan nanti tidak otomatis masuk.</string>
 </resources>

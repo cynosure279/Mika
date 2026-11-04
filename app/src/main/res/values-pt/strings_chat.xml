@@ -177,4 +177,26 @@
     <string name="chat_model_next_task">Aplica-se à próxima tarefa</string>
     <string name="chat_model_unavailable">Esta opção não está mais disponível; a próxima tarefa seguirá as configurações.</string>
     <string name="chat_model_switch">Alterar o modelo principal</string>
+    <string name="chat_model_effort">Esforço de raciocínio</string>
+    <string name="chat_model_effort_default">Padrão do modelo</string>
+    <string name="chat_model_effort_default_note">Sem especificar; segue o padrão do modelo ou das configurações</string>
+    <string name="chat_model_effort_unavailable">O nível selecionado não é mais compatível; a próxima tarefa usará o padrão.</string>
+    <string name="chat_model_effort_group_note">Se um membro do grupo não aceitar este nível, usará o mais próximo.</string>
+    <string name="chat_skills">Habilidades</string>
+    <string name="chat_mcp_servers">Servidores MCP</string>
+    <string name="chat_scope_follow">Seguir as configurações globais</string>
+    <string name="chat_scope_all">Tudo disponível</string>
+    <string name="chat_scope_only">Somente os selecionados</string>
+    <string name="chat_scope_no_items">Não há nada para escolher aqui.</string>
+    <string name="chat_scope_none">Nada selecionado: a próxima tarefa não terá habilidades nem se conectará a servidores MCP externos.</string>
+    <string name="chat_scope_skills_note">O conhecimento de apps e sites continua disponível.</string>
+    <string name="chat_scope_mcp_note">A próxima tarefa só se conectará aos servidores selecionados e habilitados.</string>
+    <string name="workspace_skills_title">Habilidades disponíveis para as tarefas</string>
+    <string name="workspace_skills_all">Todas as habilidades</string>
+    <string name="workspace_mcp_title">Servidores MCP disponíveis para as tarefas</string>
+    <string name="workspace_mcp_all">Todos os servidores MCP</string>
+    <string name="workspace_all_note">Inclui os adicionados depois</string>
+    <string name="workspace_new">Novo</string>
+    <string name="workspace_skills_note">O padrão é todas as habilidades. Desativar uma passa para uma lista explícita; habilidades adicionadas depois não entram automaticamente.</string>
+    <string name="workspace_mcp_note">O padrão é todos os servidores habilitados. Desativar um passa para uma lista explícita; servidores adicionados depois não entram automaticamente.</string>
 </resources>

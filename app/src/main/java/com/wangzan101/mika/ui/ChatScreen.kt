@@ -378,7 +378,7 @@ fun ChatScreen(
             onVoiceHolding = { voiceHolding = it },
             editRequest = editRequest,
             mainModel = ui.mainModel,
-            onMainModelClick = { modelSheet = true },
+            onMainModelClick = { vm.refreshConversationUi(); modelSheet = true },
         )
 
         AgentPip(
@@ -469,6 +469,9 @@ fun ChatScreen(
                 onPick = vm::chooseMainModel,
                 onMore = openModels,
                 onDismiss = { modelSheet = false },
+                onEffort = vm::chooseReasoningEffort,
+                onSkillScope = vm::chooseSkillScope,
+                onMcpScope = vm::chooseMcpScope,
             )
         }
     }

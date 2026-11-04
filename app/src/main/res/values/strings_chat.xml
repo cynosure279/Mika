@@ -172,4 +172,26 @@
     <string name="chat_model_next_task">Applies to the next task</string>
     <string name="chat_model_unavailable">This choice is no longer available; the next task follows Settings.</string>
     <string name="chat_model_switch">Change main model</string>
+    <string name="chat_model_effort">Thinking effort</string>
+    <string name="chat_model_effort_default">Model default</string>
+    <string name="chat_model_effort_default_note">Use the model’s or settings’ default</string>
+    <string name="chat_model_effort_unavailable">The selected level is no longer supported; the next task uses the default.</string>
+    <string name="chat_model_effort_group_note">If a group member doesn’t support this level, it uses its closest one.</string>
+    <string name="chat_skills">Skills</string>
+    <string name="chat_mcp_servers">MCP servers</string>
+    <string name="chat_scope_follow">Follow global</string>
+    <string name="chat_scope_all">All available</string>
+    <string name="chat_scope_only">Selected only</string>
+    <string name="chat_scope_no_items">Nothing to choose here.</string>
+    <string name="chat_scope_none">Nothing selected: the next task gets no skills / no external MCP servers.</string>
+    <string name="chat_scope_skills_note">App and website knowledge stays available.</string>
+    <string name="chat_scope_mcp_note">Only selected, enabled servers are connected for the next task.</string>
+    <string name="workspace_skills_title">Skills available to tasks</string>
+    <string name="workspace_skills_all">All skills</string>
+    <string name="workspace_mcp_title">MCP servers available to tasks</string>
+    <string name="workspace_mcp_all">All MCP servers</string>
+    <string name="workspace_all_note">Includes ones added later</string>
+    <string name="workspace_new">New</string>
+    <string name="workspace_skills_note">Default is every skill. Turning one off switches to an explicit list; skills added later are not included automatically.</string>
+    <string name="workspace_mcp_note">Default is every enabled server. Turning one off switches to an explicit list; servers added later are not included automatically.</string>
 </resources>

@@ -192,4 +192,26 @@
     <string name="chat_model_next_task">يُطبَّق على المهمة التالية</string>
     <string name="chat_model_unavailable">هذا الخيار لم يعد متاحًا؛ ستتّبع المهمة التالية الإعدادات.</string>
     <string name="chat_model_switch">تغيير النموذج الرئيسي</string>
+    <string name="chat_model_effort">مستوى التفكير</string>
+    <string name="chat_model_effort_default">افتراضي النموذج</string>
+    <string name="chat_model_effort_default_note">دون تحديد؛ اتبع افتراضي النموذج أو الإعدادات</string>
+    <string name="chat_model_effort_unavailable">لم يعد المستوى المحدد مدعومًا؛ ستستخدم المهمة التالية الافتراضي.</string>
+    <string name="chat_model_effort_group_note">إذا لم يدعم أحد أعضاء المجموعة هذا المستوى، فسيستخدم أقرب مستوى لديه.</string>
+    <string name="chat_skills">المهارات</string>
+    <string name="chat_mcp_servers">خوادم MCP</string>
+    <string name="chat_scope_follow">اتّباع الإعدادات العامة</string>
+    <string name="chat_scope_all">كل المتاح</string>
+    <string name="chat_scope_only">المحدد فقط</string>
+    <string name="chat_scope_no_items">لا توجد عناصر للاختيار هنا.</string>
+    <string name="chat_scope_none">لم يتم تحديد شيء: لن تحصل المهمة التالية على مهارات ولن تتصل بخوادم MCP خارجية.</string>
+    <string name="chat_scope_skills_note">تبقى معرفة التطبيقات والمواقع متاحة.</string>
+    <string name="chat_scope_mcp_note">ستتصل المهمة التالية بالخوادم المحددة والمفعّلة فقط.</string>
+    <string name="workspace_skills_title">المهارات المتاحة للمهام</string>
+    <string name="workspace_skills_all">كل المهارات</string>
+    <string name="workspace_mcp_title">خوادم MCP المتاحة للمهام</string>
+    <string name="workspace_mcp_all">كل خوادم MCP</string>
+    <string name="workspace_all_note">يشمل ما يُضاف لاحقًا</string>
+    <string name="workspace_new">جديد</string>
+    <string name="workspace_skills_note">الافتراضي هو كل المهارات. إلغاء أي عنصر يحوّلها إلى قائمة صريحة؛ والمهارات المضافة لاحقًا لا تُضاف تلقائيًا.</string>
+    <string name="workspace_mcp_note">الافتراضي هو كل الخوادم المفعّلة. إلغاء أي عنصر يحوّلها إلى قائمة صريحة؛ والخوادم المضافة لاحقًا لا تُضاف تلقائيًا.</string>
 </resources>
