@@ -12,6 +12,7 @@
     <string name="persona_description">Краткое описание</string>
     <string name="persona_prompt">Инструкции</string>
     <string name="persona_prompt_hint">Тон, длина, формулировки, оформление…</string>
+    <string name="persona_empty_prompt">Без инструкций эта персона ничего не изменит.</string>
     <string name="persona_counter">%1$d символов · около %2$d токенов</string>
     <string name="persona_preview">Предпросмотр полного запроса</string>
     <string name="persona_preview_hide">Скрыть предпросмотр</string>

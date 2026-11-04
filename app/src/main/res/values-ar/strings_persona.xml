@@ -12,6 +12,7 @@
     <string name="persona_description">وصف قصير</string>
     <string name="persona_prompt">التعليمات</string>
     <string name="persona_prompt_hint">النبرة، الطول، الصياغة، التنسيق…</string>
+    <string name="persona_empty_prompt">بدون تعليمات لن تغيّر هذه الشخصية أي شيء.</string>
     <string name="persona_counter">%1$d حرفًا · نحو %2$d رمزًا</string>
     <string name="persona_preview">معاينة المطالبة الكاملة</string>
     <string name="persona_preview_hide">إخفاء المعاينة</string>

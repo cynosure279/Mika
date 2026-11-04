@@ -12,6 +12,7 @@
     <string name="persona_description">簡短說明</string>
     <string name="persona_prompt">指令</string>
     <string name="persona_prompt_hint">語氣、長度、措辭、格式……</string>
+    <string name="persona_empty_prompt">沒有指令時，這個人格不會改變任何行為。</string>
     <string name="persona_counter">%1$d 字 · 約 %2$d token</string>
     <string name="persona_preview">預覽完整提示詞</string>
     <string name="persona_preview_hide">收起預覽</string>

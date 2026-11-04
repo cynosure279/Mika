@@ -12,6 +12,7 @@
     <string name="persona_description">Descrição curta</string>
     <string name="persona_prompt">Instruções</string>
     <string name="persona_prompt_hint">Tom, comprimento, redação, formatação…</string>
+    <string name="persona_empty_prompt">Sem instruções, esta persona não muda nada.</string>
     <string name="persona_counter">%1$d caracteres · cerca de %2$d tokens</string>
     <string name="persona_preview">Pré-visualizar o prompt completo</string>
     <string name="persona_preview_hide">Ocultar a pré-visualização</string>

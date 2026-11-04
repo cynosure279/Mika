@@ -12,6 +12,7 @@
     <string name="persona_description">Deskripsi singkat</string>
     <string name="persona_prompt">Instruksi</string>
     <string name="persona_prompt_hint">Nada, panjang, susunan kata, format…</string>
+    <string name="persona_empty_prompt">Tanpa instruksi, persona ini tidak akan mengubah apa pun.</string>
     <string name="persona_counter">%1$d karakter · sekitar %2$d token</string>
     <string name="persona_preview">Pratinjau prompt lengkap</string>
     <string name="persona_preview_hide">Sembunyikan pratinjau</string>
