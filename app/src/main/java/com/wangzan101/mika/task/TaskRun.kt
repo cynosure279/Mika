@@ -502,14 +502,13 @@ class TaskRun(
             // 前一个任务替这个拿着的那份,自己的拿上了就放开
             wakeHandoff?.release()
             wakeHandoff = null
-            // 这个对话自己的运行设置:只在任务开始时读一次,运行中改了也不影响这一件事(见 CHAT-MODEL-WORKSPACE-PLAN)
-            val conversation = withContext(Dispatchers.IO) {
-                runCatching { ConversationStore.shared(service).settings(conversationId) }.getOrDefault(ConversationSettings())
+            // 这个对话自己的运行设置和全局允许列表:只在任务开始时读一次,运行中改了也不影响这一件事
+            val (conversation, workspace) = withContext(Dispatchers.IO) {
+                val settings = runCatching { ConversationStore.shared(service).settings(conversationId) }.getOrDefault(ConversationSettings())
+                settings to (service.application as MikaApp).workspaceAccess.current()
             }
             val mainChoice = conversation.main.also { conversationMainChoice = it }
             val effort = conversation.reasoningEffort
-            // 全局允许列表也在开始时固定一份;受限任务只挂选中的技能和 MCP
-            val workspace = (service.application as MikaApp).workspaceAccess.current()
             val allowedSkills = workspace.skillsFor(conversation.skills)
             val allowedMcp = workspace.mcpFor(conversation.mcpServers)
             conversationSkillNames = allowedSkills
