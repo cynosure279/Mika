@@ -69,7 +69,7 @@ class OpenAiCompatModel(
         if (!looksLikeEvents(text)) return parse(text)
         val stream = OpenAiStream({}, ::parseUsage, ::thinking)
         response.replay(eventsOf(text), stream::accept)
-        return stream.finish()
+        return stream.finish().copy(reasoningEffort = reasoningEffort)
     }
 
     override suspend fun completeStreaming(
@@ -97,7 +97,7 @@ class OpenAiCompatModel(
         if (text.isNotEmpty()) return parse(text).also { reply ->
             reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.takeIf(String::isNotEmpty)?.let(onText)
         }
-        return stream.finish()
+        return stream.finish().copy(reasoningEffort = reasoningEffort)
     }
 
     private suspend fun request(system: String, messages: List<Message>, tools: List<ToolSpec>, stream: Boolean, includeUsage: Boolean = true, key: String? = resolveKey()): Request {
@@ -308,7 +308,7 @@ class OpenAiCompatModel(
                 else -> if (parts.any { it is Part.ToolCall }) StopReason.ToolUse else StopReason.Other
             }
             // 有的模型会把工具调用标记直接吐进正文:先还原成调用,还原不了就剥掉,别把乱码交给界面(见 LeakedToolMarkup)
-            return LeakedToolMarkup.repair(ModelReply(parts, stop, parseUsage(root["usage"])))
+            return LeakedToolMarkup.repair(ModelReply(parts, stop, parseUsage(root["usage"]), reasoningEffort))
         } catch (e: ModelError) {
             throw e
         } catch (e: Exception) {

@@ -86,7 +86,7 @@ class AnthropicModel(
         if (text.isNotEmpty()) return parse(text).also { reply ->
             reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text }.takeIf(String::isNotEmpty)?.let(onText)
         }
-        return stream.finish()
+        return stream.finish().copy(reasoningEffort = reasoningEffort)
     }
 
     /**
@@ -255,7 +255,7 @@ class AnthropicModel(
                 "max_tokens" -> StopReason.MaxTokens
                 else -> StopReason.Other
             }
-            return ModelReply(parts, stop, parseUsage(root["usage"]))
+            return ModelReply(parts, stop, parseUsage(root["usage"]), reasoningEffort)
         } catch (e: ModelError) {
             throw e
         } catch (e: Exception) {

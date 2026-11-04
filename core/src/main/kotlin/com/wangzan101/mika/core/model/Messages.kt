@@ -62,4 +62,8 @@ data class Usage(
     val cacheReported: Boolean = cachedInputTokens > 0,
 )
 
-data class ModelReply(val parts: List<Part>, val stopReason: StopReason, val usage: Usage?)
+data class ModelReply(
+    val parts: List<Part>, val stopReason: StopReason, val usage: Usage?,
+    /** 这次请求实际用的思考档位;没指定为 null。只用于运行记录。 */
+    val reasoningEffort: String? = null,
+)

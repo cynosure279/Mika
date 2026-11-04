@@ -129,7 +129,7 @@ object LeakedToolMarkup {
         }
         if (!changed) return reply
         out += calls
-        return ModelReply(out, if (calls.isEmpty()) reply.stopReason else StopReason.ToolUse, reply.usage)
+        return ModelReply(out, if (calls.isEmpty()) reply.stopReason else StopReason.ToolUse, reply.usage, reply.reasoningEffort)
     }
 
     /** 参数块 → 工具参数 JSON。`string="false"` 的按 JSON 值收,其余按字符串。 */

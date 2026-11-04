@@ -87,4 +87,51 @@ class ConversationSettingsTest {
         assertNull(s.settings(target).main)
         assertFalse(File(dir, "$target.settings.json").exists())
     }
+
+    @Test fun effortAndToolScopesRoundTrip() {
+        val dir = tmp.newFolder("c")
+        val s = store(dir)
+        val id = s.newConversation()
+        val settings = ConversationSettings(
+            reasoningEffort = "high",
+            skills = WorkspaceChoice.Only(setOf("documents", "personal-notes")),
+            mcpServers = WorkspaceChoice.All,
+        )
+        assertTrue(s.setSettings(id, settings))
+        assertEquals(settings, ConversationStore(dir).settings(id))
+    }
+
+    /** 空集是明确的全关,和「跟随全局」不一样。 */
+    @Test fun emptyOnlyMeansNone() {
+        val dir = tmp.newFolder("c")
+        val s = store(dir)
+        val id = s.newConversation()
+        s.setSettings(id, ConversationSettings(skills = WorkspaceChoice.Only(emptySet())))
+        assertEquals(WorkspaceChoice.Only(emptySet()), ConversationStore(dir).settings(id).skills)
+    }
+
+    /** 分支把这个对话的设置整个带过去,不只主模型。 */
+    @Test fun branchCopiesEffortAndScopes() {
+        val s = store()
+        val source = s.newConversation()
+        s.append(source, Turn("查天气", "晴", "succeeded"))
+        val settings = ConversationSettings(
+            reasoningEffort = "low",
+            skills = WorkspaceChoice.Only(setOf("documents")),
+            mcpServers = WorkspaceChoice.Only(setOf("mcp-1")),
+        )
+        s.setSettings(source, settings)
+        val target = s.newConversation()
+        assertTrue(s.branch(source, target, 0))
+        assertEquals(settings, s.settings(target))
+    }
+
+    @Test fun badScopeKindFallsBackToFollowGlobal() {
+        val dir = tmp.newFolder("c")
+        val s = store(dir)
+        val id = s.newConversation()
+        File(dir, "$id.settings.json").writeText("""{"skills":{"kind":"mystery"},"mcpServers":{"kind":"only","ids":["x"]}}""")
+        assertEquals(WorkspaceChoice.FollowGlobal, s.settings(id).skills)
+        assertEquals(WorkspaceChoice.Only(setOf("x")), s.settings(id).mcpServers)
+    }
 }
