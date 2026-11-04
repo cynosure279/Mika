@@ -31,6 +31,8 @@
     <string name="chat_go_settings">Buka Pengaturan</string>
     <string name="chat_menu">Menu</string>
     <string name="chat_new">Obrolan baru</string>
+    <string name="chat_environment_default">Default (semua MCP)</string>
+    <string name="chat_environment_local">Hanya perangkat ini</string>
     <string name="chat_expand_steps">Tampilkan langkah</string>
     <string name="chat_collapse_steps">Sembunyikan langkah</string>
     <string name="chat_view_process">Lihat prosesnya</string>

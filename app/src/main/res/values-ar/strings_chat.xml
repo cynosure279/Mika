@@ -36,6 +36,8 @@
     <string name="chat_go_settings">افتح الإعدادات</string>
     <string name="chat_menu">القائمة</string>
     <string name="chat_new">محادثة جديدة</string>
+    <string name="chat_environment_default">افتراضي (كل MCP)</string>
+    <string name="chat_environment_local">هذا الجهاز فقط</string>
     <string name="chat_expand_steps">عرض الخطوات</string>
     <string name="chat_collapse_steps">إخفاء الخطوات</string>
     <string name="chat_view_process">عرض ما حدث</string>

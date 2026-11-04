@@ -1,6 +1,6 @@
 # 远端执行环境（envd）
 
-> 状态：实验性，第一版。实现了 workspace 后端、MCP 传输、跨平台裸机运行、显式挂载已有目录，以及 `exec` 的流式进度；大文件传输、会话级环境选择尚未实现。默认行为不变：Mika 仍然使用手机上的 Alpine 沙箱。
+> 状态：实验性，第一版。实现了 workspace 后端、MCP 传输、跨平台裸机运行、显式挂载已有目录、`exec` 的流式进度、大文件传输和会话级环境选择。默认行为不变：Mika 仍然使用手机上的 Alpine 沙箱。
 
 ## 这是什么
 
@@ -15,7 +15,7 @@
 - 不做每会话复制 rootfs。Android 上没有可靠的 copy-on-write，clone 本地 rootfs 不划算。
 - 不把远端环境当作手机沙箱的替代；本地 Alpine 始终是默认和回退。
 - 第一版不做远端命令回调手机工具（`mika phone`）。手机侧 Agent 仍然可以直接调用 `phone_*` 工具，手机自动化不受影响。
-- 第一版不做按会话选择环境；那需要环境管理器、会话 `envId`、任务启动接线，见文末路线图。
+- 第一版不做按会话复制 rootfs。会话选择的是「用哪些已配置的 MCP 服务器」，不是一个新克隆的运行环境。
 
 ## 架构
 
@@ -205,15 +205,16 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o mika-envd-windows-
 1. 设置 › MCP 服务器 › 添加：URL 填 `https://<你的地址>/mcp`，令牌填 `envd_token` 的内容；Mika 会以 `Authorization: Bearer …` 发送。
 2. 连接测试通过后，任务里会出现 `mcp_<服务器名>__exec`、`mcp_<服务器名>__read_file` 等工具。
 3. 工具名前缀由 Mika 的 MCP 客户端加，envd 自己不感知。
+4. 新建对话时点顶栏的「新对话」可以选择执行环境：默认（全部启用的 MCP 服务器）、仅本机（不连接任何 MCP）、或某一个启用的 server。选择记在对话旁车文件 `<对话 id>.env`，任务启动时只连接该环境对应的服务器；分支复制会带走这个选择。
 
-接入不需要改 App 代码：在设置里加 MCP 服务器即可；App 侧已经自动接住 `file_link` 的下载结果。环境管理器和会话 `envId` 还没落地，所以还不能在新建对话时选环境。
+接入不需要改 App 代码：在设置里加 MCP 服务器即可；App 侧已经自动接住 `file_link` 的下载结果。环境选择只是一层过滤，不是新的传输协议。
 
 `file_link` 的下载结果会由 App 自动接住：下载到本对话工作区的 `downloads/`，再导出到「下载/Mika」并在对话里显示文件卡片；上传链接不自动处理，需要用户自己打开或后续界面接。设备级 MCP 流式测试在 `app/src/androidTest/java/com/wangzan101/mika/cap/RemoteEnvironmentDeviceTest.kt`，没有设备时只做编译验证。
 
 ## 路线图
 
 1. **大文件传输**：MCP 工具只做控制和元数据，二进制走带令牌的 HTTPS 上传/下载端点，长度和 SHA-256 校验。
-2. **环境管理器**：手机侧环境列表、添加远端、clone、删除、健康状态；会话存 `envId`，任务启动时按环境过滤能力（`RunSpec.capabilities` 已有钩子）。
+2. **完整环境管理器**：手机侧环境列表、添加远端、clone、删除、健康状态；在已有会话级选择（`<id>.env`，新对话时选 MCP 服务器）之上补齐切换、失效提示和备份恢复。
 3. **统一提供方**：把 `SandboxPort` 拆成命令/文件/技能/导出/桥几组能力，本地 PRoot 和远端 envd 都实现同一套接口，`run_command` 等工具名保持不变。
 4. **反向手机桥**（可选）：远端脚本里的 `mika phone` 通过手机与 envd 的长连接回到手机。第一版明确不做。
 

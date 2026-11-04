@@ -31,6 +31,8 @@
     <string name="chat_go_settings">設定を開く</string>
     <string name="chat_menu">メニュー</string>
     <string name="chat_new">新しいチャット</string>
+    <string name="chat_environment_default">デフォルト（すべての MCP）</string>
+    <string name="chat_environment_local">この端末のみ</string>
     <string name="chat_expand_steps">ステップを表示</string>
     <string name="chat_collapse_steps">ステップを非表示</string>
     <string name="chat_view_process">経過を見る</string>

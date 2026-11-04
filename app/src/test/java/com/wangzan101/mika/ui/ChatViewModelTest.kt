@@ -2182,4 +2182,30 @@ class ChatViewModelTest {
         assertTrue(vm.send("新一句", ok))
         assertNull(vm.branchBefore(0))
     }
+
+    /** 新对话选的执行环境在第一句话存进对话时一起存下。 */
+    @Test fun environmentChosenForNewConversationIsSavedWithTheFirstMessage() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val vm = vm(store)
+        vm.newConversation("local")
+        assertEquals("local", vm.ui.value.environmentId)
+        assertTrue(vm.send("查天气", ok))
+        runCurrent()
+        assertEquals("local", store.environment(vm.ui.value.conversationId!!))
+    }
+
+    /** 切到别的对话时界面换成那个对话存下的执行环境。 */
+    @Test fun switchingConversationsShowsTheirEnvironment() = runTest {
+        val store = ConversationStore(tmp.newFolder())
+        val remote = store.newConversation()
+        store.append(remote, Turn("一", "甲", "succeeded"))
+        store.setEnvironment(remote, "srv")
+        val plain = store.newConversation()
+        store.append(plain, Turn("二", "乙", "succeeded"))
+        val vm = vm(store)
+        vm.openConversation(remote)
+        assertEquals("srv", vm.ui.value.environmentId)
+        vm.openConversation(plain)
+        assertNull(vm.ui.value.environmentId)
+    }
 }

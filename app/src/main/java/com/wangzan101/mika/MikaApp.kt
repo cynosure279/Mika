@@ -276,7 +276,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                 override fun declineIn(conversationId: String, key: Int) { key(conversationId)?.let { TaskService.decline(app, key, it) } }
             },
             conversations,
-            taskState.busy,
+            environmentServers = mcpServers.servers,
+            serviceBusy = taskState.busy,
             appLabel = { ConfirmationNotifier.appLabel(app, it) },
             // 虚拟屏上打开过 App,或在用内置浏览器:画中画才有画面可看(只建了空屏的不算)
             screenOpen = tasks.previewOpen

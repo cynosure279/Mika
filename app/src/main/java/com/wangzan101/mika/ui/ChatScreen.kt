@@ -60,6 +60,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -183,6 +185,8 @@ fun ChatScreen(
     val ui by vm.ui.collectAsState()
     val others by vm.otherRunning.collectAsState()
     val keptAny by vm.keptPage.collectAsState()
+    val environmentServers by vm.environmentServers.collectAsState()
+    var pickEnvironment by remember { mutableStateOf(false) }
     // 只管这个对话留下的那一页
     val kept = keptAny?.takeIf { it.conversationId == ui.conversationId }
     val live by frames.collectAsState()
@@ -335,7 +339,29 @@ fun ChatScreen(
                 left = MikaIcons.Menu, leftLabel = stringResource(R.string.chat_menu), onLeft = onOpenDrawer,
                 // 别的对话里还有任务在跑(并行时):菜单上一个小圆点,侧栏「进行中」里能切过去
                 leftBadge = others.isNotEmpty(),
-                right = { BarIconButton(MikaIcons.New, stringResource(R.string.chat_new), { vm.newConversation() }, enabled = vm.canSwitch()) },
+                right = {
+                    Box {
+                        BarIconButton(MikaIcons.New, stringResource(R.string.chat_new), {
+                            if (environmentServers.isEmpty()) vm.newConversation() else pickEnvironment = true
+                        }, enabled = vm.canSwitch())
+                        DropdownMenu(expanded = pickEnvironment, onDismissRequest = { pickEnvironment = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.chat_environment_default)) },
+                                onClick = { pickEnvironment = false; vm.newConversation() },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.chat_environment_local)) },
+                                onClick = { pickEnvironment = false; vm.newConversation("local") },
+                            )
+                            environmentServers.filter { it.enabled }.forEach { server ->
+                                DropdownMenuItem(
+                                    text = { Text(server.name) },
+                                    onClick = { pickEnvironment = false; vm.newConversation(server.id) },
+                                )
+                            }
+                        }
+                    }
+                },
                 subtitle = sub?.first,
                 subtitleColor = when (sub?.second) {
                     ChatCopy.Tone.Accent -> c.accent

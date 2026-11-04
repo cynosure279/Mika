@@ -33,6 +33,8 @@
     <string name="chat_go_settings">Abrir Configurações</string>
     <string name="chat_menu">Menu</string>
     <string name="chat_new">Nova conversa</string>
+    <string name="chat_environment_default">Padrão (todos os MCP)</string>
+    <string name="chat_environment_local">Somente este dispositivo</string>
     <string name="chat_expand_steps">Mostrar passos</string>
     <string name="chat_collapse_steps">Ocultar passos</string>
     <string name="chat_view_process">Ver como foi</string>

@@ -262,6 +262,8 @@ enum class ComposerMode {
 
 data class ChatUi(
     val conversationId: String? = null,
+    /** 新对话选定的执行环境:null = 默认(全部启用的 MCP),local = 仅本机,其他为 MCP server id。 */
+    val environmentId: String? = null,
     val exchanges: List<Exchange> = emptyList(),
     /** 上次发送被拦下时缺的条件;为空表示没被拦。 */
     val blocked: List<Problem>? = null,
@@ -367,6 +369,8 @@ class ChatViewModel(
     private val branchTitle: (String) -> String = { it },
     /** 读写对话记录、复制分支在哪儿做。 */
     private val io: CoroutineContext = Dispatchers.IO,
+    /** 可选的远端执行环境(MCP server);空表示只有本机。给新对话选环境时用。 */
+    val environmentServers: StateFlow<List<com.wangzan101.mika.settings.McpServerConfig>> = MutableStateFlow(emptyList()),
 ) {
     /** 用户在对话页上关掉留在后台的那一页。 */
     fun closeKeptPage() = closeKept()
@@ -717,6 +721,8 @@ class ChatViewModel(
         // 新消息开始时不能继承上一次运行的屏；真正建好本次的屏后由 screenOpen 打开小窗。
         screenSeen = false
         pipClosed = false
+        // 新对话的第一句话这时才定下编号,执行环境跟着一起存进对话
+        _ui.value.environmentId?.let { env -> if (store.environment(id) != env) store.setEnvironment(id, env) }
         _ui.update {
             liveIndex = it.exchanges.size
             it.copy(
@@ -806,7 +812,7 @@ class ChatViewModel(
         when {
             current == null -> {
                 if (!s.active()) return
-                _ui.update { it.copy(conversationId = conversationId, exchanges = saved(conversationId)) }
+                _ui.update { it.copy(conversationId = conversationId, environmentId = store.environment(conversationId), exchanges = saved(conversationId)) }
             }
             current != conversationId -> {
                 val live = _ui.value.exchanges.getOrNull(liveIndex)
@@ -829,7 +835,7 @@ class ChatViewModel(
         val past = saved(conversationId)
         liveIndex = -1
         // 没有任务的对话不带别的任务的接管进度
-        _ui.update { ChatUi(conversationId = conversationId, exchanges = past, takeoverStage = Takeover.Stage.None) }
+        _ui.update { ChatUi(conversationId = conversationId, environmentId = store.environment(conversationId), exchanges = past, takeoverStage = Takeover.Stage.None) }
         markCurrent(CurrentChat.Open(conversationId))
         if (conversationId !in activeConversations.value) { unpark(conversationId); return }
         follow(conversationId, unpark(conversationId))
@@ -984,7 +990,7 @@ class ChatViewModel(
         if (busy()) return
         val past = saved(id)
         liveIndex = -1
-        _ui.update { ChatUi(conversationId = id, exchanges = past, takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled) }
+        _ui.update { ChatUi(conversationId = id, environmentId = store.environment(id), exchanges = past, takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled) }
         markCurrent(CurrentChat.Open(id))
         // 这个对话的任务是别处开始的(悬浮胶囊、定时任务):打开就接上它
         if (id in activeConversations.value) follow(id)
@@ -998,21 +1004,21 @@ class ChatViewModel(
         runCatching { store.setCurrent(current) }
     }
 
-    fun newConversation() {
+    fun newConversation(environmentId: String? = null) {
         refreshParallel()
         if (parallel()) {
             // 别的任务可能还在跑:先给新对话编号,它的状态就不会被当成这个对话的
             lingerJob?.cancel()
             parkLive()
             liveIndex = -1
-            _ui.update { ChatUi(conversationId = store.newConversation(), takeoverStage = Takeover.Stage.None, attachEnabled = it.attachEnabled) }
+            _ui.update { ChatUi(conversationId = store.newConversation(), environmentId = environmentId, takeoverStage = Takeover.Stage.None, attachEnabled = it.attachEnabled) }
             // 还没说过话:胶囊上是一张新对话卡片(编号等说出来再定,见 begin)
             markCurrent(CurrentChat.Fresh)
             return
         }
         if (busy()) return
         liveIndex = -1
-        _ui.update { ChatUi(takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled) }
+        _ui.update { ChatUi(takeoverStage = it.takeoverStage, attachEnabled = it.attachEnabled, environmentId = environmentId) }
         markCurrent(CurrentChat.Fresh)
     }
 
@@ -1118,7 +1124,7 @@ class ChatViewModel(
         screenSeen = false
         pipClosed = false
         val fresh = if (parallel()) store.newConversation() else null
-        _ui.update { ChatUi(conversationId = fresh, takeoverStage = Takeover.Stage.None, attachEnabled = it.attachEnabled) }
+        _ui.update { ChatUi(conversationId = fresh, environmentId = null, takeoverStage = Takeover.Stage.None, attachEnabled = it.attachEnabled) }
         // 屏上换成了一个新的空对话:胶囊不再接着删掉的那个
         markCurrent(CurrentChat.Fresh)
     }

@@ -32,6 +32,8 @@
     <string name="chat_go_settings">Open Settings</string>
     <string name="chat_menu">Menu</string>
     <string name="chat_new">New chat</string>
+    <string name="chat_environment_default">Default (all MCP)</string>
+    <string name="chat_environment_local">This device only</string>
     <string name="chat_expand_steps">Show steps</string>
     <string name="chat_collapse_steps">Hide steps</string>
     <string name="chat_view_process">See how it went</string>

@@ -4,6 +4,7 @@ import com.wangzan101.mika.core.agent.Turn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import kotlinx.coroutines.launch
 import org.junit.Rule
@@ -492,5 +493,30 @@ class ConversationStoreTest {
         store.append(target, Turn("已有", "好", "succeeded"))
         assertFalse(store.branchBefore(source, target, 0))
         assertEquals(listOf("已有"), store.turns(target).map { it.userText })
+    }
+
+    /** 执行环境按会话存;分支复制;删除对话时一起删掉。 */
+    @Test fun environmentPersistsAcrossBranchAndDelete() {
+        val dir = tmp.newFolder("c")
+        val store = ConversationStore(dir)
+        val source = store.newConversation()
+        store.append(source, Turn("一", "甲", "succeeded"))
+        assertNull(store.environment(source))
+        assertTrue(store.setEnvironment(source, "server-1"))
+        assertEquals("server-1", store.environment(source))
+        assertEquals("server-1", store.list().single().environmentId)
+
+        val target = store.newConversation()
+        assertTrue(store.branch(source, target, 0))
+        assertEquals("server-1", store.environment(target))
+
+        assertTrue(store.setEnvironment(source, "local"))
+        assertEquals("local", store.environment(source))
+        assertTrue(store.setEnvironment(source, null))
+        assertNull(store.environment(source))
+
+        store.delete(target)
+        assertNull(store.environment(target))
+        assertFalse(java.io.File(dir, "$target.env").exists())
     }
 }

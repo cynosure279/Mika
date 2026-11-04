@@ -431,6 +431,39 @@ class McpServerStoreTest {
         }
     }
 
+    /** 会话选定的执行环境:null 连所有启用的,local 一个都不连,其他只连那一个。 */
+    @Test fun connectionsFilterByEnvironment() = runBlocking {
+        val a = MockWebServer().also { it.start() }
+        val b = MockWebServer().also { it.start() }
+        try {
+            scriptTools(a, "search")
+            scriptTools(a, "search")
+            scriptTools(b, "send")
+            val s = store()
+            val ca = s.add("a", "https://localhost/a").getOrThrow()
+            val cb = s.add("b", "https://localhost/b").getOrThrow()
+            s.update(ca.copy(url = a.url("/mcp").newBuilder().host("127.0.0.1").build().toString(), allowLocalHttp = true)).getOrThrow()
+            s.update(cb.copy(url = b.url("/mcp").newBuilder().host("127.0.0.1").build().toString(), allowLocalHttp = true)).getOrThrow()
+
+            s.connections(environmentId = "local").let {
+                assertEquals(0, it.connections.size)
+                it.close()
+            }
+            s.connections(environmentId = ca.id).let {
+                assertEquals(listOf(ca.id), it.connections.map { c -> c.endpoint.serverId })
+                it.close()
+            }
+            s.setEnabled(cb.id, false)
+            s.connections(environmentId = null).let {
+                assertEquals(listOf(ca.id), it.connections.map { c -> c.endpoint.serverId })
+                it.close()
+            }
+        } finally {
+            a.shutdown()
+            b.shutdown()
+        }
+    }
+
     @Test fun failedConnectionIsReportedAndDoesNotThrow() = runBlocking {
         val server = MockWebServer().also { it.start() }
         try {

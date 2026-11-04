@@ -34,6 +34,8 @@
     <string name="chat_go_settings">Открыть настройки</string>
     <string name="chat_menu">Меню</string>
     <string name="chat_new">Новый чат</string>
+    <string name="chat_environment_default">По умолчанию (все MCP)</string>
+    <string name="chat_environment_local">Только это устройство</string>
     <string name="chat_expand_steps">Показать шаги</string>
     <string name="chat_collapse_steps">Скрыть шаги</string>
     <string name="chat_view_process">Посмотреть, как всё прошло</string>

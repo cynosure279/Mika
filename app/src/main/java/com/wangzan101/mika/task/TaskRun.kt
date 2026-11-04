@@ -717,6 +717,7 @@ class TaskRun(
                     resources,
                     com.wangzan101.mika.mcp.ConversationMcpResultStore(SandboxDirs(service), conversationId),
                     conversationId,
+                    environmentId = (service.application as MikaApp).conversations.environment(conversationId),
                 )
                 // 连接失败、超过总时限没连上的只在任务卡片上提示一句,不打断任务;详情在设置页的健康状态里
                 mcpConnections?.failures?.takeIf { it.isNotEmpty() }?.let { failures ->

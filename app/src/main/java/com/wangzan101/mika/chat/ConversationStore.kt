@@ -93,13 +93,30 @@ class ConversationStore(private val dir: File) {
             .mapNotNull { f ->
                 val id = f.name.removeSuffix(".json")
                 val first = turns(id).firstOrNull() ?: return@mapNotNull null
-                ConversationSummary(id, title(id) ?: first.userText, f.lastModified(), pinnedAt(id), pageOrigin(id), branchOrigin(id))
+                ConversationSummary(id, title(id) ?: first.userText, f.lastModified(), pinnedAt(id), pageOrigin(id), branchOrigin(id), environment(id))
             }
 
     /** 对话起好的标题(见 [ConversationTitler]);没有、读不到为 null。标题放在对话文件旁边的 `.title` 文件里,不动对话文件的格式。 */
     @Synchronized
     fun title(conversationId: String): String? =
         runCatching { titleFile(conversationId).takeIf { it.isFile }?.readText()?.trim() }.getOrNull()?.takeIf(String::isNotEmpty)
+
+    /** 会话开始时选定的执行环境;null = 默认(全部启用的 MCP),local = 仅本机,其他为 MCP server id。 */
+    @Synchronized
+    fun environment(conversationId: String): String? =
+        runCatching { envFile(conversationId).takeIf { it.isFile }?.readText()?.trim() }.getOrNull()?.takeIf(String::isNotEmpty)
+
+    @Synchronized
+    fun setEnvironment(conversationId: String, environmentId: String?): Boolean {
+        if (safe(conversationId) in deleted) return false
+        dir.mkdirs()
+        val f = envFile(conversationId)
+        val ok = runCatching {
+            if (environmentId.isNullOrBlank()) f.delete() else f.writeText(environmentId.trim())
+        }.isSuccess
+        if (ok) _changes.tryEmit(conversationId)
+        return ok
+    }
 
     /**
      * 删掉过的对话。删之后才到的「补写」(后台起好的标题、任务收尾后补的结局和交代)不再把它写回来;
@@ -118,7 +135,7 @@ class ConversationStore(private val dir: File) {
         val main = file(conversationId).name
         dir.listFiles { f ->
             f.isFile && (f.name == main || f.name.startsWith("$main.") || f.name == titleFile(conversationId).name || f.name == pinFile(conversationId).name ||
-                f.name == pageFile(conversationId).name || f.name == branchFile(conversationId).name)
+                f.name == pageFile(conversationId).name || f.name == branchFile(conversationId).name || f.name == envFile(conversationId).name)
         }
             .orEmpty().forEach { it.delete() }
         // 删掉的正是用户此刻在的那个:不再指着它,胶囊回落到最近那个
@@ -230,6 +247,7 @@ class ConversationStore(private val dir: File) {
         write(targetId, records.take(if (includeTurn) turn + 1 else turn))
         title?.let { writeTitle(targetId, it) }
         pageOrigin(sourceId)?.let { setPageOrigin(targetId, it) }
+        environment(sourceId)?.let { setEnvironment(targetId, it) }
         origin?.let { writeBranchOrigin(targetId, it) }
         return true
     }
@@ -397,6 +415,7 @@ class ConversationStore(private val dir: File) {
     private fun pinFile(id: String) = File(dir, "${safe(id)}.pin")
     private fun pageFile(id: String) = File(dir, "${safe(id)}.page")
     private fun branchFile(id: String) = File(dir, "${safe(id)}.branch")
+    private fun envFile(id: String) = File(dir, "${safe(id)}.env")
 
     /** 用户此刻在哪个对话,见 [CurrentChat];不是 `.json`,不进 [list]。 */
     private fun currentFile() = File(dir, "current")
@@ -410,6 +429,8 @@ data class ConversationSummary(
     val pinnedAt: Long? = null,
     val page: PageOrigin? = null,
     val branchOf: BranchOrigin? = null,
+    /** 会话开始时选定的执行环境:null = 默认(全部启用的 MCP),local = 仅本机,其他为 MCP server id。 */
+    val environmentId: String? = null,
 )
 
 /** 分支来源:从 [parentId] 的第 [parentTurn] 轮(0 起)分出来的;[afterTurn] 为 false 时是复制到这一轮之前(第 2 阶段从用户消息重新问)。 */
