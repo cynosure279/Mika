@@ -1,7 +1,5 @@
 package com.wangzan101.mika.core.export.markdown
 
-import java.net.URLEncoder
-
 /** 导出 Markdown 时的转义:普通文字当纯文本,链接目的地单独处理。 */
 internal object MarkdownText {
     private val SPECIAL = setOf('\\', '`', '*', '_', '[', ']', '<', '>', '|', '#', '!')
@@ -30,7 +28,7 @@ internal object MarkdownText {
     }
 
     /** 包内资产路径:文件名按 UTF-8 百分号编码,括号等不会跳出链接。 */
-    fun assetPath(fileName: String): String = "assets/" + URLEncoder.encode(fileName, "UTF-8").replace("+", "%20")
+    // 统一实现在 ExportNames.assetPath。
 
     /** 工具输出可能含任意长度的反引号串;围栏至少比最长的一串多一个。 */
     fun codeFence(text: String): String {

@@ -102,6 +102,7 @@ internal fun ExportConversationDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val handler = remember { Handler(Looper.getMainLooper()) }
+    val runtime = remember(context) { ExportRuntime(context) }
     var candidates by remember { mutableStateOf<List<ExportCandidate>?>(null) }
     var selected by remember { mutableStateOf<Set<ExportBlockId>>(emptySet()) }
     var format by remember { mutableStateOf("markdown") }
@@ -166,6 +167,7 @@ internal fun ExportConversationDialog(
     )
 
     fun start(uri: Uri) {
+        if (running || previewing) return
         val opts = options.value
         running = true
         failure = null
@@ -173,7 +175,7 @@ internal fun ExportConversationDialog(
         progress = null
         job = scope.launch {
             try {
-                val result = ExportRuntime(context).export(
+                val result = runtime.export(
                     title = title,
                     selection = selectionOf(opts),
                     content = contentOf(opts),
@@ -195,13 +197,14 @@ internal fun ExportConversationDialog(
     }
 
     fun startPreview() {
+        if (previewing || running) return
         val opts = options.value
         previewing = true
         failure = null
         progress = null
         previewJob = scope.launch {
             try {
-                preview = ExportRuntime(context).preview(
+                preview = runtime.preview(
                     title = title,
                     selection = selectionOf(opts),
                     content = contentOf(opts),
@@ -359,6 +362,9 @@ private fun ExportPreviewDialog(preview: ExportPreview, onDismiss: () -> Unit) {
                 if (warnings.isNotEmpty()) {
                     Text(stringResource(R.string.export_warnings, warnings.size), style = MaterialTheme.typography.bodySmall)
                 }
+                if (preview is ExportPreview.Text && preview.truncated) {
+                    Text(stringResource(R.string.export_preview_truncated), style = MaterialTheme.typography.bodySmall)
+                }
                 when (preview) {
                     is ExportPreview.Text -> SelectionContainer(Modifier.weight(1f).fillMaxWidth()) {
                         val chunks = remember(preview.text) {
@@ -380,7 +386,6 @@ private fun ExportPreviewDialog(preview: ExportPreview, onDismiss: () -> Unit) {
 @Composable
 private fun HtmlPreview(directory: File, entry: String, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    var webView by remember { mutableStateOf<WebView?>(null) }
     val loader = remember(directory) {
         WebViewAssetLoader.Builder()
             .addPathHandler("/", WebViewAssetLoader.InternalStoragePathHandler(context, directory))
@@ -401,16 +406,13 @@ private fun HtmlPreview(directory: File, entry: String, modifier: Modifier = Mod
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean = true
                 }
                 loadUrl("https://appassets.androidplatform.net/$entry")
-                webView = this
             }
         },
+        onRelease = { view ->
+            view.stopLoading()
+            view.destroy()
+        },
     )
-    DisposableEffect(webView) {
-        onDispose {
-            webView?.stopLoading()
-            webView?.destroy()
-        }
-    }
 }
 
 @Composable

@@ -17,6 +17,7 @@
     <string name="export_bundle_note">包含附件或屏幕截图，将导出为 zip。</string>
     <string name="export_button">导出</string>
     <string name="export_preview">预览</string>
+    <string name="export_preview_truncated">预览已截断；导出文件包含完整内容。</string>
     <string name="export_cancel">取消</string>
     <string name="export_close">关闭</string>
     <string name="export_preparing">正在准备…</string>

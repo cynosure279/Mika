@@ -17,6 +17,7 @@
     <string name="export_bundle_note">添付またはスクリーンショットを含むため、zip で出力します。</string>
     <string name="export_button">エクスポート</string>
     <string name="export_preview">プレビュー</string>
+    <string name="export_preview_truncated">プレビューは切り詰められています。書き出したファイルにはすべての内容が含まれます。</string>
     <string name="export_cancel">キャンセル</string>
     <string name="export_close">閉じる</string>
     <string name="export_preparing">準備中…</string>

@@ -17,6 +17,7 @@
     <string name="export_bundle_note">Attachments or screenshots are included, so the file is a zip.</string>
     <string name="export_button">Export</string>
     <string name="export_preview">Preview</string>
+    <string name="export_preview_truncated">Preview truncated; the exported file contains the full content.</string>
     <string name="export_cancel">Cancel</string>
     <string name="export_close">Close</string>
     <string name="export_preparing">Preparing…</string>

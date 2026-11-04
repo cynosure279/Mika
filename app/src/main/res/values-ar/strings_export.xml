@@ -17,6 +17,7 @@
     <string name="export_bundle_note">تتضمن المرفقات أو لقطات الشاشة، لذا سيكون الملف zip.</string>
     <string name="export_button">تصدير</string>
     <string name="export_preview">معاينة</string>
+    <string name="export_preview_truncated">تم اقتطاع المعاينة؛ الملف المصدَّر يحتوي على المحتوى الكامل.</string>
     <string name="export_cancel">إلغاء</string>
     <string name="export_close">إغلاق</string>
     <string name="export_preparing">جارٍ التحضير…</string>

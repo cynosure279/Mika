@@ -45,7 +45,12 @@ data class ExportOutcome(
 
 /** 预览结果:文本预览直接给字符串;HTML 预览保留暂存目录给 WebViewAssetLoader,由调用方关闭时删除。 */
 sealed interface ExportPreview {
-    data class Text(val formatId: String, val text: String, val warnings: List<ExportWarning>) : ExportPreview
+    data class Text(
+        val formatId: String,
+        val text: String,
+        val warnings: List<ExportWarning>,
+        val truncated: Boolean = false,
+    ) : ExportPreview
     data class Html(val directory: File, val entry: String, val warnings: List<ExportWarning>) : ExportPreview
 }
 
@@ -81,9 +86,11 @@ class ExportRuntime(private val context: Context) {
         val staging = File(context.cacheDir, "exports/staging/${UUID.randomUUID()}")
         val temp = File(context.cacheDir, "exports/${UUID.randomUUID()}.${format.extension}")
         try {
-            val document = buildAndRender(source, staging, title, selection, content, presentation, formatId, onProgress)
-            val warnings = document.warnings.toMutableList()
-            copyAssets(document, source, staging, warnings, onProgress)
+            val built = buildDocument(source, title, selection, content, onProgress)
+            val warnings = built.warnings.toMutableList()
+            copyAssets(built, source, staging, warnings, onProgress)
+            val document = built.copy(warnings = warnings.toList())
+            renderDocument(document, staging, formatId, presentation, source, onProgress)
 
             val entries = ExportPackage.contentEntries(staging)
             val asBundle = bundle || entries.size > 1 || document.assets.isNotEmpty()
@@ -116,47 +123,65 @@ class ExportRuntime(private val context: Context) {
         presentation: ExportPresentation,
         formatId: String,
         onProgress: (ExportProgress) -> Unit,
-    ): ExportPreview = withContext(Dispatchers.IO) {
+    ): ExportPreview {
         val format = registry.format(formatId) ?: throw IOException("unknown format: $formatId")
         val source = ConversationExportSource(context, selection.conversationId)
         val staging = File(context.cacheDir, "exports/preview/${UUID.randomUUID()}")
-        try {
-            val entry = "document.${format.extension}"
-            val document = buildAndRender(source, staging, title, selection, content, presentation, formatId, onProgress)
-            val warnings = document.warnings.toMutableList()
-            if (formatId == "html") {
-                copyAssets(document, source, staging, warnings, onProgress)
-                ExportPreview.Html(staging, entry, warnings)
-            } else {
-                val text = File(staging, entry).readText()
-                staging.deleteRecursively()
-                ExportPreview.Text(formatId, text, warnings)
+        var owned: File? = null
+        val result = try {
+            withContext(Dispatchers.IO) {
+                val entry = "document.${format.extension}"
+                val built = buildDocument(source, title, selection, content, onProgress)
+                val warnings = built.warnings.toMutableList()
+                if (formatId == "html") {
+                    copyAssets(built, source, staging, warnings, onProgress)
+                    val document = built.copy(warnings = warnings.toList())
+                    renderDocument(document, staging, formatId, presentation, source, onProgress)
+                    owned = staging
+                    ExportPreview.Html(staging, entry, warnings)
+                } else {
+                    val document = built.copy(warnings = warnings.toList())
+                    renderDocument(document, staging, formatId, presentation, source, onProgress)
+                    val (text, truncated) = readLimited(File(staging, entry), MAX_PREVIEW_CHARS)
+                    staging.deleteRecursively()
+                    ExportPreview.Text(formatId, text, warnings, truncated)
+                }
             }
         } catch (e: Throwable) {
-            staging.deleteRecursively()
+            // 还没交给调用方之前,任何失败/取消都清掉这次预览的暂存目录。
+            (owned ?: staging).deleteRecursively()
             throw e
         }
+        // 正常返回后目录归调用方;withContext 在取消时会在边界抛异常,上面的 catch 负责清理。
+        owned = null
+        return result
     }
 
-    private suspend fun buildAndRender(
+    private suspend fun buildDocument(
         source: ConversationExportSource,
-        staging: File,
         title: String,
         selection: ExportSelection,
         content: ExportContent,
-        presentation: ExportPresentation,
-        formatId: String,
         onProgress: (ExportProgress) -> Unit,
     ): ExportDocument {
         onProgress(ExportProgress(ExportPhase.Preparing, 0, 0))
-        val document = ExportDocumentBuilder(source, labels, BuildConfig.VERSION_NAME, language()).build(
+        return ExportDocumentBuilder(source, labels, BuildConfig.VERSION_NAME, language()).build(
             conversationId = selection.conversationId,
             title = title,
             selection = selection,
             content = content,
         )
+    }
+
+    private suspend fun renderDocument(
+        document: ExportDocument,
+        staging: File,
+        formatId: String,
+        presentation: ExportPresentation,
+        source: ConversationExportSource,
+        onProgress: (ExportProgress) -> Unit,
+    ) {
         registry.defaultBackend(formatId).render(document, presentation, source, DirectoryExportSink(staging), onProgress)
-        return document
     }
 
     private suspend fun copyAssets(
@@ -273,10 +298,25 @@ class ExportRuntime(private val context: Context) {
 
     private class AssetTooLarge : Exception()
 
+    private fun readLimited(file: File, max: Int): Pair<String, Boolean> {
+        file.reader(Charsets.UTF_8).use { reader ->
+            val buf = CharArray(max)
+            var n = 0
+            while (n < max) {
+                val read = reader.read(buf, n, max - n)
+                if (read < 0) break
+                n += read
+            }
+            val more = reader.read() >= 0
+            return String(buf, 0, n) to more
+        }
+    }
+
     private fun language(): String = java.util.Locale.getDefault().language
 
     private companion object {
         const val MAX_ASSET_BYTES = 50L shl 20
         const val MAX_TOTAL_ASSETS = 200L shl 20
+        const val MAX_PREVIEW_CHARS = 200_000
     }
 }

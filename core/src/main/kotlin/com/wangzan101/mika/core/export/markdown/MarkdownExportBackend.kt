@@ -11,10 +11,12 @@ import com.wangzan101.mika.core.export.ExportDescriptor
 import com.wangzan101.mika.core.export.ExportDocument
 import com.wangzan101.mika.core.export.ExportKind
 import com.wangzan101.mika.core.export.ExportLabels
+import com.wangzan101.mika.core.export.ExportNames
 import com.wangzan101.mika.core.export.ExportPhase
 import com.wangzan101.mika.core.export.ExportPresentation
 import com.wangzan101.mika.core.export.ExportProgress
 import com.wangzan101.mika.core.export.ExportSink
+import com.wangzan101.mika.core.export.ExportWarningText
 import com.wangzan101.mika.core.export.ToolStep
 import java.time.Instant
 import java.time.ZoneId
@@ -61,14 +63,7 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
             if (document.warnings.isNotEmpty()) {
                 out.appendLine("> ${labels.warnings}:")
                 document.warnings.forEach {
-                    val line = when (it.code) {
-                        "run_record_missing" -> labels.runRecordMissing
-                        "asset_missing", "asset_unreadable" -> labels.missingAsset.format(it.detail)
-                        "asset_too_large", "asset_total_too_large" -> labels.tooLarge.format(it.detail)
-                        "timestamp_unknown" -> "${labels.unknown}: ${it.detail}"
-                        else -> it.detail
-                    }
-                    out.appendLine("> - ${MarkdownText.plain(line)}")
+                    out.appendLine("> - ${MarkdownText.plain(ExportWarningText.line(it, labels))}")
                 }
             }
         }
@@ -159,12 +154,12 @@ class MarkdownExportBackend(private val labels: ExportLabels = ExportLabels.Engl
     }
 
     private fun image(out: Appendable, asset: ExportAsset) {
-        out.appendLine("![${MarkdownText.plain(oneLine(asset.fileName))}](${MarkdownText.assetPath(asset.fileName)})")
+        out.appendLine("![${MarkdownText.plain(oneLine(asset.fileName))}](${ExportNames.assetPath(asset.fileName)})")
         out.appendLine()
     }
 
     private fun file(out: Appendable, asset: ExportAsset) {
-        out.appendLine("- [${MarkdownText.plain(oneLine(asset.fileName))}](${MarkdownText.assetPath(asset.fileName)})")
+        out.appendLine("- [${MarkdownText.plain(oneLine(asset.fileName))}](${ExportNames.assetPath(asset.fileName)})")
     }
 
     private fun time(ms: Long) = FORMAT.format(Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()))

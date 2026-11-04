@@ -11,10 +11,12 @@ import com.wangzan101.mika.core.export.ExportDescriptor
 import com.wangzan101.mika.core.export.ExportDocument
 import com.wangzan101.mika.core.export.ExportKind
 import com.wangzan101.mika.core.export.ExportLabels
+import com.wangzan101.mika.core.export.ExportNames
 import com.wangzan101.mika.core.export.ExportPhase
 import com.wangzan101.mika.core.export.ExportPresentation
 import com.wangzan101.mika.core.export.ExportProgress
 import com.wangzan101.mika.core.export.ExportSink
+import com.wangzan101.mika.core.export.ExportWarningText
 import com.wangzan101.mika.core.export.ToolStep
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.gfm.tables.TablesExtension
@@ -162,25 +164,18 @@ class HtmlExportBackend(private val labels: ExportLabels = ExportLabels.English)
     }
 
     private fun image(out: Appendable, asset: ExportAsset) {
-        out.appendLine("<figure><img src=\"${HtmlText.escape(HtmlText.assetPath(asset.fileName))}\" alt=\"${HtmlText.escape(asset.fileName)}\"></figure>")
+        out.appendLine("<figure><img src=\"${HtmlText.escape(ExportNames.assetPath(asset.fileName))}\" alt=\"${HtmlText.escape(asset.fileName)}\"></figure>")
     }
 
     private fun file(out: Appendable, asset: ExportAsset) {
-        out.appendLine("<p class=\"file\"><a href=\"${HtmlText.escape(HtmlText.assetPath(asset.fileName))}\">${HtmlText.escape(asset.fileName)}</a></p>")
+        out.appendLine("<p class=\"file\"><a href=\"${HtmlText.escape(ExportNames.assetPath(asset.fileName))}\">${HtmlText.escape(asset.fileName)}</a></p>")
     }
 
     private fun warnings(out: Appendable, document: ExportDocument) {
         if (document.warnings.isEmpty()) return
         out.appendLine("<section class=\"warnings\"><h2>${HtmlText.escape(labels.warnings)}</h2><ul>")
         document.warnings.forEach {
-            val line = when (it.code) {
-                "run_record_missing" -> labels.runRecordMissing
-                "asset_missing", "asset_unreadable" -> labels.missingAsset.format(it.detail)
-                "asset_too_large", "asset_total_too_large" -> labels.tooLarge.format(it.detail)
-                "timestamp_unknown" -> "${labels.unknown}: ${it.detail}"
-                else -> it.detail
-            }
-            out.appendLine("<li>${HtmlText.escape(line)}</li>")
+            out.appendLine("<li>${HtmlText.escape(ExportWarningText.line(it, labels))}</li>")
         }
         out.appendLine("</ul></section>")
     }

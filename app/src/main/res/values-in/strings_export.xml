@@ -17,6 +17,7 @@
     <string name="export_bundle_note">Lampiran atau tangkapan layar disertakan, jadi file berupa zip.</string>
     <string name="export_button">Ekspor</string>
     <string name="export_preview">Pratinjau</string>
+    <string name="export_preview_truncated">Pratinjau dipotong; file yang diekspor berisi konten lengkap.</string>
     <string name="export_cancel">Batal</string>
     <string name="export_close">Tutup</string>
     <string name="export_preparing">Menyiapkan…</string>

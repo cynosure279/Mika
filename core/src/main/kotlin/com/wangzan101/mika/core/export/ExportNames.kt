@@ -1,8 +1,13 @@
 package com.wangzan101.mika.core.export
 
+import java.net.URLEncoder
+
 /** 文件名与包内路径的清洗;规则和现有分享/附件保持同一方向,但这里不依赖沙箱能力包。 */
 object ExportNames {
     const val MAX_NAME = 120
+
+    /** 包内资产的统一路径:文件名按 UTF-8 百分号编码,各后端引用同一份。 */
+    fun assetPath(fileName: String): String = "assets/" + URLEncoder.encode(fileName, "UTF-8").replace("+", "%20")
 
     fun safeFileName(name: String, fallback: String = "attachment"): String {
         val sb = StringBuilder()
