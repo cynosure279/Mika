@@ -41,21 +41,22 @@ private data class StoredGrant(
     val permission: String,
     val resource: String = "global",
     val access: String,
-    val scope: String = "conversation",
+    /** 文件里用枚举名;旧文件缺省时按 Conversation / User。 */
+    val scope: String = "Conversation",
     val expiresAtMs: Long? = null,
-    val source: String = "user",
+    val source: String = "User",
     val label: String? = null,
 )
 
-/** 资源在文件里的写法;只含标识,不含用户内容。 */
-fun permissionResourceOf(label: String): PermissionResource = when {
+/** 资源在文件里的写法;只含标识,不含用户内容。不认识的写法返回 null(不能悄悄放宽成 Global)。 */
+fun permissionResourceOf(label: String): PermissionResource? = when {
     label == "global" -> PermissionResource.Global
     label.startsWith("app:") -> PermissionResource.AppPackage(label.removePrefix("app:"))
     label.startsWith("dir:") -> PermissionResource.Directory(label.removePrefix("dir:"))
     label.startsWith("mcp:") -> PermissionResource.McpServer(label.removePrefix("mcp:"))
     label.startsWith("plugin:") -> PermissionResource.Plugin(label.removePrefix("plugin:"))
     label.startsWith("remote:") -> PermissionResource.RemoteEnv(label.removePrefix("remote:"))
-    else -> PermissionResource.Global
+    else -> null
 }
 
 /**
@@ -96,6 +97,8 @@ class PermissionStore(private val file: File) {
                     permission, PermissionCatalog.resourceFor(tool), context, spec?.description,
                 ),
                 grantsFor(context),
+                // Phase 2a 还没有询问卡片:Ask 保持 Ask,执行层只拦明确拒绝
+                downgradeAsk = false,
             )
         }
 
@@ -109,7 +112,7 @@ class PermissionStore(private val file: File) {
 
     @Synchronized fun addConversation(conversationId: String, grant: Grant) = update { state ->
         val current = state.conversations[conversationId].orEmpty()
-        state.copy(conversations = state.conversations + (conversationId to replaceGrant(current, grant)))
+        state.copy(conversations = state.conversations + (conversationId to replaceGrant(current, grant, MAX_CONVERSATION_GRANTS)))
     }
 
     @Synchronized fun removeConversation(conversationId: String, permission: PermissionId, resource: PermissionResource) = update { state ->
@@ -127,13 +130,20 @@ class PermissionStore(private val file: File) {
     }
 
     /**
-     * 第一次启动时把旧开关映射成授权,写成文件标记迁移完成;已有文件时什么都不做。
-     * 只写新文件,不改旧配置,功能开关关掉时旧配置仍是权威。
+     * 把旧开关映射成 `MigratedLegacy` 授权。每次启动都可以调:先清掉上次迁移的授权,再按当前开关重建,
+     * 所以用户后来改了旧开关(解除屏蔽、打开联网、改 SelfConfig)不会留下过期的授权。用户自己改的授权保留。
+     * 只写新文件,不改旧配置。
      */
-    @Synchronized fun migrateOnce(legacy: PermissionMigration.Legacy): Boolean {
-        if (file.exists()) return false
-        val grants = PermissionMigration.grants(legacy)
-        persist(PermissionState(global = grants))
+    @Synchronized fun syncLegacy(legacy: PermissionMigration.Legacy): Boolean {
+        val current = mutable.value
+        val userGrants = current.global.filter { it.source != GrantSource.MigratedLegacy }
+        // 用户已经对同一权限、同一资源表过态时,迁移值不再插进来。
+        val migrated = PermissionMigration.grants(legacy).filter { m ->
+            userGrants.none { g -> g.permission == m.permission && g.resource == m.resource }
+        }
+        val next = userGrants + migrated
+        if (next == current.global) return false
+        persist(current.copy(global = next, revision = current.revision + 1))
         return true
     }
 
@@ -147,9 +157,9 @@ class PermissionStore(private val file: File) {
         persist(next.copy(revision = mutable.value.revision + 1))
     }
 
-    private fun replaceGrant(grants: List<Grant>, grant: Grant): List<Grant> {
+    private fun replaceGrant(grants: List<Grant>, grant: Grant, max: Int = MAX_GRANTS): List<Grant> {
         val next = grants.filterNot { it.permission == grant.permission && it.resource == grant.resource && it.scope == grant.scope } + grant
-        return next.takeLast(MAX_GRANTS)
+        return next.takeLast(max)
     }
 
     private fun persist(next: PermissionState) {
@@ -175,8 +185,9 @@ class PermissionStore(private val file: File) {
             val stored = json.decodeFromString<StoredPermissions>(file.readText())
             require(stored.version == 1)
             PermissionState(
-                global = stored.grants.mapNotNull(::fromStored),
-                conversations = stored.conversations.mapValues { (_, grants) -> grants.mapNotNull(::fromStored) },
+                // 任何一条读不懂都按整个文件不可用处理:不能悄悄丢掉一条 Deny 后回到更宽的默认值。
+                global = stored.grants.map { fromStored(it) ?: error("unreadable grant") },
+                conversations = stored.conversations.mapValues { (_, grants) -> grants.map { fromStored(it) ?: error("unreadable grant") } },
             )
         }.getOrElse { PermissionState(available = false) }
     }
@@ -194,7 +205,7 @@ class PermissionStore(private val file: File) {
     private fun fromStored(stored: StoredGrant): Grant? = runCatching {
         Grant(
             permission = PermissionId(stored.permission),
-            resource = permissionResourceOf(stored.resource),
+            resource = permissionResourceOf(stored.resource) ?: error("unknown resource"),
             access = Access.valueOf(stored.access),
             scope = GrantScope.valueOf(stored.scope),
             expiresAtMs = stored.expiresAtMs,
@@ -209,7 +220,7 @@ class PermissionStore(private val file: File) {
     }
 }
 
-/** 旧开关到新授权的映射;只在第一次迁移时用。 */
+/** 旧开关到新授权的映射;每次启动同步,旧开关变了就跟着变。 */
 object PermissionMigration {
     data class Legacy(
         val blockedApps: Set<String> = emptySet(),

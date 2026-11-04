@@ -101,6 +101,9 @@ class Replayer(
                         "this run cannot get approval for a payment step", seen,
                         error = "approval_unavailable",
                     )
+
+                    "permission_denied", "permission_unattended", "permission_unknown" ->
+                        return diverged("the capability is not permitted now", seen)
                     else -> error("unexpected refusal ${o.code}")
                 }
                 is ActionOutcome.Cancelled -> return diverged("cancelled", seen)

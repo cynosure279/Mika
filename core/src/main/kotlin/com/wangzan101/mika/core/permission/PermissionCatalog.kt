@@ -99,6 +99,9 @@ object PermissionCatalog {
         PHONE_CAPABILITY -> phonePermission(tool.verb)
         WEB_CAPABILITY -> webPermission(tool.verb)
         SANDBOX_CAPABILITY -> sandboxPermission(tool.verb)
+        "audio", "image", "transcribe" -> CORE_INTERACT
+        "device_files" -> SANDBOX_FILES
+        "root", "calls" -> PHONE_SYSTEM
         null -> corePermission(tool.verb)
         else -> if (capability.startsWith("mcp:")) MCP else if (capability.startsWith("plugin:")) PLUGIN else null
     }
@@ -137,9 +140,9 @@ object PermissionCatalog {
             PHONE_ACT
 
         Verb.PhoneCommand -> PHONE_SYSTEM
-        Verb.ShareText -> PHONE_SHARE
-        Verb.ListApps -> PHONE_APPS
-        Verb.SetAlarm, Verb.SetTimer, Verb.ShowAlarms, Verb.AddCalendarEvent -> PHONE_ALARM
+        Verb.ShareText, Verb.ShareAudio, Verb.ShareImage -> PHONE_SHARE
+        Verb.ListApps, Verb.SmsLogin -> PHONE_APPS
+        Verb.SetAlarm, Verb.SetTimer, Verb.ShowAlarms, Verb.AddCalendarEvent, Verb.BulkAddCalendarEvents -> PHONE_ALARM
         else -> null
     }
 
@@ -159,7 +162,7 @@ object PermissionCatalog {
 
     private fun sandboxPermission(verb: Verb): PermissionId? = when (verb) {
         Verb.RunCommand, Verb.RunBundledScript -> SANDBOX_EXEC
-        Verb.ReadFile, Verb.WriteFile, Verb.SearchFiles, Verb.ShareFile -> SANDBOX_FILES
+        Verb.ReadFile, Verb.WriteFile, Verb.SearchFiles, Verb.ShareFile, Verb.ViewImage, Verb.ListFolderFiles -> SANDBOX_FILES
         else -> null
     }
 
@@ -170,11 +173,22 @@ object PermissionCatalog {
 
         Verb.KnowledgeSearch, Verb.KnowledgeRead, Verb.SkillSearch, Verb.SkillRead -> CORE_KNOWLEDGE
         Verb.SkillSave -> SKILL_WRITE
-        Verb.MemorySearch, Verb.HistoryRead -> MEMORY_READ
-        Verb.MemorySave, Verb.ProfileEdit -> MEMORY_WRITE
+        Verb.MemorySearch, Verb.HistoryRead, Verb.NoticesRead, Verb.TaskMemorySearch, Verb.TaskMemoryTimeline, Verb.TaskMemoryStep -> MEMORY_READ
+        Verb.WebSearch -> WEB_READ
+        Verb.MemorySave, Verb.MemoryEdit, Verb.ProfileEdit -> MEMORY_WRITE
         Verb.ScheduleTask -> SCHEDULE_WRITE
         Verb.SpawnAgent -> CHILD_SPAWN
         Verb.SettingsList, Verb.SettingsSet -> SETTINGS_SELF
+        Verb.SelfStatus, Verb.SelfOpenScreen, Verb.SelfOpenFile, Verb.SelfNotify, Verb.SelfCopy,
+        Verb.SelfOpenBrowser, Verb.SelfSearch, Verb.SelfSites, Verb.SelfLogin, Verb.SelfConfirmLogin,
+        Verb.SelfFavorites, Verb.SelfUserPage -> SETTINGS_SELF
+        Verb.AudioGenerate, Verb.AudioSave, Verb.AudioTranscribe, Verb.Speak,
+        Verb.ImageGenerate, Verb.ImageEdit, Verb.ImageSave
+        -> CORE_INTERACT
+        Verb.RootCommand, Verb.CallState, Verb.CallDial, Verb.CallAnswer, Verb.CallHangup, Verb.CallTakeover -> PHONE_SYSTEM
+        Verb.ListDeviceFiles, Verb.CopyDeviceFile, Verb.SearchDeviceFiles, Verb.ListDeviceDirectoryHints,
+        Verb.UpdateDeviceDirectoryDescription -> SANDBOX_FILES
+        Verb.PluginScript -> PLUGIN
         else -> null
     }
 }

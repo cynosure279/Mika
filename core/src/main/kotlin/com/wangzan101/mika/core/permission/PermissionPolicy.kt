@@ -28,6 +28,7 @@ object PermissionPolicy {
     /**
      * [once] 是用户刚对这次询问点的「仅这次」,只在调用方确认动作成功后消费;这里只判放行。
      * [autonomous] 为 true 时 ask 不弹窗,直接 deny(自主模式不自动产生新授权,见 PERMISSION-PLAN §4.3)。
+     * [downgradeAsk] 为 false 时 Ask 保持 Ask:Phase 2a 还没有询问卡片,闸门用它避免把普通任务误拒。
      */
     fun evaluate(
         request: PermissionRequest,
@@ -35,6 +36,7 @@ object PermissionPolicy {
         once: Grant? = null,
         nowMs: Long = System.currentTimeMillis(),
         autonomous: Boolean = false,
+        downgradeAsk: Boolean = true,
     ): PermissionVerdict {
         val spec = PermissionCatalog.spec(request.permission)
             ?: return PermissionVerdict.Deny(CODE_UNKNOWN, "Unknown permission ${request.permission.value}; refuse it.")
@@ -62,12 +64,12 @@ object PermissionPolicy {
         return when (access) {
             Access.Allow -> PermissionVerdict.Allow
             Access.Deny -> denied(request)
-            Access.Ask -> ask(request, spec.description, autonomous)
+            Access.Ask -> ask(request, spec.description, autonomous, downgradeAsk)
         }
     }
 
-    private fun ask(request: PermissionRequest, description: String, autonomous: Boolean): PermissionVerdict =
-        if (!canAsk(request, autonomous)) {
+    private fun ask(request: PermissionRequest, description: String, autonomous: Boolean, downgradeAsk: Boolean): PermissionVerdict =
+        if (downgradeAsk && !canAsk(request, autonomous)) {
             PermissionVerdict.Deny(CODE_UNATTENDED,
                 "This needs the user's approval, but this task cannot ask for it (unattended, non-UI origin, child task, or autonomous mode). " +
                     "Do not retry; continue without this capability or stop and tell the user.")

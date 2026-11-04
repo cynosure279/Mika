@@ -9,9 +9,13 @@ import com.wangzan101.mika.core.permission.PermissionContext
 import com.wangzan101.mika.core.permission.PermissionRequest
 import com.wangzan101.mika.core.permission.PermissionResource
 import com.wangzan101.mika.core.permission.PermissionVerdict
+import com.wangzan101.mika.core.run.Attendance
 import com.wangzan101.mika.core.run.RunId
+import com.wangzan101.mika.core.run.RunOrigin
+import com.wangzan101.mika.core.run.RunProvenance
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -76,7 +80,7 @@ class PermissionStoreTest {
         assertEquals(PermissionVerdict.Allow, store.evaluate(request()))
     }
 
-    @Test fun migrationMapsLegacySwitchesOnce() {
+    @Test fun legacySwitchesAreSyncedAndStaleValuesDisappear() {
         val store = PermissionStore(file())
         val legacy = PermissionMigration.Legacy(
             blockedApps = setOf("com.bank"),
@@ -85,7 +89,7 @@ class PermissionStoreTest {
             selfConfig = false,
             enabledMcpServers = listOf("server-1"),
         )
-        assertTrue(store.migrateOnce(legacy))
+        assertTrue(store.syncLegacy(legacy))
         val grants = store.state.value.global
         assertTrue(grants.any { it.permission == PermissionCatalog.PHONE_APP && it.resource == PermissionResource.AppPackage("com.bank") && it.access == Access.Deny })
         assertTrue(grants.any { it.permission == PermissionCatalog.PHONE_SHARE && it.resource == PermissionResource.AppPackage("com.wechat") && it.access == Access.Allow })
@@ -94,9 +98,13 @@ class PermissionStoreTest {
         assertTrue(grants.any { it.permission == PermissionCatalog.MCP && it.resource == PermissionResource.McpServer("server-1") })
         assertTrue(grants.all { it.source == GrantSource.MigratedLegacy })
 
-        // 第二次启动不再迁移,用户后来改的授权不会被旧配置覆盖
+        // 用户改过的授权保留;旧开关后来解除时,过期的迁移授权消失
         store.addGlobal(Grant(PermissionCatalog.PHONE_SHARE, access = Access.Deny, scope = GrantScope.Global))
-        assertFalse(PermissionStore(file()).migrateOnce(legacy))
+        store.syncLegacy(legacy.copy(blockedApps = emptySet(), enabledMcpServers = emptyList()))
+        val synced = store.state.value.global
+        assertFalse(synced.any { it.permission == PermissionCatalog.PHONE_APP && it.resource == PermissionResource.AppPackage("com.bank") })
+        assertFalse(synced.any { it.permission == PermissionCatalog.MCP })
+        assertEquals(Access.Deny, synced.first { it.permission == PermissionCatalog.PHONE_SHARE && it.resource == PermissionResource.Global }.access)
         assertEquals(Access.Deny, PermissionStore(file()).state.value.global.first { it.permission == PermissionCatalog.PHONE_SHARE && it.resource == PermissionResource.Global }.access)
     }
 
@@ -111,6 +119,22 @@ class PermissionStoreTest {
         )) {
             assertEquals(resource, permissionResourceOf(resource.label()))
         }
+        assertNull(permissionResourceOf("unknown:resource"))
+    }
+
+    @Test fun storedGrantsWithMissingEnumFieldsUseTheDocumentedDefaults() {
+        file().writeText("""{"version":1,"grants":[{"permission":"phone.share","access":"Allow"}]}""")
+        val store = PermissionStore(file())
+        assertTrue(store.state.value.available)
+        val grant = store.state.value.global.single()
+        assertEquals(GrantScope.Conversation, grant.scope)
+        assertEquals(GrantSource.User, grant.source)
+        assertEquals(PermissionResource.Global, grant.resource)
+    }
+
+    @Test fun anUnknownResourceFailsClosedInsteadOfWideningToGlobal() {
+        file().writeText("""{"version":1,"grants":[{"permission":"phone.share","resource":"bogus","access":"Allow"}]}""")
+        assertFalse(PermissionStore(file()).state.value.available)
     }
 
     private fun tool(name: String, verb: com.wangzan101.mika.core.tool.Verb, capability: String? = null) =
@@ -133,5 +157,14 @@ class PermissionStoreTest {
             gate.verdict(tool("phone_share_text", com.wangzan101.mika.core.tool.Verb.ShareText, "phone")))
         assertEquals("permission_unknown",
             (gate.verdict(tool("mystery", com.wangzan101.mika.core.tool.Verb.Interact, "unknown")) as PermissionVerdict.Deny).code)
+    }
+
+    @Test fun theGateKeepsAskOpenWhenNobodyCanAnswerInPhase2a() {
+        val store = PermissionStore(file())
+        val unattended = PermissionContext(
+            RunId("r1"), "c1", RunProvenance(RunOrigin.Trigger, Attendance.Unattended),
+        )
+        assertEquals(PermissionVerdict.Ask("Share text to one app"),
+            store.gateFor(unattended).verdict(tool("phone_share_text", com.wangzan101.mika.core.tool.Verb.ShareText, "phone")))
     }
 }
