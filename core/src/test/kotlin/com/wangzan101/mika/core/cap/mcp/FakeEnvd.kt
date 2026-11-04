@@ -53,6 +53,9 @@ class FakeEnvd : Dispatcher() {
         add(tool("write_file", "Write a file", props = mapOf(
             "env" to stringProp(), "path" to stringProp(), "content" to stringProp(),
         )))
+        add(tool("file_link", "Create a file link", props = mapOf(
+            "env" to stringProp(), "path" to stringProp(), "direction" to stringProp(),
+        )))
     }
 
     private fun stringProp(): JsonObject = buildJsonObject { put("type", "string") }
@@ -126,6 +129,11 @@ class FakeEnvd : Dispatcher() {
                 }
                 if (token == null) rpc(id, toolResult(result)) else streamed(id, token, result)
             }
+            "file_link" -> rpc(id, toolResult(buildJsonObject {
+                put("ok", true)
+                put("url", "https://example.test/files/a.txt")
+                put("expiresAt", "2026-11-04T00:00:00Z")
+            }))
             else -> rpc(id, toolError("unknown_tool", "unknown tool: $name"))
         }
     }

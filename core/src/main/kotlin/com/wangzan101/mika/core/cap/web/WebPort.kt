@@ -117,6 +117,13 @@ interface WebPort : ScreenPort {
     suspend fun closeTab(tabId: String): Boolean
     /** 下载功能还没接入时抛 [UnsupportedOperationException],工具结果是 downloads_unavailable。 */
     suspend fun downloads(): List<DownloadInfo>
+
+    /**
+     * 直接下载一个 http(s) 地址到本对话的 downloads/(签名 file_link 也走这里),等它结束或超时再返回。
+     * 不支持时抛 [UnsupportedOperationException]。
+     */
+    suspend fun downloadUrl(url: String, name: String?, timeoutMs: Long): DownloadInfo =
+        throw UnsupportedOperationException("direct downloads are not available")
     suspend fun upload(ref: String, snapshotId: String, paths: List<String>): ActionResult
     suspend fun historyBack(): ActionResult
     /**

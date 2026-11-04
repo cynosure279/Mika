@@ -208,6 +208,8 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o mika-envd-windows-
 
 第一版不需要改 App 代码；等环境管理器和会话 `envId` 落地后，才能做到「新对话时选一个环境」。
 
+`file_link` 的下载结果会由 App 自动接住：下载到本对话工作区的 `downloads/`，再导出到「下载/Mika」并在对话里显示文件卡片；上传链接不自动处理，需要用户自己打开或后续界面接。设备级 MCP 流式测试在 `app/src/androidTest/java/com/wangzan101/mika/cap/RemoteEnvironmentDeviceTest.kt`，没有设备时只做编译验证。
+
 ## 路线图
 
 1. **大文件传输**：MCP 工具只做控制和元数据，二进制走带令牌的 HTTPS 上传/下载端点，长度和 SHA-256 校验。

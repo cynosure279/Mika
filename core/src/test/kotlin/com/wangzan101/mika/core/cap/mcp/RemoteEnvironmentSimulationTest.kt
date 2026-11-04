@@ -34,6 +34,26 @@ class RemoteEnvironmentSimulationTest {
 
     private suspend fun connect() = HttpMcpEndpoint.connect("envd", server.url("/mcp").toString(), OkHttpClient(), timeoutSec = 5).getOrThrow()
 
+    @Test fun fileLinkIsHandedToTheAppDownloader() = runBlocking {
+        val endpoint = connect()
+        try {
+            var seen: String? = null
+            val tools = toolDispatcher(
+                FakeScreen(),
+                mcpServers = listOf(McpConnection(endpoint)),
+                onRemoteFileLink = { url, _ -> seen = url; "saved to Downloads" },
+            )
+            val result = tools.execute(
+                Part.ToolCall("c1", "mcp_envd__file_link", """{"env":"env-1","path":"a.txt"}"""),
+                ActionPass(),
+            )
+            assertEquals("https://example.test/files/a.txt", seen)
+            assertTrue(result.content["text"].toString().contains("saved to Downloads"))
+        } finally {
+            endpoint.close()
+        }
+    }
+
     @Test fun streamingExecReachesTaskProgressAndResult() = runBlocking {
         val endpoint = connect()
         try {

@@ -769,6 +769,25 @@ class TaskRun(
                 onSandboxCommand = { sandboxNote(StatusCopy.sandboxCommand(it, sandboxOnline())) },
                 onSandboxProgress = { sandboxNote(StatusCopy.sandboxProgress(it, sandboxOnline())) },
                 onToolProgress = { sandboxNote(StatusCopy.toolProgress(it)) },
+                onRemoteFileLink = { url, name ->
+                    val port = web
+                    if (port == null) null else try {
+                        val d = port.downloadUrl(url, name, 120_000)
+                        if (d.status != "done") {
+                            "Download failed: ${d.error ?: d.status}"
+                        } else {
+                            val file = sandbox.hostPath(conversationId, d.file, forWrite = false)
+                            if (file == null) "Downloaded to ${d.file}"
+                            else "Saved to " + sandbox.share(file, name ?: file.name)
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: UnsupportedOperationException) {
+                        "Direct downloads are not available on this device."
+                    } catch (e: Exception) {
+                        "Downloaded, but saving to Downloads failed: ${e.message ?: e.javaClass.simpleName}"
+                    }
+                },
                 onSandboxPreparing = { sandboxNote(StatusCopy.RUNTIME_PREPARING) },
                 onSandboxScript = { sandboxNote(StatusCopy.sandboxScript(sandboxOnline())) },
                 imageOps = BitmapImageOps, runSpec = runSpec,

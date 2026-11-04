@@ -16,6 +16,7 @@ import com.wangzan101.mika.core.tool.ToolContext
 import com.wangzan101.mika.core.tool.ToolDef
 import com.wangzan101.mika.core.tool.ToolExecution
 import com.wangzan101.mika.core.tool.Verb
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -306,7 +307,7 @@ private class McpClientTool(
         resultStore = resultStore,
         previewChars = previewChars,
         call = {
-            endpoint.call(descriptor.name, a.o) { progress ->
+            val result = endpoint.call(descriptor.name, a.o) { progress ->
                 val text = progress.message ?: when {
                     progress.total != null -> "${progress.progress ?: 0.0}/${progress.total}"
                     progress.progress != null -> "${progress.progress}"
@@ -314,8 +315,22 @@ private class McpClientTool(
                 }
                 ctx.config.onToolProgress(text)
             }
+            val direction = (a.o["direction"] as? JsonPrimitive)?.contentOrNull ?: "download"
+            if (descriptor.name == "file_link" && !result.isError && direction == "download") {
+                val url = fileLinkUrl(result.text)
+                val note = if (url != null) ctx.config.onRemoteFileLink?.invoke(url, null) else null
+                if (note.isNullOrBlank()) result else result.copy(text = result.text + "\n" + note)
+            } else result
         },
     )
+}
+
+/** envd file_link 的结果里取出下载地址;别的工具或错误的 JSON 返回 null。 */
+private fun fileLinkUrl(text: String): String? {
+    val obj = runCatching { Json.parseToJsonElement(text) as? JsonObject }.getOrNull() ?: return null
+    if ((obj["ok"] as? JsonPrimitive)?.contentOrNull == "false") return null
+    return (obj["url"] as? JsonPrimitive)?.contentOrNull
+        ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
 }
 
 /** resources/prompts 合成的只读工具;结果裁剪、预算、不可信标记和普通 MCP 工具共用一套。 */

@@ -95,6 +95,8 @@ fun toolDispatcher(
     onSandboxProgress: (String) -> Unit = {},
     /** 外部 MCP 工具执行中报的进度(任务卡片上的一行)。 */
     onToolProgress: (String) -> Unit = {},
+    /** MCP file_link 返回下载 URL 时交给 App 下载并保存。 */
+    onRemoteFileLink: (suspend (url: String, name: String?) -> String?)? = null,
     /** 沙箱工具在等运行环境准备好(任务卡片显示「正在准备」)。 */
     onSandboxPreparing: () -> Unit = {},
     /** 开始跑技能脚本时;不给就按 [onSandboxCommand] 报。 */
@@ -119,7 +121,7 @@ fun toolDispatcher(
     runRecords: RunRecords? = null,
 ): ToolDispatcher {
     val config = ToolConfig(visionEnabled, skills, recordFrames, vision, inlineScreen, adaptiveVision, memory, profile, utterances, conversationId,
-        imageOps, scheduleTrigger, scheduleAdmin, runSpec, childHost, userScreens, personalSkills, selfConfig, runRecords, onToolProgress)
+        imageOps, scheduleTrigger, scheduleAdmin, runSpec, childHost, userScreens, personalSkills, selfConfig, runRecords, onToolProgress, onRemoteFileLink)
     val providers: List<CapabilityProvider> = listOf(
         object : CapabilityProvider {
             override val id = PHONE
