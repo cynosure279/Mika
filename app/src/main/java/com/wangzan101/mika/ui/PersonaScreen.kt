@@ -134,6 +134,7 @@ private fun PersonaEditor(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("persona-prompt"),
                 )
                 Text(counter, Modifier.padding(top = 4.dp), style = MikaType.Hint, color = c.ink3)
+                if (prompt.isBlank()) Text(stringResource(R.string.persona_empty_prompt), Modifier.padding(top = 4.dp), style = MikaType.Hint, color = c.ink3)
                 error?.let { Text(it, Modifier.padding(top = 6.dp), style = MikaType.Caption, color = c.bad) }
             }
         }

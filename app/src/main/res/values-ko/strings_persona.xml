@@ -12,6 +12,7 @@
     <string name="persona_description">짧은 설명</string>
     <string name="persona_prompt">지시</string>
     <string name="persona_prompt_hint">말투, 길이, 표현, 서식…</string>
+    <string name="persona_empty_prompt">지시가 없으면 이 페르소나는 아무것도 바꾸지 않습니다.</string>
     <string name="persona_counter">%1$d자 · 약 %2$d 토큰</string>
     <string name="persona_preview">전체 프롬프트 미리보기</string>
     <string name="persona_preview_hide">미리보기 닫기</string>

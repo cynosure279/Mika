@@ -720,9 +720,11 @@ class ChatViewModel(
     private fun begin(goal: String, id: String) {
         lingerJob?.cancel()
         // 新对话选好的人格在交给服务之前写进旁文件;任务开局按它读。
-        // 已经有绑定、界面又没选(例如重建后还没读出来)时只补选中的,不把已有绑定删掉。
-        _ui.value.personaId?.let { selected ->
-            if (store.persona(id)?.personaId != selected) runCatching { store.setPersona(id, selected) }
+        // 功能关闭时完全不碰旁文件;已经有绑定、界面又没选(例如重建后还没读出来)时只补选中的,不把已有绑定删掉。
+        if (personaStore != null) {
+            _ui.value.personaId?.let { selected ->
+                if (store.persona(id)?.personaId != selected) runCatching { store.setPersona(id, selected) }
+            }
         }
         // 这个对话的编号定下来了:胶囊之后接着它(新开的对话到这一刻才有编号)
         markCurrent(CurrentChat.Open(id))
@@ -991,16 +993,17 @@ class ChatViewModel(
         _ui.update { it.copy(pip = gated(it.pip)) }
     }
 
-    /** 这个对话存下的人格 id;没有为 null。 */
-    private fun personaFor(conversationId: String?): String? = conversationId?.let { store.persona(it)?.personaId }
+    /** 这个对话存下的人格 id;没有人格存储(功能关闭)或没有绑定为 null。 */
+    private fun personaFor(conversationId: String?): String? =
+        if (personaStore == null) null else conversationId?.let { store.persona(it)?.personaId }
 
     /**
      * 换这个对话用的人格;null 表示回到默认。任务在跑或排队时不允许切换。
      * 已经说过话的对话当场写旁文件;新对话只记在界面状态里,第一句话发送时由 [begin] 写。
      */
     fun selectPersona(personaId: String?): Boolean {
-        if (!canSwitchPersona()) return false
-        if (personaId != null && personaStore?.get(personaId) == null) return false
+        if (personaStore == null || !canSwitchPersona()) return false
+        if (personaId != null && personaStore.get(personaId) == null) return false
         val id = _ui.value.conversationId
         if (id != null && store.turns(id).isNotEmpty()) runCatching { store.setPersona(id, personaId) }
         _ui.update { it.copy(personaId = personaId) }

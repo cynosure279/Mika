@@ -713,12 +713,13 @@ class TaskRun(
                 val app = service.application as MikaApp
                 app.conversations.persona(conversationId)?.personaId?.let(app.personas::get)
             }
-            // 人格拼在身份、准则、通用规则之后;子任务和主任务用同一份
-            val basePrompt = SystemPrompt.withPersona(
-                SystemPrompt.identity(),
-                persona?.let { PersonaPrompt.layer(it.name, it.prompt) },
-            )
-            val personaLabel = persona?.let { Redactor.text("${it.name} · v${it.revision}") }
+            // 人格拼在身份、准则、通用规则之后;子任务和主任务用同一份。
+            // 正文为空时没有可拼的层,也不记成「这一轮用了某个人格」。
+            val personaLayer = persona?.let { PersonaPrompt.layer(it.name, it.prompt) }
+            val basePrompt = SystemPrompt.withPersona(SystemPrompt.identity(), personaLayer)
+            val personaLabel = if (personaLayer != null && persona != null) {
+                Redactor.text("${persona.name} · v${persona.revision}")
+            } else null
             val stepLimit = if (conditionCheck) null else FeatureFlags.get(service).taskStepLimit()
             val runSpec = RunSpec(RunId(key), goal, conversationId,
                 priorTurns,

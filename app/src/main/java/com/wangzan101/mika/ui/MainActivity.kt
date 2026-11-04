@@ -352,7 +352,7 @@ private fun MikaRoot(store: ProviderStore, monitor: SystemStatusMonitor, activit
                 mcpServers = app.mcpServers)
         }
         Route.Models -> ModelsScreen(store, onBack = back, onOpenSpeech = { nav.push(Route.SpeechModel) }, onOpenUsage = { nav.push(Route.Usage) })
-        Route.Persona -> PersonaScreen(app.personas, onBack = back)
+        Route.Persona -> if (personasOn) PersonaScreen(app.personas, onBack = back) else LaunchedEffect(Unit) { nav.back() }
         Route.Usage -> UsageScreen(app.usage, store.providers, onBack = back)
         Route.SpeechModel -> SpeechModelScreen(store, onBack = back)
         Route.About -> AboutScreen(

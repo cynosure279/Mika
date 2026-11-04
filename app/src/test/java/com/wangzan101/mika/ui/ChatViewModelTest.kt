@@ -2200,4 +2200,19 @@ class ChatViewModelTest {
         val id = vm.ui.value.conversationId!!
         assertEquals(p.id, conversations.persona(id)?.personaId)
     }
+
+    /** 功能关闭时界面不读也不写人格旁文件;任务层也会忽略绑定。 */
+    @Test fun personaBindingIsIgnoredWhenTheFeatureIsOff() = runTest {
+        val conversations = ConversationStore(tmp.newFolder())
+        val id = conversations.newConversation()
+        assertTrue(conversations.setPersona(id, "p1"))
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, conversations,
+            appLabel = { it }, activities = acts, steers = steerFlow, personaStore = null,
+        ).also { runCurrent() }
+
+        vm.openConversation(id)
+        assertNull(vm.ui.value.personaId)
+        assertFalse(vm.selectPersona("p1"))
+    }
 }
