@@ -83,6 +83,7 @@ class MainModelCatalogTest {
         val catalog = ProviderMainModelCatalog(s)
 
         assertEquals("主力兜底", catalog.globalLabel())
+        assertTrue(catalog.globalGroup())
         assertEquals("主力兜底", catalog.label(ModelChoice.Group("g")))
         assertEquals("m2", catalog.label(ModelChoice.Model(b)))
         assertTrue(catalog.isGroup(ModelChoice.Group("g")))

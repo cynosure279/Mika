@@ -3,6 +3,7 @@ package com.wangzan101.mika.ui
 import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.settings.ModelChoice
 import com.wangzan101.mika.settings.ProviderStore
+import com.wangzan101.mika.settings.ReasoningLevels
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 
@@ -38,8 +39,14 @@ interface MainModelCatalog {
 
     fun isGroup(choice: ModelChoice): Boolean
 
+    /** 跟随设置时主模型是不是组(档位说明用)。 */
+    fun globalGroup(): Boolean
+
     /** 这个覆盖(或全局主模型)能选的思考档位;空表示不提供。 */
     fun reasoningLevels(choice: ModelChoice?): List<String>
+
+    /** 同 [reasoningLevels],另带回档位是不是服务商明确给的。 */
+    fun reasoningLevelsInfo(choice: ModelChoice?): ReasoningLevels
 }
 
 /** 设置里的模型配置/组;显示名就是组名、模型名和服务商名,不走界面文字。 */
@@ -85,5 +92,9 @@ class ProviderMainModelCatalog(private val store: ProviderStore) : MainModelCata
 
     override fun isGroup(choice: ModelChoice): Boolean = choice is ModelChoice.Group
 
+    override fun globalGroup(): Boolean = store.roles.value.mainGroup != null
+
     override fun reasoningLevels(choice: ModelChoice?): List<String> = store.reasoningLevels(choice)
+
+    override fun reasoningLevelsInfo(choice: ModelChoice?): ReasoningLevels = store.reasoningLevelsInfo(choice)
 }

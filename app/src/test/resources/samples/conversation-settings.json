@@ -1,0 +1,6 @@
+{
+  "main": {"kind": "group", "id": "group-main"},
+  "reasoningEffort": "high",
+  "skills": {"kind": "only", "ids": ["documents", "personal-notes"]},
+  "mcpServers": {"kind": "all"}
+}

@@ -353,6 +353,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             java.io.File(filesDir, com.wangzan101.mika.chat.SavedChecklistStore.FILE),
             com.wangzan101.mika.settings.KeystoreKeyCipher("mika-saved-checklists"),
         )
+    }
+
     /** 全局允许的工作区技能 / MCP server 列表;任务开始时取一份,运行中不重连。 */
     val workspaceAccess: com.wangzan101.mika.settings.WorkspaceAccessStore by lazy {
         com.wangzan101.mika.settings.WorkspaceAccessStore(java.io.File(filesDir, "settings/workspace-access.json"))
