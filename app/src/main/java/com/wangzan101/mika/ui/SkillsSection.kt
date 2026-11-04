@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import com.wangzan101.mika.ui.components.MikaDialog
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -117,35 +116,21 @@ internal fun SkillsSection(
         }
         if (access != null && workspace != null) {
             val allowed by access.state.collectAsState()
-            val items = workspace.skills()
+            // 技能目录只在个人技能列表变化时重算,不在每次重组时读资源
+            val items = remember(ui.installed) { workspace.skills() }
             val ids = items.map { it.id }.toSet()
-            GroupLabel(stringResource(R.string.workspace_skills_title))
-            GroupCard {
-                ListRow(
-                    null, stringResource(R.string.workspace_skills_all),
-                    subtitle = stringResource(R.string.workspace_all_note), first = true,
-                ) {
-                    MikaSwitch(allowed.skillsAll, { access.setAllSkills(it, ids) })
-                }
-                if (!allowed.skillsAll) {
-                    ListRow(null, stringResource(R.string.workspace_select_all), onClick = { access.setAllSkills(true, ids) })
-                    ListRow(null, stringResource(R.string.workspace_select_none), onClick = { access.setAllSkills(false, ids) })
-                    items.forEach { item ->
-                        val on = item.id in allowed.skills
-                        ListRow(
-                            null, item.label,
-                            detail = stringResource(R.string.workspace_new).takeIf { item.id !in allowed.skillsKnown },
-                            onClick = { access.setSkill(item.id, !on, ids) },
-                        ) {
-                            Checkbox(on, onCheckedChange = { access.setSkill(item.id, it, ids) })
-                        }
-                    }
-                }
-            }
-            Text(
-                stringResource(R.string.workspace_skills_note),
-                Modifier.padding(horizontal = 16.dp),
-                style = MikaType.Hint, color = MikaTheme.colors.ink3,
+            AllowListSection(
+                title = stringResource(R.string.workspace_skills_title),
+                allLabel = stringResource(R.string.workspace_skills_all),
+                note = stringResource(R.string.workspace_skills_note),
+                all = allowed.skillsAll,
+                items = items,
+                selected = allowed.skills,
+                known = allowed.skillsKnown,
+                onAll = { on -> if (on) access.setAllSkills(true, ids) else access.customizeSkills(ids) },
+                onSelectAll = { access.setAllSkills(true, ids) },
+                onSelectNone = { access.setAllSkills(false, ids) },
+                onItem = { id, on -> access.setSkill(id, on, ids) },
             )
         }
     }

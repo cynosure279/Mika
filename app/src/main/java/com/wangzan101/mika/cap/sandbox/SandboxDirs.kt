@@ -52,8 +52,11 @@ class SandboxDirs internal constructor(
     suspend fun deleteWorkspace(conversationId: String) = deleteWorkDir(workspace(conversationId).name)
 
     /** 删掉受限制的对话留下的脚本子集目录;默认任务没有这个目录。 */
-    suspend fun deleteSkillSet(conversationId: String) = exclusiveWrite {
-        if (skillSets.exists()) gate.deleteTree(skillSets, dirName(conversationId))
+    suspend fun deleteSkillSet(conversationId: String) = deleteSkillSetDir(dirName(conversationId))
+
+    /** 按 `work/` 下的目录名删脚本子集(清理工作区时用)。 */
+    suspend fun deleteSkillSetDir(dirName: String) = exclusiveWrite {
+        if (skillSets.exists()) gate.deleteTree(skillSets, dirName)
     }
 
     /** 删掉 `work/` 下名为 [dirName] 的工作区。 */

@@ -118,8 +118,11 @@ class RootfsInstaller(
         }
     }
 
-    /** 删除所有对话的工作区。 */
-    suspend fun clearWorkspaces() = dirs.exclusiveWrite { deleteReachable(dirs.work) }
+    /** 删除所有对话的工作区和受限对话的脚本子集。 */
+    suspend fun clearWorkspaces() = dirs.exclusiveWrite {
+        deleteReachable(dirs.work)
+        deleteReachable(dirs.skillSets)
+    }
 
     private suspend fun run(s: InstallStep) {
         when (s) {
@@ -197,6 +200,7 @@ class RootfsInstaller(
 
     /** 删掉 [dir] 整棵树(它的上一层是 Mika 自己的目录);经关口按句柄逐层走。 */
     private fun deleteReachable(dir: File) {
+        if (!dir.exists()) return
         val parent = dir.parentFile ?: return
         dirs.gate.deleteTree(parent, dir.name)
     }

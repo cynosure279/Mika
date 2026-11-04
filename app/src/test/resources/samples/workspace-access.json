@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "skillsAll": false,
+  "mcpAll": false,
+  "skills": ["documents", "research"],
+  "mcpServers": ["mcp-browser"],
+  "skillsKnown": ["documents", "research", "writing"],
+  "mcpKnown": ["mcp-browser", "mcp-db"]
+}

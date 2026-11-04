@@ -182,6 +182,9 @@ sealed interface ModelChoice {
     data class Group(val groupId: String) : ModelChoice
 }
 
+/** 一个主模型能选的思考档位;[fromProvider] 为假表示是界面推出来的通用档位,服务端未必都认。 */
+data class ReasoningLevels(val levels: List<String>, val fromProvider: Boolean)
+
 /** 一个用途选了什么:一个具体模型、一个模型组、用主模型,或不用(只有看图可以不用)。 */
 sealed interface RoleChoice {
     /** 用 [configId] 这条模型配置。 */
@@ -761,7 +764,10 @@ class ProviderStore(
      * 这个主模型(或对话覆盖)能选的思考档位。具体模型就是它支持的;组取所有成员并集(没写的成员按默认),
      * 由 [memberEffort] 在执行时夹到各自最近的档位。空列表表示这个选择不提供档位。
      */
-    fun reasoningLevels(choice: ModelChoice?): List<String> {
+    fun reasoningLevels(choice: ModelChoice?): List<String> = reasoningLevelsInfo(choice).levels
+
+    /** 同 [reasoningLevels],另带回这些档位是不是服务商/列表明确给的(否则是界面推出来的通用档位)。 */
+    fun reasoningLevelsInfo(choice: ModelChoice?): ReasoningLevels {
         val usable = usableMainChoice(choice)
         val cfgs = when (usable) {
             is ModelChoice.Model -> listOfNotNull(_configs.value.firstOrNull { it.id == usable.configId })
@@ -771,9 +777,13 @@ class ProviderStore(
                 ?.mapNotNull { m -> _configs.value.firstOrNull { it.id == m.configId } }
                 ?: listOfNotNull(configFor(ModelRole.Main))
         }
-        val all = cfgs.flatMap { cfg -> ReasoningOptions.of(cfg, listedOf(cfg))?.levels.orEmpty() }.toSet()
+        val options = cfgs.mapNotNull { cfg -> ReasoningOptions.of(cfg, listedOf(cfg)) }
+        val all = options.flatMap { it.levels }.toSet()
         val ordered = EFFORT_ORDER.filter { it in all }
-        return ordered + (all - ordered.toSet()).sorted()
+        return ReasoningLevels(
+            levels = ordered + (all - ordered.toSet()).sorted(),
+            fromProvider = options.isNotEmpty() && options.all { it.fromProvider },
+        )
     }
 
     private fun modelFor(role: ModelRole, session: ModelSession, choices: RoleChoices): ChatModel? {

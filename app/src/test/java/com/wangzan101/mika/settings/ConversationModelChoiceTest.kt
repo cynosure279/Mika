@@ -14,6 +14,7 @@ import com.wangzan101.mika.core.model.StopReason
 import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.model.Usage
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -142,6 +143,8 @@ class ConversationModelChoiceTest {
         assertEquals("high", setups["m1"]!!.reasoningEffort)
         // 这个模型能选的档位也报给界面
         assertEquals(listOf("none", "minimal", "low", "medium", "high", "xhigh", "max"), s.reasoningLevels(null))
+        // Responses 没在列表里写档位时是推出来的通用档位
+        assertFalse(s.reasoningLevelsInfo(null).fromProvider)
     }
 
     /** 组员对目标档位夹取:最高更低降到最高、最低更高升到最低。 */
@@ -163,6 +166,8 @@ class ConversationModelChoiceTest {
         assertEquals("medium", setups["m1"]!!.reasoningEffort)
         assertEquals("high", setups["m2"]!!.reasoningEffort)
         assertEquals(listOf("low", "medium", "high", "max"), s.reasoningLevels(ModelChoice.Group("g")))
+        // 成员档位是列表明确给的
+        assertTrue(s.reasoningLevelsInfo(ModelChoice.Group("g")).fromProvider)
 
         s.modelFor(ModelRole.Main, session, ModelChoice.Group("g"), "low")
         assertEquals("low", setups["m1"]!!.reasoningEffort)

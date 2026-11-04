@@ -35,7 +35,9 @@ class SandboxUsageReader(
             val c = byDir[dir.name]
             WorkspaceUsage(dir.name, c?.id, c?.title, AndroidSandbox.treeBytes(dir.toPath()), dir.name in busy)
         }.sortedByDescending { it.bytes }
-        return SandboxUsage(AndroidSandbox.treeBytes(dirs.rootfs.toPath()), AndroidSandbox.treeBytes(dirs.skills.toPath()), workspaces)
+        val skills = AndroidSandbox.treeBytes(dirs.skills.toPath()) +
+            (if (dirs.skillSets.exists()) AndroidSandbox.treeBytes(dirs.skillSets.toPath()) else 0)
+        return SandboxUsage(AndroidSandbox.treeBytes(dirs.rootfs.toPath()), skills, workspaces)
     }
 
     /** 清掉 `work/` 下名为 [dirName] 的工作区;它的对话有任务在跑时不清,返回 false。 */
@@ -54,6 +56,11 @@ class SandboxUsageReader(
             // 前面的工作区可能删很久:每个工作区删除前都重新查。
             if (name in busyDirs()) busy++
             else runCatching { dirs.deleteWorkDir(name) }
+        }
+        // 受限对话留下的脚本子集跟着工作区一起清;在跑的任务不碰
+        val busyNow = busyDirs()
+        for (dir in dirs.skillSets.listFiles().orEmpty()) {
+            if (dir.name !in busyNow) runCatching { dirs.deleteSkillSetDir(dir.name) }
         }
         busy
     }

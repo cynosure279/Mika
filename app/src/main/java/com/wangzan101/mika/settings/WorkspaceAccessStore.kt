@@ -56,12 +56,20 @@ class WorkspaceAccessStore(private val file: File) {
 
     /** 全选 / 全不选技能;全选包括以后新增的,全不选是明确的空集。[allNames] 用来记下此刻见过的项。 */
     @Synchronized fun setAllSkills(all: Boolean, allNames: Set<String> = emptySet()) = update { s ->
-        s.copy(skillsAll = all, skills = emptySet(), skillsKnown = s.skillsKnown.ifEmpty { allNames })
+        s.copy(
+            skillsAll = all, skills = emptySet(),
+            skillsKnown = (s.skillsKnown + allNames).ifEmpty { s.skills },
+        )
+    }
+
+    /** 关掉「全部技能」时转成当前全量的明确列表,让用户逐项取消;不会被误当成「一个都不要」。 */
+    @Synchronized fun customizeSkills(allNames: Set<String>) = update { s ->
+        s.copy(skillsAll = false, skills = allNames, skillsKnown = s.skillsKnown + allNames)
     }
 
     /** 勾选或取消一个技能;[allNames] 是此刻设置里能看到的全部技能,用来在「全部」状态下算出取消后的明确列表。 */
     @Synchronized fun setSkill(name: String, allowed: Boolean, allNames: Set<String>) = update { s ->
-        val known = s.skillsKnown.ifEmpty { allNames }
+        val known = s.skillsKnown + allNames
         when {
             s.skillsAll && allowed -> s.copy(skillsKnown = known)
             s.skillsAll -> s.copy(skillsAll = false, skills = allNames - name, skillsKnown = known)
@@ -71,11 +79,19 @@ class WorkspaceAccessStore(private val file: File) {
     }
 
     @Synchronized fun setAllMcp(all: Boolean, allIds: Set<String> = emptySet()) = update { s ->
-        s.copy(mcpAll = all, mcpServers = emptySet(), mcpKnown = s.mcpKnown.ifEmpty { allIds })
+        s.copy(
+            mcpAll = all, mcpServers = emptySet(),
+            mcpKnown = (s.mcpKnown + allIds).ifEmpty { s.mcpServers },
+        )
+    }
+
+    /** 关掉「全部 MCP server」时转成当前全量的明确列表。 */
+    @Synchronized fun customizeMcp(allIds: Set<String>) = update { s ->
+        s.copy(mcpAll = false, mcpServers = allIds, mcpKnown = s.mcpKnown + allIds)
     }
 
     @Synchronized fun setMcpServer(id: String, allowed: Boolean, allIds: Set<String>) = update { s ->
-        val known = s.mcpKnown.ifEmpty { allIds }
+        val known = s.mcpKnown + allIds
         when {
             s.mcpAll && allowed -> s.copy(mcpKnown = known)
             s.mcpAll -> s.copy(mcpAll = false, mcpServers = allIds - id, mcpKnown = known)

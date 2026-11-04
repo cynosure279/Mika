@@ -98,32 +98,18 @@ fun McpServersScreen(store: McpServerStore, onBack: () -> Unit, access: Workspac
         if (access != null) {
             val allowed by access.state.collectAsState()
             val ids = servers.map { it.id }.toSet()
-            GroupLabel(stringResource(R.string.workspace_mcp_title))
-            GroupCard {
-                ListRow(
-                    null, stringResource(R.string.workspace_mcp_all),
-                    subtitle = stringResource(R.string.workspace_all_note), first = true,
-                ) {
-                    MikaSwitch(allowed.mcpAll, { access.setAllMcp(it, ids) })
-                }
-                if (!allowed.mcpAll) {
-                    ListRow(null, stringResource(R.string.workspace_select_all), onClick = { access.setAllMcp(true, ids) })
-                    ListRow(null, stringResource(R.string.workspace_select_none), onClick = { access.setAllMcp(false, ids) })
-                    servers.forEach { server ->
-                        val on = server.id in allowed.mcpServers
-                        ListRow(
-                            null, server.name,
-                            detail = stringResource(R.string.workspace_new).takeIf { server.id !in allowed.mcpKnown },
-                            onClick = { access.setMcpServer(server.id, !on, ids) },
-                        ) {
-                            Checkbox(on, onCheckedChange = { access.setMcpServer(server.id, it, ids) })
-                        }
-                    }
-                }
-            }
-            Text(
-                stringResource(R.string.workspace_mcp_note),
-                Modifier.padding(horizontal = 16.dp),
+            AllowListSection(
+                title = stringResource(R.string.workspace_mcp_title),
+                allLabel = stringResource(R.string.workspace_mcp_all),
+                note = stringResource(R.string.workspace_mcp_note),
+                all = allowed.mcpAll,
+                items = servers.map { WorkspaceItem(it.id, it.name) },
+                selected = allowed.mcpServers,
+                known = allowed.mcpKnown,
+                onAll = { on -> if (on) access.setAllMcp(true, ids) else access.customizeMcp(ids) },
+                onSelectAll = { access.setAllMcp(true, ids) },
+                onSelectNone = { access.setAllMcp(false, ids) },
+                onItem = { id, on -> access.setMcpServer(id, on, ids) },
             )
         }
     }

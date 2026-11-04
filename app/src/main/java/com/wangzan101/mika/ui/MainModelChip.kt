@@ -157,6 +157,13 @@ internal fun MainModelSheet(
                         style = MikaType.Caption, color = c.warn,
                     )
                 }
+                if (!ui.effortsFromProvider) {
+                    Text(
+                        stringResource(R.string.model_reasoning_unknown),
+                        Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp),
+                        style = MikaType.Caption, color = c.ink3,
+                    )
+                }
                 RadioRow(
                     stringResource(R.string.chat_model_effort_default), selected = ui.reasoningEffort == null,
                     subtitle = stringResource(R.string.chat_model_effort_default_note),

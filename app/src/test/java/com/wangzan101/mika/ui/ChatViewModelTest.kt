@@ -32,6 +32,7 @@ import com.wangzan101.mika.task.SteerState
 import com.wangzan101.mika.ui.PipPhysics.Corner
 import com.wangzan101.mika.core.cap.web.AttachedPage
 import com.wangzan101.mika.core.userscreen.UserScreenMessage
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -772,6 +773,45 @@ class ChatViewModelTest {
         vm.attach(listOf("content://x/3"))
         runCurrent()
         assertTrue(vm.ui.value.attachments.isEmpty())
+    }
+
+    /** 新对话里先选设置,再带附件发送:导入期间改档位不能丢,开始任务时整份落盘。 */
+    @Test fun settingsChangedDuringAttachmentImportAreNotLost() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        val store = ConversationStore(tmp.newFolder())
+        val choice = ModelChoice.Model("cfg-2")
+        val catalog = FakeMainModelCatalog(
+            global = "m1", options = listOf(MainModelOption(choice, "m2")),
+            labels = mapOf(choice to "m2"), allowed = setOf(choice),
+            levels = listOf("low", "high"),
+        )
+        val vm = ChatViewModel(
+            backgroundScope, state, stage, actions, store,
+            sandboxReady = MutableStateFlow(true),
+            mainModels = catalog,
+            importAttachments = { _, _ ->
+                gate.await()
+                com.wangzan101.mika.cap.sandbox.ImportResult(listOf("/workspace/inbox/a.jpg" to 10L), emptyList())
+            },
+        ).also { runCurrent() }
+
+        vm.chooseMainModel(choice)
+        vm.attach(listOf("content://x/1"))
+        runCurrent()
+        assertTrue(vm.send("带附件", ok))
+        runCurrent()
+        val id = vm.ui.value.conversationId!!
+        assertTrue(vm.ui.value.importing)
+
+        // 导入还没完:设置仍然是 pending,改档位应该改 pending,而不是先写一份再被覆盖
+        vm.chooseReasoningEffort("high")
+        runCurrent()
+        gate.complete(Unit)
+        runCurrent()
+
+        val saved = store.settings(id)
+        assertEquals(choice, saved.main)
+        assertEquals("high", saved.reasoningEffort)
     }
 
     @Test fun attachmentsAloneCanBeSent() = runTest {
@@ -2253,6 +2293,8 @@ class ChatViewModelTest {
         vm.chooseSkillScope(WorkspaceChoice.Only(setOf("documents")))
         vm.chooseMcpScope(WorkspaceChoice.All)
         runCurrent()
+        // 清单在打开面板时现取,不在每轮保存时读资源
+        vm.refreshConversationUi()
         assertEquals(listOf("low", "high"), vm.ui.value.mainModel.efforts)
         assertEquals("high", vm.ui.value.mainModel.reasoningEffort)
         assertEquals(listOf("Documents"), vm.ui.value.mainModel.skillItems.map { it.label })
@@ -2287,6 +2329,8 @@ private class FakeMainModelCatalog(
     private val labels: Map<ModelChoice, String> = emptyMap(),
     private val allowed: Set<ModelChoice> = emptySet(),
     private val levels: List<String> = emptyList(),
+    private val fromProvider: Boolean = true,
+    private val globalIsGroup: Boolean = false,
 ) : MainModelCatalog {
     override val changes = MutableSharedFlow<Unit>()
     override fun options(): List<MainModelOption> = options
@@ -2294,7 +2338,10 @@ private class FakeMainModelCatalog(
     override fun label(choice: ModelChoice): String? = labels[choice]
     override fun globalLabel(): String? = global
     override fun isGroup(choice: ModelChoice): Boolean = choice is ModelChoice.Group
+    override fun globalGroup(): Boolean = globalIsGroup
     override fun reasoningLevels(choice: ModelChoice?): List<String> = levels
+    override fun reasoningLevelsInfo(choice: ModelChoice?): com.wangzan101.mika.settings.ReasoningLevels =
+        com.wangzan101.mika.settings.ReasoningLevels(levels, fromProvider)
 }
 
 private class FakeWorkspaceCatalog(

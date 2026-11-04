@@ -34,6 +34,26 @@ class WorkspaceAccessStoreTest {
         assertTrue(s.current().skillsFor(WorkspaceChoice.FollowGlobal) == setOf("a", "c"))
     }
 
+    @Test fun turningAllOffKeepsCurrentListEditable() {
+        val s = store()
+        s.customizeSkills(setOf("a", "b"))
+        assertFalse(s.current().skillsAll)
+        assertEquals(setOf("a", "b"), s.current().skills)
+        s.customizeMcp(setOf("one"))
+        assertFalse(s.current().mcpAll)
+        assertEquals(setOf("one"), s.current().mcpServers)
+    }
+
+    /** 后来新增的项用户勾上后不再标「新」。 */
+    @Test fun knownGrowsWhenUserInteracts() {
+        val s = store()
+        s.customizeSkills(setOf("a"))
+        assertFalse("b" in s.current().skillsKnown)
+        s.setSkill("b", true, setOf("a", "b"))
+        assertTrue("b" in s.current().skillsKnown)
+        assertTrue("b" in s.current().skills)
+    }
+
     @Test fun selectAllAndNone() {
         val s = store()
         s.setAllSkills(false, setOf("a", "b"))
