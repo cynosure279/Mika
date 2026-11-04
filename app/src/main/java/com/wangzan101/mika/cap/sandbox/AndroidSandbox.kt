@@ -113,18 +113,36 @@ class AndroidSandbox internal constructor(
     private val proxy: () -> String = { "" },
     /** APK 内的桥客户端；已有运行环境也要随 APK 更新。 */
     private val clientScript: () -> ByteArray? = { null },
+    /** 受限任务的对话编号和允许的技能名;两者都有时 `/opt/mika/skills` 绑这个对话的脚本子集。 */
+    private val skillsConversationId: String? = null,
+    private val skillNames: Set<String>? = null,
 ) : SandboxPort {
     override val tree get() = dirs.tree
 
-    constructor(context: Context, state: SandboxState, onShared: (SharedFile) -> Unit = {}) : this(
+    constructor(
+        context: Context, state: SandboxState,
+        conversationId: String? = null, skillNames: Set<String>? = null,
+        onShared: (SharedFile) -> Unit = {},
+    ) : this(
         SandboxDirs(context), { state.status.value }, { dns(context) }, bridges = true, version = versionOf(context),
-        exporter = ShareExporter(context)::export, onShared = onShared, sync = { SkillsSync.sync(SandboxDirs(context)) { state.status.value is SandboxStatus.Ready } },
-        skillFiles = { SkillsSync.bundled },
+        exporter = ShareExporter(context)::export, onShared = onShared,
+        sync = {
+            val d = SandboxDirs(context)
+            val target = if (skillNames != null && conversationId != null) d.skillsFor(conversationId) else d.skills
+            val files = if (skillNames != null) SkillsSync.subset(skillNames) else SkillsSync.bundled
+            SkillsSync.sync(d, files, target) { state.status.value is SandboxStatus.Ready }
+        },
+        skillFiles = { if (skillNames != null) SkillsSync.subset(skillNames) else SkillsSync.bundled },
         startPreparing = { RuntimePreparer.ensure(context, retryFailed = true) },
         allowNetwork = { state.networkAllowed },
         proxy = { NetProxyStore.get(context).get() },
         clientScript = { context.assets.open("sandbox/mika").use { it.readBytes() } },
+        skillsConversationId = conversationId, skillNames = skillNames,
     )
+
+    /** 技能目录在宿主上的位置:默认任务用全局那份,受限任务用这个对话的脚本子集。 */
+    private val skillsRoot: File
+        get() = if (skillNames != null && skillsConversationId != null) dirs.skillsFor(skillsConversationId) else dirs.skills
 
     private val quota = ShareQuota()
 
@@ -162,14 +180,14 @@ class AndroidSandbox internal constructor(
         val o = tree.shared {
             val ws = withContext(Dispatchers.IO) {
                 dirs.workspace(workspace).also {
-                    dirs.ensureBindSources(it)
+                    dirs.ensureBindSources(it, skillsRoot)
                     syncClientScript()
                     // cwd 在工作区里不存在就建上(逐段、不跟随链接);建不了的不建,让 PRoot 自己报错
                     rel.takeIf { c -> c.isNotEmpty() }?.let { c -> runCatching { files.mkdirs(it, c) } }
                     if (network) writeResolvConf()
                 }
             }
-            val cmd = ProcRunner.argv(dirs, ws, rel, timeoutSec, network, standIns(), argv)
+            val cmd = ProcRunner.argv(dirs, ws, rel, timeoutSec, network, standIns(), argv, skillsDir = skillsRoot)
             // 命令结束(含超时、被杀、取消)就关掉桥:旧的名字和令牌不再能用
             val session = if (bridges) bridgeFor(workspace, network, onProgress, phone).open() else null
             try {
@@ -217,13 +235,13 @@ class AndroidSandbox internal constructor(
             val process = tree.shared {
                 val ws = withContext(Dispatchers.IO) {
                     dirs.workspace(workspace).also {
-                        dirs.ensureBindSources(it)
+                        dirs.ensureBindSources(it, skillsRoot)
                         syncClientScript()
                         rel.takeIf { c -> c.isNotEmpty() }?.let { c -> runCatching { files.mkdirs(it, c) } }
                         if (network) writeResolvConf()
                     }
                 }
-                val cmd = ProcRunner.argv(dirs, ws, rel, 3600, network, standIns(), argv)
+                val cmd = ProcRunner.argv(dirs, ws, rel, 3600, network, standIns(), argv, skillsDir = skillsRoot)
                 val env = ProcRunner.env(dirs, null, null, workspace, if (network) proxy() else "")
                 val p = withContext(launcherThread + NonCancellable) {
                     ProcessBuilder(cmd).redirectErrorStream(false).apply {
@@ -252,7 +270,7 @@ class AndroidSandbox internal constructor(
         return when {
             SandboxPaths.isWritable(p) -> SandboxPaths.resolveHost(dirs.workspace(workspace), p.removePrefix(SandboxPaths.WORKSPACE).trimStart('/'))
             forWrite -> null
-            else -> SandboxPaths.resolveHost(dirs.skills, p.removePrefix(SandboxPaths.SKILLS).trimStart('/'))
+            else -> SandboxPaths.resolveHost(skillsRoot, p.removePrefix(SandboxPaths.SKILLS).trimStart('/'))
         }
     }
 
@@ -262,7 +280,7 @@ class AndroidSandbox internal constructor(
     override fun hostRoot(workspace: String, normalized: String, forWrite: Boolean): Pair<File, String>? = when {
         SandboxPaths.isWritable(normalized) -> dirs.workspace(workspace).also { if (forWrite) it.mkdirs() } to normalized.removePrefix(SandboxPaths.WORKSPACE).trimStart('/')
         forWrite -> null
-        else -> dirs.skills to normalized.removePrefix(SandboxPaths.SKILLS).trimStart('/')
+        else -> skillsRoot to normalized.removePrefix(SandboxPaths.SKILLS).trimStart('/')
     }
 
     /** web_upload 的路径检查:只认这个工作区里过得了关口的普通文件;技能目录和工作区外都算越界。 */
@@ -374,9 +392,9 @@ class AndroidSandbox internal constructor(
     override suspend fun verifyScript(skillPath: String, file: String): Boolean {
         val rel = "$skillPath/$file"
         val expected = skillFiles()[rel] ?: return false
-        if (withContext(Dispatchers.IO) { SkillsSync.matches(dirs, rel, expected) }) return true
+        if (withContext(Dispatchers.IO) { SkillsSync.matches(dirs, rel, expected, skillsRoot) }) return true
         prepare()
-        return withContext(Dispatchers.IO) { SkillsSync.matches(dirs, rel, expected) }
+        return withContext(Dispatchers.IO) { SkillsSync.matches(dirs, rel, expected, skillsRoot) }
     }
 
     /** `mika share` 与 share_file 走同一套路径规则。 */

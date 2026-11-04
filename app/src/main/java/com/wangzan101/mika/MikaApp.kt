@@ -46,6 +46,7 @@ import com.wangzan101.mika.task.TriggerOutcomes
 import com.wangzan101.mika.task.TaskService
 import com.wangzan101.mika.task.TaskCenterState
 import com.wangzan101.mika.ui.ChatViewModel
+import com.wangzan101.mika.ui.AppWorkspaceCatalog
 import com.wangzan101.mika.ui.ProviderMainModelCatalog
 import com.wangzan101.mika.ui.TaskActions
 import kotlinx.coroutines.CoroutineScope
@@ -209,7 +210,10 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             removeSchedule = { TriggerRuntime.remove(app, it) },
             deleteWorkspace = { id ->
                 // 工作区里有附件、用户发来的屏幕、任务写的文件;沙箱里的命令碰得到这里,和命令、导入、重置互斥着删
-                SandboxDirs(app).deleteWorkspace(id)
+                val dirs = SandboxDirs(app)
+                dirs.deleteWorkspace(id)
+                // 受限对话留下的技能脚本子集
+                dirs.deleteSkillSet(id)
             },
         )
     }
@@ -222,6 +226,11 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
 
     val appAccess: com.wangzan101.mika.settings.AppAccessStore by lazy {
         com.wangzan101.mika.settings.AppAccessStore(java.io.File(filesDir, "app-access.json"))
+    }
+
+    /** 全局允许的工作区技能 / MCP server 列表;任务开始时取一份,运行中不重连。 */
+    val workspaceAccess: com.wangzan101.mika.settings.WorkspaceAccessStore by lazy {
+        com.wangzan101.mika.settings.WorkspaceAccessStore(java.io.File(filesDir, "settings/workspace-access.json"))
     }
 
     /** 全局的询问 / 自主和各任务自己的那一份;开发者选项里的「自主模式」经它改。 */
@@ -315,7 +324,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             // 标题后面加当前界面语言的「分支」后缀;源标题太长时先截短,后缀留着
             branchTitle = { base -> ChatCopy.branchTitle(base, tr(R.string.chat_branch_title_suffix)) },
             // 对话页输入框上方的主模型 chip:选项和显示名都来自设置里的模型/组
-            mainModels = ProviderMainModelCatalog(com.wangzan101.mika.settings.ProviderStore.get(app)),        )
+            mainModels = ProviderMainModelCatalog(com.wangzan101.mika.settings.ProviderStore.get(app)),
+            workspaceItems = AppWorkspaceCatalog(app),        )
     }
 
     override fun onCreate() {

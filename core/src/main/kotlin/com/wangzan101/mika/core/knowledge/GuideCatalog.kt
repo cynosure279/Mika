@@ -52,6 +52,8 @@ class GuideCatalog private constructor(
     private val personal: PersonalSkills? = null,
     /** 个人技能正文载入时做的改写(改名前的工具名换成现在的);默认原样。 */
     private val rewrite: (String) -> String = { it },
+    /** 只给这些技能(`skill` / `personal`);null = 全部。App/站点知识不受影响。 */
+    private val allowedSkills: Set<String>? = null,
 ) {
     private val bundledItems: List<GuideInfo> = rows.map(::info)
 
@@ -60,8 +62,16 @@ class GuideCatalog private constructor(
         get() {
             val mine = personalEntries().map { it.info }
             val names = mine.map { it.name }.toSet()
-            return mine + bundledItems.filter { it.name !in names }
+            val all = mine + bundledItems.filter { it.name !in names }
+            return allowedSkills?.let { allowed -> all.filter { it.kind !in SKILL_KINDS || it.name in allowed } } ?: all
         }
+
+    /**
+     * 这个目录的一个视图:技能只留 [names] 里的(内置和个人技能都算),App/站点知识不动。
+     * `null` 是完整挂载;空集是这个任务没有技能。工具目录和脚本子集都用它,不靠调用方记得过滤。
+     */
+    fun withAllowedSkills(names: Set<String>?): GuideCatalog =
+        if (names == allowedSkills) this else GuideCatalog(loader, rows, personal, rewrite, names)
 
     /**
      * [route] 为 `android`:有名为 [name] 的 App 知识;为 `browser`:有名为 [name] 的站点知识,或名为 [name] 的 App 关联了站点。
@@ -157,11 +167,13 @@ class GuideCatalog private constructor(
 
     /**
      * 要同步进沙箱的脚本:每个带 `scripts/manifest.json` 的条目,清单本身加上清单里列出的文件。
-     * 键是 `/opt/mika/skills` 之下的相对路径。
+     * 键是 `/opt/mika/skills` 之下的相对路径。[allowed] 给了时只要这些技能的脚本(默认用本目录的限制)。
      */
-    fun scriptFiles(): Map<String, ByteArray> {
+    fun scriptFiles(allowed: Set<String>? = allowedSkills): Map<String, ByteArray> {
         val out = sortedMapOf<String, ByteArray>()
         for (info in bundledItems) {
+            if (info.kind !in SKILL_KINDS) continue
+            if (allowed != null && info.name !in allowed) continue
             val src = "${KnowledgeIndex.dirOf(info.kind)}/${info.name}"
             val manifest = resource("$src/scripts/manifest.json") ?: continue
             val dir = scriptSource(info)
@@ -172,9 +184,11 @@ class GuideCatalog private constructor(
     }
 
     /** 清单里标为可运行(且是能跑的脚本类型)的脚本,`目录/文件`,如 `skills/documents/scripts/extract_pdf.py`。 */
-    fun runnableScripts(): Set<String> {
+    fun runnableScripts(allowed: Set<String>? = allowedSkills): Set<String> {
         val out = sortedSetOf<String>()
         for (info in bundledItems) {
+            if (info.kind !in SKILL_KINDS) continue
+            if (allowed != null && info.name !in allowed) continue
             val manifest = resource("${KnowledgeIndex.dirOf(info.kind)}/${info.name}/scripts/manifest.json") ?: continue
             for (e in ScriptManifest.parse(manifest.toString(Charsets.UTF_8))) {
                 if (e.runnable && ScriptManifest.interpreterFor(e.file) != null) out += "${scriptSource(info)}/${e.file}"

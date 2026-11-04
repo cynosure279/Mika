@@ -53,6 +53,30 @@ class SkillsSyncTest {
         assertEquals("print(1)", py.readText())
     }
 
+    @Test fun restrictedSkillsSyncToTheirOwnDirectory() = runBlocking {
+        val target = dirs.skillsFor("conv")
+        SkillsSync.sync(dirs, v1, target)
+        assertTrue(File(target, "skills/report/scripts/tabulate.py").isFile)
+        // 全局目录没被动过
+        assertFalse(File(dirs.skills, "skills/report/scripts/tabulate.py").exists())
+        // 空子集 = 这个对话没有技能
+        SkillsSync.sync(dirs, emptyMap(), target)
+        assertFalse(File(target, "skills/report/scripts/tabulate.py").exists())
+    }
+
+    @Test fun subsetKeepsOnlySelectedSkillDirectories() {
+        SkillsSync.extraForTests = mapOf(
+            "skills/zz-a-test/scripts/x.sh" to "1".toByteArray(),
+            "skills/zz-b-test/scripts/y.sh" to "2".toByteArray(),
+        )
+        try {
+            assertEquals(setOf("skills/zz-a-test/scripts/x.sh"), SkillsSync.subset(setOf("zz-a-test")).keys)
+            assertTrue(SkillsSync.subset(emptySet()).isEmpty())
+        } finally {
+            SkillsSync.extraForTests = emptyMap()
+        }
+    }
+
     @Test fun pathsOutsideSkillsAreSkipped() = runBlocking {
         SkillsSync.sync(dirs, mapOf("../../escape.txt" to "x".toByteArray(), "skills/a/scripts/manifest.json" to "[]".toByteArray()))
         assertFalse(File(dirs.root, "escape.txt").exists())

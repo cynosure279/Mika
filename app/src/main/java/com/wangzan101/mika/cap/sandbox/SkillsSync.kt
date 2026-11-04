@@ -33,15 +33,26 @@ object SkillsSync {
 
     val bundled: Map<String, ByteArray> get() = if (extraForTests.isEmpty()) packaged else packaged + extraForTests
 
+    /** 只要这些技能的脚本(键仍是 `/opt/mika/skills` 下的相对路径);空集 = 一个都不要。 */
+    fun subset(allowed: Set<String>): Map<String, ByteArray> = bundled.filterKeys { rel ->
+        rel.removePrefix("skills/").substringBefore('/') in allowed
+    }
+
     /**
      * 和安装、重置经 [SandboxTree] 互斥(安装里的这一步就在安装持有的许可里跑);[proceed] 在拿到许可后再看一次:
      * 等许可期间运行环境被重置了(不再就绪)就不写,免得在刚删空的目录里又建出技能目录。
+     * [target] 默认是全局 `/opt/mika/skills` 的宿主目录;受限任务传这个对话自己的目录。
      */
-    suspend fun sync(dirs: SandboxDirs, files: Map<String, ByteArray> = bundled, proceed: () -> Boolean = { true }) = dirs.tree.shared { lock.withLock {
+    suspend fun sync(
+        dirs: SandboxDirs,
+        files: Map<String, ByteArray> = bundled,
+        target: File = dirs.skills,
+        proceed: () -> Boolean = { true },
+    ) = dirs.tree.shared { lock.withLock {
         withContext(Dispatchers.IO) {
             if (!proceed()) return@withContext
-            if (onDisk(dirs)?.let(::hashOf) == hashOf(files)) return@withContext
-            val staging = File(dirs.root, "skills.new")
+            if (onDisk(dirs, target)?.let(::hashOf) == hashOf(files)) return@withContext
+            val staging = File(target.parentFile, "${target.name}.new")
             RootfsExtractor.deleteTree(staging)
             staging.mkdirs()
             for ((rel, bytes) in files) {
@@ -51,16 +62,16 @@ object SkillsSync {
                 f.writeBytes(bytes)
             }
             // 技能目录沙箱写得动:整棵删要按句柄走,中途被换成链接的目录不跟进去
-            dirs.gate.deleteTree(dirs.root, dirs.skills.name)
-            check(staging.renameTo(dirs.skills)) { "could not move synced skills into place" }
+            if (target.exists()) dirs.gate.deleteTree(target.parentFile, target.name)
+            check(staging.renameTo(target)) { "could not move synced skills into place" }
             // 旧版本按标记文件判断,已不再使用
             File(dirs.root, "skills.sha256").delete()
         }
     } }
 
     /** [rel] 在磁盘上(经关口读,不跟随链接)与打包的 [expected] 逐字节相同。 */
-    internal fun matches(dirs: SandboxDirs, rel: String, expected: ByteArray): Boolean = try {
-        dirs.gate.openRead(dirs.skills, rel).use { g -> g.size == expected.size.toLong() && g.read(0, expected.size).contentEquals(expected) }
+    internal fun matches(dirs: SandboxDirs, rel: String, expected: ByteArray, target: File = dirs.skills): Boolean = try {
+        dirs.gate.openRead(target, rel).use { g -> g.size == expected.size.toLong() && g.read(0, expected.size).contentEquals(expected) }
     } catch (e: SandboxError) {
         false
     } catch (e: IOException) {
@@ -68,8 +79,8 @@ object SkillsSync {
     }
 
     /** 目录里所有文件(相对路径 → 内容);有链接、特殊文件、过大或读不了时为 null(一律当作不一致)。列目录只为找名字,内容经关口读。 */
-    private fun onDisk(dirs: SandboxDirs): Map<String, ByteArray>? {
-        val base = dirs.skills.toPath()
+    private fun onDisk(dirs: SandboxDirs, target: File): Map<String, ByteArray>? {
+        val base = target.toPath()
         if (!Files.isDirectory(base, LinkOption.NOFOLLOW_LINKS)) return null
         val out = HashMap<String, ByteArray>()
         var total = 0L
@@ -79,7 +90,7 @@ object SkillsSync {
                     if (p == base || Files.isDirectory(p, LinkOption.NOFOLLOW_LINKS)) continue
                     if (!Files.isRegularFile(p, LinkOption.NOFOLLOW_LINKS)) return null
                     val rel = base.relativize(p).joinToString("/")
-                    out[rel] = dirs.gate.openRead(dirs.skills, rel).use { g ->
+                    out[rel] = dirs.gate.openRead(target, rel).use { g ->
                         total += g.size
                         if (total > MAX_ON_DISK) return null
                         g.read(0, g.size.toInt())

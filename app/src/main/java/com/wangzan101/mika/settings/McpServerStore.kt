@@ -214,18 +214,23 @@ class McpServerStore(
         resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore? = null,
         workspace: String = SETTINGS_WORKSPACE,
         budgetMs: Long = CONNECT_BUDGET_MS,
-    ): McpConnections = owner.acquire(Dispatchers.IO, { c: McpConnections -> c.close() }) { connections(resultStore, workspace, budgetMs) }
+        /** 这个任务只连这些 server;null = 全部启用项,空集 = 一个都不连。 */
+        allowedServerIds: Set<String>? = null,
+    ): McpConnections = owner.acquire(Dispatchers.IO, { c: McpConnections -> c.close() }) {
+        connections(resultStore, workspace, budgetMs, allowedServerIds)
+    }
 
     /**
-     * 并行连接所有启用项;单个失败只记录,不抛。整段最多等 [budgetMs]:到点还没连上的这次不接,
+     * 并行连接所有启用项(限定在 [allowedServerIds] 里;null = 不限制);单个失败只记录,不抛。整段最多等 [budgetMs]:到点还没连上的这次不接,
      * 记成失败(健康状态里写明超时),不拖住任务开头;已经连上的照常用。被取消时连上的也关掉再抛。
      */
     suspend fun connections(
         resultStore: com.wangzan101.mika.core.cap.mcp.McpResultStore? = null,
         workspace: String = SETTINGS_WORKSPACE,
         budgetMs: Long = CONNECT_BUDGET_MS,
+        allowedServerIds: Set<String>? = null,
     ): McpConnections {
-        val enabled = _servers.value.filter { it.enabled }
+        val enabled = _servers.value.filter { it.enabled && (allowedServerIds == null || it.id in allowedServerIds) }
         val done = ConcurrentHashMap<String, Result<McpConnection>>()
         try {
             withTimeoutOrNull(budgetMs) {
