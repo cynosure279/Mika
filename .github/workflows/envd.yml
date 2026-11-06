@@ -40,6 +40,13 @@ jobs:
         run: |
           go vet ./...
           go test -race ./...
+      - name: Shell script syntax
+        run: |
+          set -e
+          for f in tools/envd/smoke.sh tools/envd/deploy/*.sh; do
+            echo "sh -n $f"
+            sh -n "$f"
+          done
       - name: Real binary MCP smoke test
         run: sh tools/envd/smoke.sh
       - name: Cross-compile

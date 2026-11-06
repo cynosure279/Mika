@@ -2,11 +2,31 @@
 
 A small self-hosted execution server for Mika. It speaks MCP over HTTP and lets a phone run commands and read/write files in named workspaces on another machine.
 
-Status: experimental. It has a workspace backend, runs as a static binary on Linux/macOS/Windows/Termux, can attach existing directories under explicit `-allow-root` paths, and streams `exec` progress over MCP. It does **not** replace the Alpine sandbox on the phone, and it does not provide large-file transfer or phone control.
+Status: experimental. It has a workspace backend, runs as a static binary on Linux/macOS/Windows/Termux, can attach existing directories under explicit `-allow-root` paths, streams `exec` progress over MCP, and supports large-file transfer over signed HTTPS links. It does **not** replace the Alpine sandbox on the phone, and it does not provide phone control.
 
-The developer contract and threat model are in [`docs/dev/remote-env.md`](../../docs/dev/remote-env.md).
+The developer contract and threat model are in [`docs/dev/remote-env.md`](../../docs/dev/remote-env.md). Convenience installers for Linux/macOS, Windows, Termux and a single-layer Termux + proot-distro setup are in [`deploy/`](deploy/).
 
 ## Quick start
+
+### One-shot installers
+
+```sh
+# Linux or macOS: build, token, systemd user unit or launchd agent
+sh tools/envd/deploy/install.sh --allow-root /srv/projects
+
+# Termux: plain Termux, narrow default allow-root, background + wake lock
+sh tools/envd/deploy/termux-install.sh
+
+# Termux + one proot-distro layer (full Linux userland)
+sh tools/envd/deploy/termux-proot-setup.sh --distro ubuntu
+```
+
+```powershell
+# Windows: install and optionally register a per-user scheduled task
+pwsh -File tools\envd\deploy\install.ps1 -Service
+```
+
+See [`deploy/README.md`](deploy/README.md) for flags and the proot boundaries.
 
 ### Desktop: container wrapper (recommended)
 
@@ -35,14 +55,31 @@ There is no isolation beyond that: `exec` runs as the selected user. Use a dedic
 
 ### Termux / phone
 
-A `GOOS=linux GOARCH=arm64` static binary runs in Termux. After `termux-setup-storage`, you can allow a subdirectory of shared storage:
+Plain Termux works, but its `exec` is only partially useful: envd uses
+`/bin/sh` and a fixed Linux `PATH`, while Termux tools live in `$PREFIX/bin`.
+File tools are unaffected. Use the installer to build and start it:
 
 ```sh
-./mika-envd -listen 127.0.0.1:18787 -data ~/envd -token-file ~/envd/token \
-  -allow-root ~/storage/shared
+sh tools/envd/deploy/termux-install.sh
 ```
 
-Then connect Mika to `http://127.0.0.1:18787/mcp` (allow local HTTP in MCP settings) and attach only a chosen subdirectory, not all of `/sdcard`. Termux background execution and storage permissions depend on the Android version and the Termux build; battery optimization and wake locks matter.
+For a full Linux userland, run a single proot-distro layer and let the setup
+script bind the binary, data and allowed directories into it:
+
+```sh
+sh tools/envd/deploy/termux-proot-setup.sh --distro ubuntu
+```
+
+That script keeps the binary/data under `~/.mika-envd`, binds it to
+`/opt/mika`, binds each `--allow-root` source to `/mnt/mika/N`, and starts
+envd with `-allow-root /mnt/mika/N`. Do not nest another proot inside the
+distro. See [`deploy/README.md`](deploy/README.md) for the security boundaries:
+`-allow-root` does not constrain `exec`, and PRoot is not a sandbox.
+
+Then connect Mika to `http://127.0.0.1:18787/mcp` (allow local HTTP in MCP
+settings). Termux background execution and storage permissions depend on the
+Android version and the Termux build; battery optimization, wake locks and the
+Android 12+ phantom-process killer matter.
 
 ## Attach an existing directory
 

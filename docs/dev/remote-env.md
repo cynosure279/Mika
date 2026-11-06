@@ -121,6 +121,7 @@ envd 是一个静态二进制，Linux、macOS、Windows 和 Termux（linux-arm64
 - **`exec` 与 envd 的用户分离**：Compose 里 envd 以 root 运行、命令以 uid 10002 / gid 10001 运行；token 通过 `ENVD_TOKEN` 环境变量传入，不写文件，也不传给命令；`/proc/1/environ` 对命令用户不可读。裸机不用 `-exec-user` 时命令仍是 envd 用户，能读 token 文件。
 - **桌面端推荐用容器包装**：仓库里的 Dockerfile / compose 以 root + 只读根 + `cap_drop: ALL` + 只补 `SETUID`/`SETGID` + `no-new-privileges` 运行，默认只发布到回环。它缩小影响面，但不是完整沙箱，也不隔离网络或每个环境。
 - **挂载已有目录必须显式开启**：`-allow-root` 可重复；`env_create` 的 `path` 必须落在其中一个根下。默认不挂任何外部目录，不能挂整盘；`-allow-root /` 等于把整机交给命令。
+- **Termux/proot 里 `-allow-root` 只约束文件工具和 `env_create`，不约束 `exec`**：`exec` 能看到整个 proot rootfs 和所有显式 bind 的目录。要限制暴露面，就从 proot 的 `--bind` 源头只绑需要的目录。PRoot（包括 proot-distro）不是安全沙箱，所有层最终都是 Termux 的 Android uid；不要把它当作不可信代码的隔离边界。
 - 文件工具用 Go 1.25 的 `os.Root` 固定根目录句柄：每次读写/列目录/搜索/克隆都在同一个已打开的根下完成，拒绝逃逸符号链接和多硬链接文件；启动和调用时还会重新核对环境根仍在 data 目录或 `-allow-root` 内。`exec` 的 cwd 仍按路径检查，但命令本身有意拥有命令用户的完整权限。
 - `file_link` 生成的是能力 URL：持有链接的人在该文件、该方向、到期前都能访问；不要写日志，必须走 HTTPS，TTL 尽量短。上传会原子替换目标文件，大小受 `-max-upload` 限制。
 - 没有限流/失败冷却的问题已补：默认每调用方 120 请求/分钟、5 次认证失败封 60 秒；反向代理后可用 `-trust-proxy`。更严格的限流仍建议放在反向代理。
@@ -130,6 +131,20 @@ envd 是一个静态二进制，Linux、macOS、Windows 和 Termux（linux-arm64
 - 手机侧应逐环境显式添加/启用，不默认把数据送出手机。
 
 ## 部署
+
+### 一键部署脚本
+
+`tools/envd/deploy/` 里有一组包装脚本，做的事和不带脚本时一样，只是把构建、token、数据目录和服务配置串起来：
+
+| 场景 | 脚本 | 说明 |
+| --- | --- | --- |
+| Linux / macOS | `sh tools/envd/deploy/install.sh` | 构建或复制二进制，生成 token，默认安装 systemd 用户服务 / launchd agent，可 `--no-start`。 |
+| Windows | `pwsh -File tools\envd\deploy\install.ps1 -Service` | 安装到 `%LOCALAPPDATA%\Mika\envd`，可选登录时计划任务。 |
+| 纯 Termux | `sh tools/envd/deploy/termux-install.sh` | 构建 arm64 二进制，申请共享存储，默认只授权 `~/storage/shared/Mika`，后台运行并持 wake lock。 |
+| Termux + proot-distro（单层） | `sh tools/envd/deploy/termux-proot-setup.sh --distro ubuntu` | 安装一个 distro，把二进制/数据放在 Termux 侧并 bind 到 `/opt/mika`，每个允许目录 bind 到 `/mnt/mika/N`。 |
+| proot 内 | `proot-install.sh` | 由上一个脚本调用，写数据目录、token 和 `run.sh`，不单独启动。 |
+
+脚本不会打印 token；从 token 文件读取后填进 Mika。所有默认监听仍是回环地址。
 
 ### 桌面端：容器安全套件（推荐）
 
@@ -165,7 +180,13 @@ go build -trimpath -o mika-envd .
 
 ### Termux / 手机
 
-Termux 是 Android 上的 Linux arm64 用户空间，可以直接跑 `GOOS=linux GOARCH=arm64` 的静态二进制。典型做法：
+Termux 是 Android 上的 Linux arm64 用户空间，可以直接跑 `GOOS=linux GOARCH=arm64` 的静态二进制。一键安装：
+
+```sh
+sh tools/envd/deploy/termux-install.sh
+```
+
+脚本会构建二进制、执行 `termux-setup-storage`（如果还没授权）、创建 `~/storage/shared/Mika` 作为较窄的默认 `-allow-root`，并用 `termux-wake-lock` 在后台启动。也可以手动运行：
 
 ```sh
 # 在 Termux 里
@@ -174,17 +195,57 @@ cd mika/tools/envd
 go build -trimpath -o mika-envd .
 termux-setup-storage          # 授权后 ~/storage/shared 指向共享存储
 ./mika-envd -listen 127.0.0.1:18787 -data ~/envd -token-file ~/envd/token \
-  -allow-root ~/storage/shared
+  -allow-root ~/storage/shared/Mika
 ```
 
-然后在 Mika 的设置 › MCP 服务器里连 `http://127.0.0.1:18787/mcp`（本地 HTTP 需要在设置里允许），只把共享存储里的某个子目录作为 `path` 挂进来，不要挂整个 `/sdcard`。
+然后在 Mika 的设置 › MCP 服务器里连 `http://127.0.0.1:18787/mcp`（本地 HTTP 需要在设置里允许）。`env_create` 的 `path` 要写绝对路径（如 `/storage/emulated/0/Mika/Project`）；envd 不展开 `~`。
 
 限制：
 
+- **纯 Termux 的 `exec` 只能算部分可用**：envd 固定用 `/bin/sh` 和 Linux `PATH`。Android 通常有 `/bin -> /system/bin`，所以 toybox 和 mksh 能跑；但 `$PREFIX/bin` 不在 PATH 里，`pkg` 安装的 git/python/node 等工具找不到，`TMPDIR=/tmp` 在 Termux 里通常也不存在。文件工具不受影响。
+- **需要完整 Linux 用户空间时用下面的单层 proot-distro 方案**，它提供真正的 `/bin/sh`、`/usr/bin` 和 `/tmp`。
+- 如果 `-allow-root` 指向整个 `~/storage/shared`，模型可以挂载整块共享存储；“只挂子目录”是文档建议，不是代码强制。要硬性限制就把 `-allow-root` 本身指到子目录。
 - Termux 的后台存活受 Android 限制；需要 wake lock、关闭电池优化，或者接受只在 Termux 打开时可用。
 - `termux-setup-storage` 的授权范围和 Android 版本、Termux 发行版有关；挂载前先确认目标目录真的可读写。
 - 常驻服务会耗电，不适合默认常开。
 - 建议只读或只挂用户明确选择的子目录；不要把整个共享存储交给 Agent。
+
+### Termux + proot-distro（单层）
+
+如果需要在手机上跑完整 Linux 用户空间，用一次 `proot-distro` 就够了：
+
+```sh
+sh tools/envd/deploy/termux-proot-setup.sh --distro ubuntu
+# 或：--distro alpine
+```
+
+这个脚本做的是：
+
+1. 必要时安装 `proot-distro` 和 `golang`，安装指定的 distro。
+2. 在 Termux 侧构建二进制，数据放在 `~/.mika-envd/proot-data`。
+3. 把 `~/.mika-envd` bind 到 distro 的 `/opt/mika`，二进制和数据都不写进 rootfs。
+4. 每个 `--allow-root SOURCE` 单独 bind 到 `/mnt/mika/N`，envd 用 `-allow-root /mnt/mika/N` 启动；`SOURCE` 本身不传给 envd。
+5. 生成 `proot-run.sh`，外层只跑**一个** `proot-distro login`，并持 wake lock。
+
+默认绑定：
+
+```text
+Termux ~/.mika-envd          -> /opt/mika
+~/storage/shared/Mika        -> /mnt/mika/0
+```
+
+在 Mika 里 `env_create` 应使用绑定目标，例如 `path: "/mnt/mika/0/Project"`，不要用 Termux 的 `~/storage/shared/...`。
+
+注意事项：
+
+- **不要再在 distro 里嵌套第二个 PRoot。** proot-distro 本身已经是一层 PRoot；再套一层会引入 ptrace 和路径翻译问题，而且不会增加隔离。
+- **`-allow-root` 不约束 `exec`。** 它只管 `env_create` 和文件工具；`exec` 仍能看到整个 distro rootfs 和所有显式 bind 的目录。要缩小暴露面，就从 `--bind` 源头只绑需要的目录；只读场景用 `-read-only`。
+- **PRoot 不是安全沙箱。** 所有层最终都是同一个 Android App uid；`-exec-user` 在非 root Termux 里没有真实意义。不要在这里运行不可信模型输出并当作已隔离。
+- **数据和 token 不要放共享存储。** 放 `~/.mika-envd/proot-data`（rootfs 外、Termux 家目录内），避免 FUSE 上的权限和原子替换差异。
+- **Android 11+ scoped storage** 可能挡住 `Android/data`、`Android/obb`；共享存储通常 `noexec`，脚本要用 `sh script.sh`，不要 `./script.sh`。
+- **Android 12+ phantom process killer** 可能杀掉 proot 子进程；Termux 后台、电池优化和 wake lock 仍会影响存活。
+- **`os.Root` 依赖 `openat2` 或其回退路径。** 不同 PRoot 版本对 `openat2` 的翻译可能不同；如果 `exec` 正常但文件工具报错，先怀疑 PRoot 版本，而不是环境根策略。
+- **`file_link` 的 origin 要一致。** Mika 连 `http://127.0.0.1:18787/mcp` 时，`-public-url` 也用 `127.0.0.1`；`localhost` 和 `127.0.0.1` 在 App 的精确 origin 校验里不同。
 
 ### 交叉编译
 
@@ -198,7 +259,8 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -o mika-envd-windows-
 
 - `go vet ./...`、`go test ./...`、`go test -race ./...`。
 - `sh tools/envd/smoke.sh`：构建真实二进制，在回环上起服务，走一遍 `initialize` → `env_create` → `exec` → 写/读 → `env_clone`。
-- `.github/workflows/envd.yml`：只在 `tools/envd/**`、本文档或 workflow 本身变化时运行；包含 vet、race、冒烟、六个目标交叉编译和 Docker 构建。
+- `.github/workflows/envd.yml`：只在 `tools/envd/**`、本文档或 workflow 本身变化时运行；包含 vet、race、冒烟、六个目标交叉编译、Docker 构建和部署脚本的 `sh -n`。
+- 部署脚本：所有 `deploy/*.sh` 通过 `sh -n`；`install.sh` 用假二进制验证了安装、token、参数和退出码；`install.ps1` 通过语法解析和 `-Help`。Termux 和 proot 脚本尚未在真机验证。
 
 ## 接入 Mika
 
