@@ -155,22 +155,20 @@ chmod 600 "$TOKEN_FILE" 2>/dev/null || true
 TOKEN_BYTES=$(wc -c < "$TOKEN_FILE" | tr -d ' ')
 [ "$TOKEN_BYTES" -ge 32 ] || die "token file is shorter than 32 characters: $TOKEN_FILE"
 
-if [ -z "$(cat "$ALLOW_FILE")" ] && [ -d "$HOME/storage/shared" ]; then
-    DEFAULT_ROOT="$HOME/storage/shared/Mika"
-    if mkdir -p "$DEFAULT_ROOT" 2>/dev/null; then
-        printf '%s\n' "$DEFAULT_ROOT" >> "$ALLOW_FILE"
-        printf 'Using narrow default allow-root: %s\n' "$DEFAULT_ROOT"
-    else
-        printf 'warning: could not create %s; pass --allow-root explicitly.\n' "$DEFAULT_ROOT" >&2
+if [ -z "$(cat "$ALLOW_FILE")" ]; then
+    if [ ! -d "$HOME/storage/shared" ]; then
+        if have termux-setup-storage; then
+            printf 'Requesting shared-storage access; approve the Android prompt.\n'
+            termux-setup-storage || true
+        fi
     fi
-elif [ ! -d "$HOME/storage/shared" ]; then
-    if have termux-setup-storage; then
-        printf 'Requesting shared-storage access; approve the Android prompt.\n'
-        termux-setup-storage || true
-        if [ -d "$HOME/storage/shared" ]; then
-            DEFAULT_ROOT="$HOME/storage/shared/Mika"
-            mkdir -p "$DEFAULT_ROOT" 2>/dev/null || true
-            [ -d "$DEFAULT_ROOT" ] && printf '%s\n' "$DEFAULT_ROOT" >> "$ALLOW_FILE"
+    if [ -d "$HOME/storage/shared" ]; then
+        DEFAULT_ROOT="$HOME/storage/shared/Mika"
+        if mkdir -p "$DEFAULT_ROOT" 2>/dev/null; then
+            printf '%s\n' "$DEFAULT_ROOT" >> "$ALLOW_FILE"
+            printf 'Using narrow default allow-root: %s\n' "$DEFAULT_ROOT"
+        else
+            printf 'warning: could not create %s; pass --allow-root explicitly.\n' "$DEFAULT_ROOT" >&2
         fi
     else
         printf 'warning: shared storage is not set up; pass --allow-root explicitly.\n' >&2
