@@ -124,8 +124,14 @@ func (g *gateway) asset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name, kind := "web/style.css", "text/css; charset=utf-8"
-	if r.URL.Path == "/app.js" {
+	switch r.URL.Path {
+	case "/app.js":
 		name = "web/app.js"
+		kind = "text/javascript; charset=utf-8"
+	case "/console.css":
+		name = "web/console.css"
+	case "/console.js":
+		name = "web/console.js"
 		kind = "text/javascript; charset=utf-8"
 	}
 	b, err := webFiles.ReadFile(name)
