@@ -92,8 +92,9 @@ class ConversationStore(private val dir: File) {
             .sortedByDescending { it.lastModified() }
             .mapNotNull { f ->
                 val id = f.name.removeSuffix(".json")
-                val first = turns(id).firstOrNull() ?: return@mapNotNull null
-                ConversationSummary(id, title(id) ?: first.userText, f.lastModified(), pinnedAt(id), pageOrigin(id), branchOrigin(id))
+                val records = read(f) ?: return@mapNotNull null
+                val first = records.firstOrNull()?.first ?: return@mapNotNull null
+                ConversationSummary(id, title(id) ?: first.userText, f.lastModified(), pinnedAt(id), pageOrigin(id), branchOrigin(id), records.size)
             }
 
     /** 对话起好的标题(见 [ConversationTitler]);没有、读不到为 null。标题放在对话文件旁边的 `.title` 文件里,不动对话文件的格式。 */
@@ -267,6 +268,10 @@ class ConversationStore(private val dir: File) {
     @Synchronized
     fun turns(conversationId: String): List<Turn> = records(conversationId).map { it.first }
 
+    /** 这个对话存过内容(有对话文件);空编号、读不到为 false。 */
+    @Synchronized
+    fun exists(conversationId: String): Boolean = file(conversationId).isFile
+
     /** 每一轮连同这一轮导出的文件(文件卡片)。 */
     @Synchronized
     fun records(conversationId: String): List<Pair<Turn, List<SharedFile>>> {
@@ -410,6 +415,8 @@ data class ConversationSummary(
     val pinnedAt: Long? = null,
     val page: PageOrigin? = null,
     val branchOf: BranchOrigin? = null,
+    /** 这个对话已有的轮数;只读控制台直接用它,不再为每个对话重读一遍。 */
+    val turnCount: Int = 0,
 )
 
 /** 分支来源:从 [parentId] 的第 [parentTurn] 轮(0 起)分出来的;[afterTurn] 为 false 时是复制到这一轮之前(第 2 阶段从用户消息重新问)。 */

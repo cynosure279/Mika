@@ -87,6 +87,11 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
 
     val remoteTasks by lazy { RemoteTaskHub(this) }
 
+    /** Web 控制台读的对话与运行中任务;只读,不参与任务执行。 */
+    val remoteCompanion by lazy {
+        com.wangzan101.mika.chat.RemoteConversationReader(conversations) { taskState.runs.value }
+    }
+
     /** 微信渠道：凭证、监听和渠道适配器整个进程一份；任务仍由 TaskService 执行。 */
     val wechat by lazy {
         com.wangzan101.mika.wechat.WechatRuntime(this,
@@ -109,7 +114,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                 bootId = { android.provider.Settings.Global.getString(contentResolver, android.provider.Settings.Global.BOOT_COUNT) ?: "null" },
                 infoFile = { getExternalFilesDir(null)?.let { java.io.File(it, com.wangzan101.mika.core.mcp.McpUsb.INFO_FILE) } }),
             remoteTasks, deviceAccess,
-            com.wangzan101.mika.settings.RelaySettings(settingsDir, com.wangzan101.mika.settings.KeystoreKeyCipher("mika-remote-relay")))
+            com.wangzan101.mika.settings.RelaySettings(settingsDir, com.wangzan101.mika.settings.KeystoreKeyCipher("mika-remote-relay")),
+            remoteCompanion)
     }
     val childRuns by lazy { FileChildRunStore(java.io.File(filesDir, "children-v3.json")) }
 

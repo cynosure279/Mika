@@ -14,7 +14,7 @@ import java.net.InetAddress
  * 而不是出现了再拒绝。经网关来的请求默认不给,见 docs/dev/remote-mcp.md。
  */
 class RemoteEndpoints(tasks: RemoteTasks, private val serverVersion: String, private val clock: () -> Long = System::currentTimeMillis,
-    device: DeviceAccess? = null) {
+    device: DeviceAccess? = null, private val companion: RemoteCompanion? = null) {
     private val service = RemoteTaskService(tasks)
     private val clients = LinkedHashMap<String, Long>()
     private val mutable = MutableStateFlow(RemoteActivity())
@@ -22,7 +22,8 @@ class RemoteEndpoints(tasks: RemoteTasks, private val serverVersion: String, pri
 
     /** 一套协议入口:任务 API 加 MCP。两套只差带不带手机屏幕能力,任务服务和近期活动共用。 */
     private inner class Surface(device: DeviceAccess?) {
-        val api = RemoteTaskApi(service, serverVersion, device)
+        val api = RemoteTaskApi(service, serverVersion, device, companion = companion != null)
+        val companionApi = companion?.let(::CompanionApi)
         val rpc = McpRpc(McpTaskTools(service, device), serverVersion) { remote, name -> seen(remote, name) }
     }
     private val withDevice = Surface(device)
@@ -34,6 +35,8 @@ class RemoteEndpoints(tasks: RemoteTasks, private val serverVersion: String, pri
         if (req.path == McpRpc.PATH) return surface.rpc.handle(req)
         if (req.path == RemoteTaskApi.ROOT || req.path.startsWith("${RemoteTaskApi.ROOT}/")) {
             seen(req.remote, req.header("x-mika-client")?.take(64))
+            val console = surface.companionApi
+            if (console != null && CompanionApi.owns(req.path)) return console.handle(req)
             return surface.api.handle(req)
         }
         return RemoteTaskApi.error(404, "not_found", "No such endpoint")

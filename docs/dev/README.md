@@ -27,6 +27,7 @@
 | [chatgpt-signin-check.md](chatgpt-signin-check.md) | 上手机之前，在电脑上用 App 同一套代码走一遍「用 ChatGPT 登录」 |
 | [remote-device-access-check.md](remote-device-access-check.md) | 远程亮屏与解锁的验证记录 |
 | [remote-mcp.md](remote-mcp.md) | 自托管远程 CLI / MCP 的部署、手机鉴权和断线语义 |
+| [anywhere.md](anywhere.md) | 只读 Web 控制台的手机端端点：对话与运行状态的契约、安全边界、已知限制与验证 |
 
 ## 仓库里别处的开发文档
 
