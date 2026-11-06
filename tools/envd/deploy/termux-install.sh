@@ -151,6 +151,7 @@ if [ ! -s "$TOKEN_FILE" ]; then
     fi
     chmod 600 "$TOKEN_FILE"
 fi
+chmod 600 "$TOKEN_FILE" 2>/dev/null || true
 TOKEN_BYTES=$(wc -c < "$TOKEN_FILE" | tr -d ' ')
 [ "$TOKEN_BYTES" -ge 32 ] || die "token file is shorter than 32 characters: $TOKEN_FILE"
 
