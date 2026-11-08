@@ -224,6 +224,11 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     /** 最近一次系统分享尚未发送的草稿和它的私有图片副本。 */
     val sharedDrafts: SharedDraftStore by lazy { SharedDraftStore(java.io.File(filesDir, "shared-drafts")) }
 
+    /** 用户自己打开的终端(按对话):只从界面进,不交给任何任务,也不写运行记录。 */
+    val terminals: com.wangzan101.mika.terminal.TerminalHub by lazy {
+        com.wangzan101.mika.terminal.TerminalHub(this, conversations)
+    }
+
     /** 删对话(侧栏长按):停掉它的当前任务并删工作区,保留定时任务。 */
     val conversationDeleter: ConversationDeleter by lazy {
         val app = this

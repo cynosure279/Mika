@@ -107,4 +107,27 @@
     <string name="speech_asr_language_ja">日語</string>
     <string name="speech_asr_language_yue">粵語</string>
     <string name="speech_asr_language_ko">韓語</string>
+    <string name="terminal_title">終端</string>
+    <string name="terminal_open">終端</string>
+    <string name="terminal_open_action">開啟終端</string>
+    <string name="terminal_network_on">連網</string>
+    <string name="terminal_network_off">斷網</string>
+    <string name="terminal_preparing">正在準備執行環境…</string>
+    <string name="terminal_unsupported">此裝置不支援終端（需要 arm64）。</string>
+    <string name="terminal_unavailable">執行環境還沒準備好，稍後再試。</string>
+    <string name="terminal_limit">最多同時開兩個終端，先關掉一個。</string>
+    <string name="terminal_storage_low">手機剩餘空間不足 500 MB，暫時不能開啟終端。</string>
+    <string name="terminal_busy">執行環境正在重設，稍後再試。</string>
+    <string name="terminal_revoked">執行環境已重設或工作區被清理，終端已關閉。</string>
+    <string name="terminal_exited">終端已結束（退出碼 %1$d）。</string>
+    <string name="terminal_closed">終端已關閉。</string>
+    <string name="terminal_close">關閉終端</string>
+    <string name="terminal_close_title">關閉這個終端？</string>
+    <string name="terminal_close_body">還在執行的程式會一起結束。</string>
+    <string name="terminal_close_confirm">關閉</string>
+    <string name="terminal_retry">重新開啟</string>
+    <string name="terminal_stop">停止</string>
+    <string name="terminal_task_running">Mika 也在這個工作區裡工作，兩邊同時改可能互相影響。</string>
+    <string name="terminal_copy_all">複製全部</string>
+    <string name="terminal_copied">已複製</string>
 </resources>

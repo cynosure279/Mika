@@ -627,6 +627,7 @@ fun ChatWithDrawer(
                 item, bounds, progress = { lift.value },
                 onPin = { closeMenu { vm.setPinned(id, !item.pinned) } },
                 onRename = { closeMenu { renaming = item } },
+                onTerminal = { closeMenu { activity?.let { a -> com.wangzan101.mika.ui.terminal.TerminalLauncher.open(a, id, item.title) } } },
                 onDelete = { closeMenu { confirming = item to vm.deleteImpact(id) } },
                 onDismiss = { closeMenu() },
             )
