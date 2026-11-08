@@ -100,6 +100,8 @@ fun ModelSetupScreen(
     store: ProviderStore, onboarding: Boolean, onBack: () -> Unit, onDone: () -> Unit,
     /** 设置里点「语音转文字」卡片去选择页;上手流程不传,卡片就不出现。 */
     onOpenSpeech: (() -> Unit)? = null,
+    /** 设置里点「图片模型」卡片去设置页;上手流程不传,卡片就不出现。 */
+    onOpenImage: (() -> Unit)? = null,
     /** 设置里查看 Token 用量;上手流程不传。 */
     onOpenUsage: (() -> Unit)? = null,
 ) {
@@ -203,6 +205,7 @@ fun ModelSetupScreen(
                     testAndSave = vm::testAndSave, saveUntested = vm::saveWithoutTest,
                     openForm = vm::openForm, closeForm = vm::closeForm,
                     openProvider = { openProvider = it; allModels = false }, pickRole = { picking = it }, next = onDone, openSpeech = onOpenSpeech,
+                    openImage = onOpenImage,
                     openUsage = onOpenUsage,
                     openSignIn = { signInSheet = it },
                     setReasoningEffort = vm::setReasoningEffort,
@@ -255,6 +258,8 @@ class ModelSetupActions(
     val pickRole: (ModelRole) -> Unit = {},
     /** 打开「语音转文字」的选择页;为 null 时不显示这张卡(上手流程)。 */
     val openSpeech: (() -> Unit)? = null,
+    /** 打开「图片模型」设置页;为 null 时不显示这张卡(上手流程)。 */
+    val openImage: (() -> Unit)? = null,
     /** 打开 Token 用量;为 null 时不显示入口(上手流程)。 */
     val openUsage: (() -> Unit)? = null,
     val next: () -> Unit = {},
@@ -288,10 +293,10 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
                 // 上手时先连服务商再选模型;设置里先看用途
                 if (onboarding) {
                     ProvidersSection(ui, actions)
-                    RolesSection(ui, onPick, actions.setReasoningEffort, null)
+                    RolesSection(ui, onPick, actions.setReasoningEffort, null, null, actions.setModelContext)
                     FooterNote(ModelSetupCopy.ONBOARDING_NOTE)
                 } else {
-                    RolesSection(ui, onPick, actions.setReasoningEffort, actions.openSpeech, actions.setModelContext)
+                    RolesSection(ui, onPick, actions.setReasoningEffort, actions.openSpeech, actions.openImage, actions.setModelContext)
                     ProvidersSection(ui, actions)
                     actions.openUsage?.let { openUsage ->
                         GroupCard {
@@ -532,7 +537,7 @@ internal object SignInPage {
 /** 用途:主模型、看图模型、轻量模型各一张卡,点开是选择页。 */
 @Composable
 private fun RolesSection(ui: ModelSetupUi, onPick: (ModelRole) -> Unit, onReasoning: (ModelRole, String?) -> Unit,
-    onSpeech: (() -> Unit)?, onContext: ((String, ModelContextSettings) -> Boolean)? = null,
+    onSpeech: (() -> Unit)?, onImage: (() -> Unit)?, onContext: ((String, ModelContextSettings) -> Boolean)? = null,
 ) {
     GroupLabel(ModelsCopy.ROLES)
     GroupCard {
@@ -560,6 +565,10 @@ private fun RolesSection(ui: ModelSetupUi, onPick: (ModelRole) -> Unit, onReason
         // 第四个用途:语音转文字(不是对话模型,点开是单独的选择页)
         if (onSpeech != null) {
             RoleCard(ModelsCopy.SPEECH_ICON, ModelsCopy.SPEECH_LABEL, ModelsCopy.speechLine(ui), tag = "role-speech", onClick = onSpeech)
+        }
+        // 第五个用途:图片模型(同样不是对话模型,点开是单独的设置页)
+        if (onImage != null) {
+            RoleCard(ModelsCopy.IMAGE_ICON, ModelsCopy.IMAGE_LABEL, ModelsCopy.imageLine(ui), tag = "role-image", onClick = onImage)
         }
     }
 }

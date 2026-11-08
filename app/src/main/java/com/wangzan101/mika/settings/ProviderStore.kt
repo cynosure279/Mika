@@ -17,6 +17,10 @@ import com.wangzan101.mika.core.model.Author
 import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.model.ClientHeaders
 import com.wangzan101.mika.core.model.GeminiModel
+import com.wangzan101.mika.core.model.GeminiImageModel
+import com.wangzan101.mika.core.model.ImageCapabilities
+import com.wangzan101.mika.core.model.ImageModel
+import com.wangzan101.mika.core.model.OpenAiImagesModel
 import com.wangzan101.mika.core.model.ListFailure
 import com.wangzan101.mika.core.model.ListedModel
 import com.wangzan101.mika.core.model.Message
@@ -575,6 +579,21 @@ class ProviderStore(
             headers(p?.sessionHeader, session), reasoningEffort = _roles.value.reasoningEffort(role),
             thinkingTypes = listed?.thinkingTypes, readTimeoutSeconds = settings?.readTimeoutSeconds,
         )).metered(source, usage)
+    }
+
+    /**
+     * 图片生成用的模型:地址、Key、请求头都取这家服务商;不套对话模型的计量(图片用量由调用方另记)。
+     * 服务商、模型或协议缺失时为 null。图比一句话慢,读超时放到 180 秒。
+     */
+    fun imageModel(choice: ImageChoice, capabilities: ImageCapabilities): ImageModel? {
+        val p = provider(choice.providerId) ?: return null
+        val client = modelHttp.newBuilder().readTimeout(180, TimeUnit.SECONDS).build()
+        val header = headers(p.sessionHeader, ModelSession.fresh())
+        val key = providerKey(p.id)
+        return when (choice.protocol) {
+            ImageProtocol.OpenAiImages -> OpenAiImagesModel(p.baseUrl, key, choice.model, capabilities, client, header)
+            ImageProtocol.GeminiImage -> GeminiImageModel(p.baseUrl, key.orEmpty(), choice.model, capabilities, client, header)
+        }
     }
 
     /**

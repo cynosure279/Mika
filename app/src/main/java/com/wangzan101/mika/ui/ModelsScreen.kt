@@ -96,8 +96,13 @@ import com.wangzan101.mika.voice.SpeechOptions
 
 /** 设置 › 模型:和上手时的配置模型是同一页([ModelSetupScreen]),不在引导流程里。 */
 @Composable
-fun ModelsScreen(store: ProviderStore, onBack: () -> Unit, onOpenSpeech: (() -> Unit)? = null, onOpenUsage: (() -> Unit)? = null) {
-    ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech, onOpenUsage = onOpenUsage)
+fun ModelsScreen(
+    store: ProviderStore, onBack: () -> Unit,
+    onOpenSpeech: (() -> Unit)? = null,
+    onOpenImage: (() -> Unit)? = null,
+    onOpenUsage: (() -> Unit)? = null,
+) {
+    ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech, onOpenImage = onOpenImage, onOpenUsage = onOpenUsage)
 }
 
 /** 子页面共用的骨架:顶栏 + 可滚动内容。 */
@@ -814,6 +819,12 @@ object ModelsCopy {
         val unset = s.title == UNSET
         return RoleLine(s.title, s.sub.orEmpty(), isModel = !unset && (ui.speech is SpeechChoice.Provider || ui.speech is SpeechChoice.Doubao || ui.speech is SpeechChoice.FunAsr || ui.speech is SpeechChoice.Bailian), unset = unset, subtitleOk = s.subOk)
     }
+
+    /** 第五个用途「图片模型」:同样不在 [ModelRole] 里。入口卡片只说明用途,详细状态在设置页里。 */
+    val IMAGE_LABEL: String get() = "${tr(R.string.role_image)} · ${tr(R.string.role_image_what)}"
+    val IMAGE_ICON: ImageVector get() = MikaIcons.Photo
+
+    fun imageLine(ui: ModelSetupUi): RoleLine = RoleLine(tr(R.string.role_image), tr(R.string.role_image_what), unset = true)
 
     fun roleIcon(role: ModelRole): ImageVector = when (role) {
         ModelRole.Main -> MikaIcons.Spark

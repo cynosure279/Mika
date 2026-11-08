@@ -2,6 +2,7 @@ package com.wangzan101.mika.chat
 
 import android.content.Context
 import com.wangzan101.mika.core.agent.Turn
+import com.wangzan101.mika.core.chat.GeneratedPhoto
 import com.wangzan101.mika.core.memory.MemoryNote
 import com.wangzan101.mika.core.memory.NoteKind
 import com.wangzan101.mika.core.skills.SkillNote
@@ -322,6 +323,7 @@ class ConversationStore(
                 keptPage = field("keptPage"),
                 keptPageClosed = field("keptPageClosed"),
                 atMs = field("atMs")?.toLongOrNull(),
+                photos = objects(o, "photos").mapNotNull(::photoOf),
                 verified = field("verified")?.toBooleanStrictOrNull(),
                 remoteTaskId = field("remoteTaskId"),
             )
@@ -335,6 +337,11 @@ class ConversationStore(
         val o = e as? JsonObject ?: return null
         fun field(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull
         return SharedFile(field("name") ?: return null, field("size")?.toLongOrNull() ?: 0, field("savedAs") ?: return null, field("uri") ?: return null, field("sha256"))
+    }
+
+    private fun photoOf(o: JsonObject): GeneratedPhoto? {
+        val path = str(o, "path") ?: return null
+        return GeneratedPhoto(path, str(o, "width")?.toIntOrNull() ?: 0, str(o, "height")?.toIntOrNull() ?: 0, str(o, "prompt"), str(o, "atMs")?.toLongOrNull())
     }
 
     @Synchronized
@@ -394,6 +401,13 @@ class ConversationStore(
                 if (it.groups.isNotEmpty()) put("groups", JsonArray(it.groups.map(::JsonPrimitive)))
                 it.keptPage?.let { h -> put("keptPage", h) }; it.keptPageClosed?.let { r -> put("keptPageClosed", r) }
                 it.atMs?.let { t -> put("atMs", t) }
+                if (it.photos.isNotEmpty()) put("photos", JsonArray(it.photos.map { p ->
+                    buildJsonObject {
+                        put("path", p.path); put("width", p.width); put("height", p.height)
+                        p.prompt?.let { text -> put("prompt", text) }
+                        p.atMs?.let { t -> put("atMs", t) }
+                    }
+                }))
                 if (it.skillNotes.isNotEmpty()) put("skillNotes", JsonArray(it.skillNotes.map { n ->
                     buildJsonObject { put("text", n.text); n.draftId?.let { d -> put("draftId", d) }; n.suspended?.let { x -> put("suspended", x) } }
                 }))

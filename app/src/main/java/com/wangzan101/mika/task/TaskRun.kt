@@ -220,6 +220,7 @@ class TaskRun(
 
     private val _runId = Mirrored<String?>(null, service.taskState._runId)
     private val _sharedFiles = Mirrored<List<SharedFile>>(emptyList(), service.taskState._sharedFiles)
+    private val _photos = Mirrored<List<com.wangzan101.mika.core.chat.GeneratedPhoto>>(emptyList(), service.taskState._photos)
     private val _state = Mirrored<TaskState>(TaskState.Running(0, TaskService.PREPARING), service.taskState._state)
     /** 同一状态带上对话编号,和 [_state] 一起写:界面据此只收屏上那个对话的状态。 */
     private val _tagged = Mirrored<Pair<String, TaskState>?>(conversationId to _state.value, service.taskState._shownTask)
@@ -243,6 +244,8 @@ class TaskRun(
     val runId: StateFlow<String?> = _runId.flow
     /** 本任务导出的文件;结束时随这一轮存进对话。 */
     val sharedFiles: StateFlow<List<SharedFile>> = _sharedFiles.flow
+    /** 本任务生成并留在工作区里的图;结束时随这一轮存进对话。 */
+    val photos: StateFlow<List<com.wangzan101.mika.core.chat.GeneratedPhoto>> = _photos.flow
     val takeoverStage: StateFlow<Takeover.Stage> = _takeoverStage.flow
     val frames: StateFlow<Bitmap?> = _frames.flow
     /** 本任务到此刻的活动(实际做过的事);悬浮胶囊的卡片按任务取,不只看显示中的那个。 */
@@ -254,7 +257,7 @@ class TaskRun(
     /** 本任务进行中插的话和它们的去向;悬浮胶囊的对话卡片按任务取。 */
     val steers: StateFlow<List<SteerNote>> = _steers.flow
     // 带对话编号的那份先写:收不带编号的状态时读到的编号就已经是这个任务的(界面据此不把别的对话的状态接到屏上)
-    private val mirrored = listOf(_runId, _sharedFiles, _tagged, _state, _takeoverStage, _frames, _displayId, _appShown, _webOpen, _activities, _steers)
+    private val mirrored = listOf(_runId, _sharedFiles, _photos, _tagged, _state, _takeoverStage, _frames, _displayId, _appShown, _webOpen, _activities, _steers)
 
     private fun setState(s: TaskState) = synchronized(service.taskState.shownLock) {
         _tagged.value = conversationId to s
@@ -479,8 +482,54 @@ class TaskRun(
     /** 本任务的沙箱:一个任务一份(导出额度按任务算),工作区是本对话的。 */
     private val sandbox by lazy { AndroidSandbox(service, SandboxState.get(service), onShared = ::addShared) }
 
+    private val imageSettings by lazy { com.wangzan101.mika.settings.ImageModelSettings.get(service) }
+
+    /** 把工作区里的一张图复制成别的 App 可读的 content URI(分享用);越界、不是图片、太大时为 null。 */
+    private suspend fun shareWorkspaceImage(path: String): com.wangzan101.mika.media.ShareableFile? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val trimmed = path.trim()
+        val prefix = com.wangzan101.mika.core.workspace.SandboxPaths.WORKSPACE + "/"
+        if (!trimmed.startsWith(prefix)) return@withContext null
+        val rel = trimmed.removePrefix(prefix)
+        if (rel.isEmpty() || rel.split('/').any { it.isEmpty() || it == "." || it == ".." }) return@withContext null
+        val dirs = com.wangzan101.mika.cap.sandbox.SandboxDirs(service)
+        val bytes = dirs.tree.shared {
+            dirs.gate.openRead(dirs.workspace(conversationId), rel).use { g ->
+                if (g.size > 20L * 1024 * 1024) null else g.read(0, g.size.toInt())
+            }
+        } ?: return@withContext null
+        val opts = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+        val mime = opts.outMimeType?.takeIf { it.startsWith("image/") } ?: return@withContext null
+        com.wangzan101.mika.media.ShareFileExporter(service).save(bytes, mime, trimmed.substringAfterLast('/'))
+    }
+
+    /**
+     * 本任务的图片端口:用户配置并打开了图片模型、且这是手机上开始的任务时才建。
+     * 定时、远程、子任务、条件检查没有它,图片工具也就不会发给模型。
+     */
+    private val imagePort by lazy {
+        val state = imageSettings.state.value
+        val choice = state.choice
+        if (!state.enabled || choice == null || provenance.origin != RunOrigin.Ui) null
+        else imageSettings.capabilities()?.let { caps ->
+            com.wangzan101.mika.settings.ProviderStore.get(service).imageModel(choice, caps)?.let { model ->
+                com.wangzan101.mika.media.AndroidImagePort(service, conversationId, model, caps, onGenerated = ::addPhoto, onSaved = ::addSaved)
+            }
+        }
+    }
+
     /** 沙箱导出了一个文件(share_file 或 `mika share`)。 */
     fun addShared(f: SharedFile) = synchronized(service.taskState.shownLock) { _sharedFiles.value = _sharedFiles.value + f }
+
+    /** 图片能力生成了一张图(写进工作区时由端口回调)。 */
+    fun addPhoto(p: com.wangzan101.mika.core.chat.GeneratedPhoto) = synchronized(service.taskState.shownLock) {
+        _photos.value = _photos.value + p
+    }
+
+    /** 图片能力把一张图存进了相册:当作这一轮导出的文件,聊天里出现「已存入相册」的卡片。 */
+    fun addSaved(s: com.wangzan101.mika.core.cap.image.SavedImage) {
+        addShared(SharedFile(s.savedAs.substringAfterLast('/'), s.bytes, s.savedAs, s.uri))
+    }
 
     fun clearTakeoverStage() { _takeoverStage.value = Takeover.Stage.None }
 
@@ -637,6 +686,7 @@ class TaskRun(
                     beforeOpen = muter::beforeOpen,
                     notOpened = muter::notOpened,
                     appAccess = appAccess,
+                    shareFile = { path -> shareWorkspaceImage(path) },
                 )
                 val side0 = PhoneSide(shell, a11y, screen, agentDisplay, muter)
                 phone = side0
@@ -830,6 +880,10 @@ class TaskRun(
                 workspacePath = web?.let { { p: String -> sandbox.uploadCheck(conversationId, p) } },
                 // 工作区 = 对话:同一对话的追问接着用上一轮的文件,不同对话互不可见
                 sandbox = sandbox, workspace = { conversationId },
+                image = imagePort,
+                imageSaveEnabled = imageSettings.state.value.saveEnabled,
+                imageAskBeforeSave = imageSettings.state.value.askBeforeSave,
+                imageMaxPerTask = imageSettings.state.value.maxPerTask,
                 onSandboxCommand = { sandboxNote(StatusCopy.sandboxCommand(it, sandboxOnline())) },
                 onSandboxProgress = { sandboxNote(StatusCopy.sandboxProgress(it, sandboxOnline())) },
                 onSandboxPreparing = { sandboxNote(StatusCopy.RUNTIME_PREPARING) },

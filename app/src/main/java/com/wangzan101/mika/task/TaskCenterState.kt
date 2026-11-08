@@ -92,6 +92,9 @@ class TaskCenterState {
     val _runId = MutableStateFlow<String?>(null)
     val _sharedFiles = MutableStateFlow<List<SharedFile>>(emptyList())
     val sharedFiles: StateFlow<List<SharedFile>> = _sharedFiles.asStateFlow()
+    /** 显示中的任务到此刻生成的图;结束时随这一轮存进对话。 */
+    val _photos = MutableStateFlow<List<com.wangzan101.mika.core.chat.GeneratedPhoto>>(emptyList())
+    val photos: StateFlow<List<com.wangzan101.mika.core.chat.GeneratedPhoto>> = _photos.asStateFlow()
     val _endedRunId = MutableStateFlow<String?>(null)
     val endedRunId: StateFlow<String?> = _endedRunId.asStateFlow()
     val _endedRunIds = MutableStateFlow<Map<String, String?>>(emptyMap())
