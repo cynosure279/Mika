@@ -165,7 +165,7 @@ class AndroidSelfPort(
             title = page?.title,
             url = page?.url,
             loaned = browser?.loans?.current != null,
-            multiTab = false,
+            multiTab = true,
         )
     }
 
@@ -175,7 +175,7 @@ class AndroidSelfPort(
         if (state.loaned) return@withContext SelfResult(ok = false, reason = "page_in_use")
         if (!show && !state.multiTab) return@withContext SelfResult(ok = false, reason = "not_supported")
         if (app.foreground.visible.value) {
-            app.selfUi.requestOpen(url = url, note = reason)
+            app.selfUi.requestOpen(url = url, newTab = state.multiTab, show = show, note = reason)
             SelfResult(ok = true, requested = true, foreground = true)
         } else {
             val ok = post(
@@ -184,13 +184,20 @@ class AndroidSelfPort(
                 screen = SelfScreen.Browser,
                 file = null,
                 url = url,
+                newTab = state.multiTab,
+                show = show,
             )
             SelfResult(ok = ok, notified = ok, foreground = false, reason = if (ok) null else "notifications_off")
         }
     }
 
-    override suspend fun searchInBrowser(query: String, show: Boolean): SelfResult =
-        openInBrowser(AddressInput.search(query), show, null)
+    override suspend fun searchInBrowser(query: String, show: Boolean): SelfResult {
+        val url = withContext(Dispatchers.Main) {
+            val browser = UserBrowser.of(app)
+            AddressInput.search(query, browser.searchEngine.choices.value.selected)
+        }
+        return openInBrowser(url, show, null)
+    }
 
     override suspend fun sites(): List<SelfSite> = withContext(Dispatchers.IO) {
         if (!FeatureFlags.get(app).selfOperate()) return@withContext emptyList()
@@ -259,6 +266,8 @@ class AndroidSelfPort(
         file: SelfFileRequest?,
         url: String? = null,
         loginHost: String? = null,
+        newTab: Boolean = false,
+        show: Boolean = true,
     ): Boolean {
         if (!NotificationManagerCompat.from(app).areNotificationsEnabled()) return false
         val nm = app.getSystemService(NotificationManager::class.java) ?: return false
@@ -273,6 +282,8 @@ class AndroidSelfPort(
             }
             url?.let { putExtra(SelfIntents.EXTRA_URL, it) }
             loginHost?.let { putExtra(SelfIntents.EXTRA_LOGIN_HOST, it) }
+            if (newTab) putExtra(SelfIntents.EXTRA_NEW_TAB, true)
+            if (!show) putExtra(SelfIntents.EXTRA_SHOW, false)
         }
         val pending = PendingIntent.getActivity(
             app, nextId.incrementAndGet(), intent,

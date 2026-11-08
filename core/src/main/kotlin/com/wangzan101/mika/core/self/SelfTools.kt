@@ -191,7 +191,7 @@ internal object MikaOpenInBrowser : SelfTool {
         if (!show && !state.multiTab) return fail("not_supported", "Background tabs need multi-tab; open the page in the browser instead.")
         if (ctx.selfBrowserOps >= MAX_BROWSER) return fail("rate_limited", "At most $MAX_BROWSER browser actions per task.")
         val ask = ctx.ask ?: return fail("needs_user", "No one can be asked to approve opening the page; nothing was opened.")
-        val consent = port.browserConsent(url, null, state.pageOpen)
+        val consent = port.browserConsent(url, null, state.pageOpen && !state.multiTab)
         ctx.selfBrowserOps++
         val answer = ask.awaitAnswer(consent.prompt, listOf(consent.allow, consent.deny))
         if (answer != consent.allow) return fail("declined", "The user did not approve opening the page.")
@@ -231,7 +231,7 @@ internal object MikaSearchInBrowser : SelfTool {
         if (!show && !state.multiTab) return fail("not_supported", "Background tabs need multi-tab; open the results in the browser instead.")
         if (ctx.selfBrowserOps >= MAX_BROWSER) return fail("rate_limited", "At most $MAX_BROWSER browser actions per task.")
         val ask = ctx.ask ?: return fail("needs_user", "No one can be asked to approve the search; nothing was opened.")
-        val consent = port.browserConsent("", query, state.pageOpen)
+        val consent = port.browserConsent("", query, state.pageOpen && !state.multiTab)
         ctx.selfBrowserOps++
         val answer = ask.awaitAnswer(consent.prompt, listOf(consent.allow, consent.deny))
         if (answer != consent.allow) return fail("declined", "The user did not approve the search.")

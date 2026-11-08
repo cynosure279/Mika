@@ -78,6 +78,8 @@ class MainActivity : ComponentActivity() {
     private var requestedSelfScreen by mutableStateOf<com.wangzan101.mika.core.self.SelfScreen?>(null)
     private var requestedSelfFile by mutableStateOf<com.wangzan101.mika.self.SelfFileRequest?>(null)
     private var requestedSelfUrl by mutableStateOf<String?>(null)
+    private var requestedSelfNewTab by mutableStateOf(false)
+    private var requestedSelfShow by mutableStateOf(true)
     private var requestedSelfLoginHost by mutableStateOf<String?>(null)
     private var requestedSharedDraft by mutableStateOf<SharedDraftRequest?>(null)
     private var shareJob: Job? = null
@@ -121,6 +123,7 @@ class MainActivity : ComponentActivity() {
                         requestedSelfScreen, { requestedSelfScreen = null },
                         requestedSelfFile, { requestedSelfFile = null },
                         requestedSelfUrl, { requestedSelfUrl = null },
+                        requestedSelfNewTab, requestedSelfShow,
                         requestedSelfLoginHost, { requestedSelfLoginHost = null },
                         requestedSharedDraft,
                         onSharedDraftOpened = { accepted, draft ->
@@ -163,6 +166,8 @@ class MainActivity : ComponentActivity() {
             )
         }
         requestedSelfUrl = intent.getStringExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_URL)
+        requestedSelfNewTab = intent.getBooleanExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_NEW_TAB, false)
+        requestedSelfShow = intent.getBooleanExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_SHOW, true)
         requestedSelfLoginHost = intent.getStringExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_LOGIN_HOST)
     }
 
@@ -341,6 +346,8 @@ private fun MikaRoot(
     onSelfFileOpened: () -> Unit,
     requestedSelfUrl: String?,
     onSelfUrlOpened: () -> Unit,
+    requestedSelfNewTab: Boolean,
+    requestedSelfShow: Boolean,
     requestedSelfLoginHost: String?,
     onSelfLoginOpened: () -> Unit,
     sharedDraft: SharedDraftRequest?,
@@ -395,9 +402,11 @@ private fun MikaRoot(
             Toast.makeText(context, R.string.self_file_failed, Toast.LENGTH_SHORT).show()
         }
     }
-    fun openSelfUrl(url: String) {
+    fun openSelfUrl(url: String, newTab: Boolean = false, show: Boolean = true) {
         nav.push(Route.Browser)
-        UserBrowser.of(context).open(url)?.let { Toast.makeText(context, R.string.self_browser_failed, Toast.LENGTH_SHORT).show() }
+        val browser = UserBrowser.of(context)
+        val error = if (newTab) browser.openInNewTab(url, select = show) else browser.open(url)
+        error?.let { Toast.makeText(context, R.string.self_browser_failed, Toast.LENGTH_SHORT).show() }
     }
     fun openSelfLogin(host: String) {
         nav.push(Route.Browser)
@@ -408,7 +417,7 @@ private fun MikaRoot(
     LaunchedEffect(selfRequest?.id) {
         val r = selfRequest ?: return@LaunchedEffect
         when {
-            r.url != null -> openSelfUrl(r.url)
+            r.url != null -> openSelfUrl(r.url, r.newTab, r.show)
             r.loginHost != null -> openSelfLogin(r.loginHost)
             r.file != null -> openSelfFile(r.file)
             r.screen != null -> nav.push(r.screen.route())
@@ -427,7 +436,7 @@ private fun MikaRoot(
     }
     LaunchedEffect(requestedSelfUrl) {
         val url = requestedSelfUrl ?: return@LaunchedEffect
-        openSelfUrl(url)
+        openSelfUrl(url, requestedSelfNewTab, requestedSelfShow)
         onSelfUrlOpened()
     }
     LaunchedEffect(requestedSelfLoginHost) {

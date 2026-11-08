@@ -16,6 +16,8 @@ data class SelfUiRequest(
     val file: SelfFileRequest? = null,
     val url: String? = null,
     val loginHost: String? = null,
+    val newTab: Boolean = false,
+    val show: Boolean = true,
     val note: String? = null,
     val atMs: Long = System.currentTimeMillis(),
 )
@@ -34,10 +36,12 @@ class SelfUi {
         file: SelfFileRequest? = null,
         url: String? = null,
         loginHost: String? = null,
+        newTab: Boolean = false,
+        show: Boolean = true,
         note: String? = null,
     ): Long {
         val id = serial.incrementAndGet()
-        _request.value = SelfUiRequest(id, screen, file, url, loginHost, note)
+        _request.value = SelfUiRequest(id, screen, file, url, loginHost, newTab, show, note)
         return id
     }
 
@@ -55,4 +59,6 @@ object SelfIntents {
     const val EXTRA_FILE_NAME = "mika_self_file_name"
     const val EXTRA_URL = "mika_self_url"
     const val EXTRA_LOGIN_HOST = "mika_self_login_host"
+    const val EXTRA_NEW_TAB = "mika_self_new_tab"
+    const val EXTRA_SHOW = "mika_self_show"
 }
