@@ -75,6 +75,10 @@ class MainActivity : ComponentActivity() {
     private lateinit var monitor: SystemStatusMonitor
     private var requestedConversation by mutableStateOf<String?>(null)
     private var openTeach by mutableStateOf(false)
+    private var requestedSelfScreen by mutableStateOf<com.wangzan101.mika.core.self.SelfScreen?>(null)
+    private var requestedSelfFile by mutableStateOf<com.wangzan101.mika.self.SelfFileRequest?>(null)
+    private var requestedSelfUrl by mutableStateOf<String?>(null)
+    private var requestedSelfLoginHost by mutableStateOf<String?>(null)
     private var requestedSharedDraft by mutableStateOf<SharedDraftRequest?>(null)
     private var shareJob: Job? = null
     private var shareSerial = 0L
@@ -95,6 +99,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         takeTeach(intent)
+        readSelfIntent(intent)
         val pendingShare = (application as MikaApp).sharedDrafts.read()
         val restoringAcceptedShare = savedInstanceState != null && intent.action == Intent.ACTION_SEND && pendingShare != null &&
             (application as MikaApp).conversations.currentChat() == CurrentChat.Open(pendingShare.conversationId)
@@ -112,7 +117,12 @@ class MainActivity : ComponentActivity() {
                 // 在输入框外面点一下或拖动就收起键盘,全 App 统一
                 KeyboardDismissArea(Modifier.fillMaxSize()) {
                     MikaRoot(
-                        store, monitor, ::perform, requestedConversation, { requestedConversation = null }, requestedSharedDraft,
+                        store, monitor, ::perform, requestedConversation, { requestedConversation = null },
+                        requestedSelfScreen, { requestedSelfScreen = null },
+                        requestedSelfFile, { requestedSelfFile = null },
+                        requestedSelfUrl, { requestedSelfUrl = null },
+                        requestedSelfLoginHost, { requestedSelfLoginHost = null },
+                        requestedSharedDraft,
                         onSharedDraftOpened = { accepted, draft ->
                             requestedSharedDraft = null
                             if (accepted) {
@@ -136,9 +146,24 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         requestedConversation = intent.getStringExtra(EXTRA_OPEN_CONVERSATION)
         takeTeach(intent)
+        readSelfIntent(intent)
         requestedSharedDraft?.let { (application as MikaApp).sharedDrafts.discard(it.draft.image) }
         requestedSharedDraft = null
         receiveShare(intent)
+    }
+
+    private fun readSelfIntent(intent: Intent) {
+        requestedSelfScreen = intent.getStringExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_SCREEN)
+            ?.let(com.wangzan101.mika.core.self.SelfScreen::of)
+        requestedSelfFile = intent.getStringExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_FILE)?.let { path ->
+            com.wangzan101.mika.self.SelfFileRequest(
+                intent.getStringExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_FILE_CONVERSATION).orEmpty(),
+                path,
+                intent.getStringExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_FILE_NAME),
+            )
+        }
+        requestedSelfUrl = intent.getStringExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_URL)
+        requestedSelfLoginHost = intent.getStringExtra(com.wangzan101.mika.self.SelfIntents.EXTRA_LOGIN_HOST)
     }
 
     private fun receiveShare(intent: Intent) {
@@ -310,6 +335,14 @@ private fun MikaRoot(
     activityFix: (Fix) -> Unit,
     requestedConversation: String?,
     onConversationOpened: () -> Unit,
+    requestedSelfScreen: com.wangzan101.mika.core.self.SelfScreen?,
+    onSelfScreenOpened: () -> Unit,
+    requestedSelfFile: com.wangzan101.mika.self.SelfFileRequest?,
+    onSelfFileOpened: () -> Unit,
+    requestedSelfUrl: String?,
+    onSelfUrlOpened: () -> Unit,
+    requestedSelfLoginHost: String?,
+    onSelfLoginOpened: () -> Unit,
     sharedDraft: SharedDraftRequest?,
     onSharedDraftOpened: (Boolean, SharedDraft) -> Unit,
     openTeach: Boolean,
@@ -355,6 +388,52 @@ private fun MikaRoot(
             if (accepted) nav.reset()
             onSharedDraftOpened(accepted, draft)
         }
+    }
+    // 自身操作:任务在服务里发请求,这里在系统里开页/文件;后台来的通知经由 intent extra 走同一段
+    suspend fun openSelfFile(file: com.wangzan101.mika.self.SelfFileRequest) {
+        if (!AttachFiles.openSent(context, file.conversationId, file.path)) {
+            Toast.makeText(context, R.string.self_file_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
+    fun openSelfUrl(url: String) {
+        nav.push(Route.Browser)
+        UserBrowser.of(context).open(url)?.let { Toast.makeText(context, R.string.self_browser_failed, Toast.LENGTH_SHORT).show() }
+    }
+    fun openSelfLogin(host: String) {
+        nav.push(Route.Browser)
+        UserBrowser.of(context).openFavorite(com.wangzan101.mika.browser.FavoriteSite(host, loggedIn = false))
+            ?.let { Toast.makeText(context, R.string.self_browser_failed, Toast.LENGTH_SHORT).show() }
+    }
+    val selfRequest by app.selfUi.request.collectAsState()
+    LaunchedEffect(selfRequest?.id) {
+        val r = selfRequest ?: return@LaunchedEffect
+        when {
+            r.url != null -> openSelfUrl(r.url)
+            r.loginHost != null -> openSelfLogin(r.loginHost)
+            r.file != null -> openSelfFile(r.file)
+            r.screen != null -> nav.push(r.screen.route())
+        }
+        app.selfUi.consumed(r.id)
+    }
+    LaunchedEffect(requestedSelfScreen) {
+        val s = requestedSelfScreen ?: return@LaunchedEffect
+        nav.push(s.route())
+        onSelfScreenOpened()
+    }
+    LaunchedEffect(requestedSelfFile) {
+        val f = requestedSelfFile ?: return@LaunchedEffect
+        openSelfFile(f)
+        onSelfFileOpened()
+    }
+    LaunchedEffect(requestedSelfUrl) {
+        val url = requestedSelfUrl ?: return@LaunchedEffect
+        openSelfUrl(url)
+        onSelfUrlOpened()
+    }
+    LaunchedEffect(requestedSelfLoginHost) {
+        val host = requestedSelfLoginHost ?: return@LaunchedEffect
+        openSelfLogin(host)
+        onSelfLoginOpened()
     }
     val release = remember { Build.VERSION.RELEASE }
     // 结果卡片上点了「看看」:打开技能分段
@@ -572,4 +651,17 @@ private fun MikaRoot(
             nav.reset()
         })
     }
+}
+
+/** 自身工具能打开的 Mika 顶层页;只给这几页,不给权限/root/开发者子页。 */
+private fun com.wangzan101.mika.core.self.SelfScreen.route(): Route = when (this) {
+    com.wangzan101.mika.core.self.SelfScreen.Chat -> Route.Chat
+    com.wangzan101.mika.core.self.SelfScreen.Settings -> Route.Settings
+    com.wangzan101.mika.core.self.SelfScreen.Memory -> Route.Memory
+    com.wangzan101.mika.core.self.SelfScreen.Plans -> Route.Plans
+    com.wangzan101.mika.core.self.SelfScreen.Browser -> Route.Browser
+    com.wangzan101.mika.core.self.SelfScreen.Models -> Route.Models
+    com.wangzan101.mika.core.self.SelfScreen.Usage -> Route.Usage
+    com.wangzan101.mika.core.self.SelfScreen.Screens -> Route.Screens
+    com.wangzan101.mika.core.self.SelfScreen.About -> Route.About
 }

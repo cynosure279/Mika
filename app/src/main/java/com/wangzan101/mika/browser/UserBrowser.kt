@@ -223,6 +223,9 @@ class UserBrowser private constructor(private val app: Context) {
         navigate(t, url)
     }
 
+    /** 「给 Mika 登录」此刻要登录的网站;平常浏览为 null。只在主线程调用。 */
+    fun loginHost(): String? = tab?.let { loginFor[it] }
+
     /**
      * 「给 Mika 登录」里点了「登录好了」:看一眼页面。看出还没登录时提示一句;看出已登录、或看不出来(信用户的话)时
      * 把这个网站记成已登录,回到起始页。页面还在加载等看不了时,等 [CONFIRM_WAIT_MS] 后按看不出来算。

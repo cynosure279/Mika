@@ -44,7 +44,9 @@ class ToolRiskTest {
 
     @Test fun readCallsRefuseWhatTheOldListsRefused() = runTest {
         val refused = oldWriting + oldSandbox + WEB_SCRIPT_TOOL +
-            setOf("phone_find", "phone_collect", "phone_dialog", "phone_run", "phone_system_command", "phone_calendar_bulk_insert", "schedule_task", "spawn_agent", "settings_set", "root_run_command", "web_search")
+            setOf("phone_find", "phone_collect", "phone_dialog", "phone_run", "phone_system_command", "phone_calendar_bulk_insert", "schedule_task", "spawn_agent", "settings_set", "root_run_command", "web_search",
+                "mika_open_screen", "mika_open_file", "mika_notify", "mika_copy",
+                "mika_open_in_browser", "mika_search_in_browser", "mika_login_site", "mika_confirm_login", "mika_favorites")
         assertEquals(refused, allTools().filter { !it.readOnly }.map { it.name }.toSet())
         // root 命令只在给了端口时登记:给一个,所有工具都在
         val d = toolDispatcher(FakeScreen(), root = object : com.wangzan101.mika.core.cap.root.RootPort {
@@ -58,7 +60,8 @@ class ToolRiskTest {
 
     @Test fun externalToolsDeclareHowTheirTargetIsJudged() {
         for (t in allTools()) assertEquals(t.name, t.risk == Risk.External, t.gateTarget != null || t.approvalRisk != null)
-        assertEquals(both("tap", "type_text", "press_key", "swipe", "scroll") + setOf("web_interact", "web_upload", "schedule_task"),
+        assertEquals(both("tap", "type_text", "press_key", "swipe", "scroll") + setOf("web_interact", "web_upload", "schedule_task",
+            "mika_open_in_browser", "mika_search_in_browser", "mika_login_site"),
             allTools().filter { it.risk == Risk.External }.map { it.name }.toSet())
     }
 

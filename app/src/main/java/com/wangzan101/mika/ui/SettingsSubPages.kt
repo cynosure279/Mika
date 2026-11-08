@@ -195,6 +195,7 @@ fun DuringWorkScreen(
     autonomous: Boolean = false, onAutonomous: (Boolean) -> Unit = {},
     operatingPace: OperatingPace = OperatingPace.DEFAULT, onOperatingPace: (OperatingPace) -> Unit = {},
     selfConfig: Boolean = false, onSelfConfig: (Boolean) -> Unit = {},
+    selfOperate: Boolean = false, onSelfOperate: (Boolean) -> Unit = {},
     stepLimit: Int? = null, onStepLimit: (Int?) -> Unit = {},
 ) {
     var editingLimit by remember { mutableStateOf(false) }
@@ -238,6 +239,17 @@ fun DuringWorkScreen(
                 onClick = { onSelfConfig(!selfConfig) },
             ) {
                 MikaSwitch(selfConfig, onSelfConfig, Modifier.testTag("work-self-config"))
+            }
+        }
+        // 允许 Mika 操作自己的界面:默认关;打开后任务里才有 mika_open_screen/open_file/notify/copy
+        GroupCard {
+            ListRow(
+                MikaIcons.Screens, stringResource(R.string.settings_self_operate),
+                stringResource(R.string.settings_self_operate_sub),
+                first = true,
+                onClick = { onSelfOperate(!selfOperate) },
+            ) {
+                MikaSwitch(selfOperate, onSelfOperate, Modifier.testTag("work-self-operate"))
             }
         }
         GroupLabel(stringResource(R.string.settings_pace))

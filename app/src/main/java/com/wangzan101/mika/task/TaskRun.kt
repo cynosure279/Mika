@@ -809,6 +809,11 @@ class TaskRun(
                 store = (service.application as MikaApp).childRuns,
                 ownerAlive = { job?.isActive == true },
             ).also { children = it } else null
+            // 自身端口:只给手机上、有用户的 UI 主任务;子任务、条件检查、定时、渠道、MCP 都没有。
+            // 状态只读工具一直给;操作类工具等用户打开「允许 Mika 操作自己的界面」。
+            val selfPort = if (provenance.origin == RunOrigin.Ui && !conditionCheck) {
+                (service.application as? MikaApp)?.let { app -> com.wangzan101.mika.self.AndroidSelfPort(app, conversationId, key) }
+            } else null
             val tools = toolDispatcher(accessedPhone, model.capabilities.vision, catalog, recordFrames = true, vision = vision?.let { VisionService(it, BitmapImageOps) },
                 // 设置里允许 Mika 改自己时,才把 settings_list、settings_set 发给模型
                 selfConfig = if (FeatureFlags.get(service).selfConfig()) {
@@ -848,7 +853,10 @@ class TaskRun(
                 webSearch = com.wangzan101.mika.settings.WebSearchSettings.get(service).service(),
                 // 已 root 的手机上用户打开了「允许 Mika 执行 root 命令」才登记 root 工具(子任务、条件检查不给)
                 root = phoneServices.shellManager.root.takeIf { !conditionCheck && it.commandsAllowed() }
-                    ?.let { r -> RootCommands(RootShell::su, r::commandsAllowed) { a -> if (a == null) r.suGone() else r.commandsDenied(a) } })
+                    ?.let { r -> RootCommands(RootShell::su, r::commandsAllowed) { a -> if (a == null) r.suGone() else r.commandsDenied(a) } },
+                // 看/操作 Mika 自己;开关关着时只给只读状态
+                self = selfPort,
+                selfOperate = selfPort?.takeIf { FeatureFlags.get(service).selfOperate() })
             dispatcher = tools
             val agent = AgentLoop(
                 model, tools,

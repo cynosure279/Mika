@@ -95,6 +95,16 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putBoolean(SELF_CONFIG, on).commit()
     }
 
+    /**
+     * 允许 Mika 操作自己的界面(见 core 的 SelfPort):打开 Mika 的页、把工作区文件用 App 内查看器打开、
+     * 发通知、写剪贴板。默认关;模型改不了这个开关。
+     */
+    fun selfOperate(): Boolean = prefs.getBoolean(SELF_OPERATE, false)
+
+    fun setSelfOperate(on: Boolean) {
+        prefs.edit().putBoolean(SELF_OPERATE, on).commit()
+    }
+
     /** 悬浮胶囊:关闭、有任务时显示(默认)、一直显示。 */
     fun capsuleMode(): CapsuleMode = CapsuleMode.parse(prefs.getString(CAPSULE_MODE, null))
 
@@ -188,6 +198,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val MUTE_TARGET = "mute_target"
         private const val OPERATING_PACE = "operating_pace"
         private const val SELF_CONFIG = "self_config"
+        private const val SELF_OPERATE = "self_operate"
         private const val THEME_MODE = "theme_mode"
         private const val CAPSULE_MODE = "capsule_mode"
         private const val CAPSULE_IDLE_OPACITY = "capsule_idle_opacity"
