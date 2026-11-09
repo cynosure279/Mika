@@ -121,6 +121,7 @@ interface IMikaShell {
     // 0=未发送 1=全部事件已投递 2=投递不确定(可能只输入了前缀)
     int injectAsciiText(int displayId, int taskId, String packageName, String text) = 50;
 
+<<<<<<< HEAD
     // 对 SystemUI 做一次定向点击,用于生物识别优先锁屏页上「用密码解锁」这类回退按钮;不含凭据。
     boolean revealDeviceCredentialTap(int x, int y) = 51;
 
@@ -143,6 +144,10 @@ interface IMikaShell {
     Bundle searchFiles(String path, String name, String extension, long modifiedAfter, long modifiedBefore, int maxDepth, int maxEntries, int timeoutMs) = 59;
     // Replace the device-file bridge policy. Empty roots deny all access; protocol and revision are separate.
     Bundle setDeviceFilePolicy(int protocol, String session, long revision, in String[] roots, in boolean[] recursive) = 60;
+=======
+    // 把工作区里的一个文件分享给一个包:ACTION_SEND + EXTRA_STREAM,content URI 已授权可读;只打开分享页,不发出。
+    int startShareFile(int displayId, String packageName, String uri, String mime, String text) = 51;
+>>>>>>> a14b766c (更像人 2/3 续：音频生成、存音乐库与分享)
 
     // 沿用早先定下的销毁事务号;AIDL 要求要么全部方法编号要么都不编号
     void destroy() = 16777114;
