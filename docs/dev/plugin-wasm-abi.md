@@ -2,6 +2,10 @@
 
 适用于随 App 分发的 Wasm 引擎(Wasmtime)。当前只在**调试包**、**arm64 设备**启用(`BuildConfig.WASM_PLUGINS`);发布包安装器会拒绝 wasm 插件。
 
+## 已实现的能力(ABI v2 只读)
+
+import module `mika`:`abi_version()`、`log(level,ptr,len)`、`settings_get(key_ptr,key_len,out_ptr,out_cap)`、`fs_read(path_ptr,path_len,out_ptr,out_cap)`。权限与设置快照由宿主每次调用传入上下文;未授权返回 `-2`。`fs_read` 只读插件自己的 workspace。写入与网络能力尚未实现。
+
 ## 模块要求
 
 模块必须导出:

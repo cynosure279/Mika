@@ -8,7 +8,12 @@ import java.io.File
 import java.security.MessageDigest
 
 /** 一次 Wasm 工具调用结果;宿主只认 JSON 文本,和脚本路径的 stdout 约定保持一致。 */
-data class WasmCallResult(val output: String = "", val isError: Boolean = false)
+data class WasmCallResult(
+    val output: String = "",
+    val isError: Boolean = false,
+    /** guest 通过 mika.log 写的日志(已限流),由调用方落到插件日志。 */
+    val logs: List<String> = emptyList(),
+)
 
 /** 已编译/校验过的模块;实现自己决定内容(Endive 的 WasmModule、Wasmtime 的 Module 等)。 */
 interface LoadedWasmModule
@@ -23,8 +28,8 @@ interface WasmEngine {
     /** 编译并校验模块;同一份 [bytes] 可能被 [WasmModuleCache] 复用,实现不必自己缓存。 */
     suspend fun load(bytes: ByteArray): LoadedWasmModule
 
-    /** 调用工具入口;args/输出都是 JSON 文本。超时由实现负责(epoch/fuel 或等价机制)。 */
-    suspend fun call(module: LoadedWasmModule, argsJson: String, timeoutMs: Long): WasmCallResult
+    /** 调用工具入口;contextJson 是宿主能力上下文(权限/设置快照),args/输出都是 JSON 文本。 */
+    suspend fun call(module: LoadedWasmModule, contextJson: String, argsJson: String, timeoutMs: Long): WasmCallResult
 }
 
 /**
@@ -73,8 +78,16 @@ class PluginWasmRuntime(
     private val engine: WasmEngine,
     private val cache: WasmModuleCache = WasmModuleCache(),
     private val log: PluginLog? = null,
+    /** 宿主能力上下文:权限 + 设置/secret 快照;默认空上下文(能力一律拒绝)。 */
+    private val context: (pluginId: String, permissions: List<String>) -> String = { _, _ -> "{}" },
 ) {
-    suspend fun call(pluginId: String, tool: PluginToolDecl, args: JsonObject, timeoutMs: Long): WasmCallResult {
+    suspend fun call(
+        pluginId: String,
+        permissions: List<String>,
+        tool: PluginToolDecl,
+        args: JsonObject,
+        timeoutMs: Long,
+    ): WasmCallResult {
         val path = tool.wasm ?: return WasmCallResult("invalid_tool: ${tool.name} has no wasm", isError = true)
         if (!PluginManifest.WASM.matches(path) || ".." in path) {
             return WasmCallResult("invalid_tool_wasm: $path", isError = true)
@@ -87,8 +100,10 @@ class PluginWasmRuntime(
         val started = System.currentTimeMillis()
         return try {
             val module = cache.getOrLoad(key, bytes) { engine.load(bytes) }
+            val ctx = runCatching { context(pluginId, permissions) }.getOrDefault("{}")
             val callStarted = System.currentTimeMillis()
-            val result = engine.call(module, args.toString(), timeoutMs.coerceIn(1, 600) * 1000L)
+            val result = engine.call(module, ctx, args.toString(), timeoutMs.coerceIn(1, 600) * 1000L)
+            result.logs.forEach { log?.append("guest", it) }
             log?.append(
                 "tool",
                 "${tool.name} engine=${engine.name} load_ms=${callStarted - started} call_ms=${System.currentTimeMillis() - callStarted} error=${result.isError}",

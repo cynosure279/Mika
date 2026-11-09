@@ -102,7 +102,7 @@ class PluginEndpointTest {
             loads++
             return object : LoadedWasmModule {}
         }
-        override suspend fun call(module: LoadedWasmModule, argsJson: String, timeoutMs: Long): WasmCallResult =
+        override suspend fun call(module: LoadedWasmModule, contextJson: String, argsJson: String, timeoutMs: Long): WasmCallResult =
             WasmCallResult("""{"echo":$argsJson}""")
     }
 

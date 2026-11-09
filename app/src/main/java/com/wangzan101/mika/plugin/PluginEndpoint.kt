@@ -51,7 +51,13 @@ class PluginEndpoint(
             val runtime = wasm
                 ?: return McpResult("wasm_not_supported: ${tool.name}", isError = true)
             return try {
-                val result = runtime.call(record.id, tool, arguments, tool.timeoutSec.toLong())
+                val result = runtime.call(
+                    record.id,
+                    manifest.permissions,
+                    tool,
+                    arguments,
+                    tool.timeoutSec.toLong(),
+                )
                 McpResult(text = result.output, isError = result.isError)
             } catch (e: CancellationException) {
                 throw e

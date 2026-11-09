@@ -38,7 +38,12 @@ class WasmProcessEngine(
 
     override suspend fun load(bytes: ByteArray): LoadedWasmModule = Module(bytes)
 
-    override suspend fun call(module: LoadedWasmModule, argsJson: String, timeoutMs: Long): WasmCallResult =
+    override suspend fun call(
+        module: LoadedWasmModule,
+        contextJson: String,
+        argsJson: String,
+        timeoutMs: Long,
+    ): WasmCallResult =
         withContext(Dispatchers.IO) {
             if (fused) {
                 return@withContext WasmCallResult("wasm_error: engine unavailable after repeated crashes", isError = true)
@@ -53,10 +58,16 @@ class WasmProcessEngine(
             try {
                 // 服务内已有 epoch 超时;这里再加一道宿主兜底(多给 5 秒)
                 val output = withTimeout(timeoutMs.coerceIn(1, 600_000) + 5_000) {
-                    service.call(bytes, argsJson, timeoutMs, WasmtimeEngine.DEFAULT_MEMORY_LIMIT)
+                    service.call(
+                        bytes,
+                        contextJson.toByteArray(Charsets.UTF_8),
+                        argsJson,
+                        timeoutMs,
+                        WasmtimeEngine.DEFAULT_MEMORY_LIMIT,
+                    )
                 }
                 failures.set(0)
-                WasmCallResult(output)
+                WasmReply.parse(output)
             } catch (e: TimeoutCancellationException) {
                 disconnect()
                 fail("wasm engine did not answer in time")

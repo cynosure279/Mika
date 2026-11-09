@@ -3,6 +3,15 @@ package com.wangzan101.mika.plugin
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.put
 
 /**
  * Wasmtime 引擎实现。模块缓存由原生侧按内容哈希管理(解析/编译一次);
@@ -21,12 +30,25 @@ class WasmtimeEngine(
 
     override suspend fun load(bytes: ByteArray): LoadedWasmModule = Module(bytes)
 
-    override suspend fun call(module: LoadedWasmModule, argsJson: String, timeoutMs: Long): WasmCallResult =
+    override suspend fun call(
+        module: LoadedWasmModule,
+        contextJson: String,
+        argsJson: String,
+        timeoutMs: Long,
+    ): WasmCallResult =
         withContext(Dispatchers.IO) {
             val bytes = (module as? Module)?.bytes
                 ?: return@withContext WasmCallResult("wasm_error: module was not loaded by wasmtime", isError = true)
             try {
-                WasmCallResult(WasmtimeNative.nativeCall(bytes, argsJson, timeoutMs, memoryLimitBytes))
+                WasmReply.parse(
+                    WasmtimeNative.nativeCall(
+                        bytes,
+                        contextJson.toByteArray(Charsets.UTF_8),
+                        argsJson,
+                        timeoutMs,
+                        memoryLimitBytes,
+                    ),
+                )
             } catch (e: CancellationException) {
                 throw e
             } catch (e: RuntimeException) {
@@ -38,6 +60,18 @@ class WasmtimeEngine(
         /** 单实例内存上限;插件工具是胶水逻辑,64 MiB 足够,超出视为插件错误。 */
         const val DEFAULT_MEMORY_LIMIT: Long = 64L * 1024 * 1024
     }
+}
+
+/** 原生侧返回的信封:`{"output": "...", "logs": ["..."]}`。 */
+internal object WasmReply {
+    fun parse(json: String): WasmCallResult = runCatching {
+        val obj = Json.parseToJsonElement(json) as JsonObject
+        val output = (obj["output"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val logs = (obj["logs"] as? JsonArray)
+            ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+            .orEmpty()
+        WasmCallResult(output, logs = logs)
+    }.getOrElse { WasmCallResult(json) }
 }
 
 /** 本机是否带可用的 Wasm 引擎(原生库随 APK 的 arm64 目录分发)。 */
@@ -58,6 +92,23 @@ object WasmSupport {
     fun runtime(packageRoot: java.io.File): PluginWasmRuntime? {
         val context = appContext ?: return null
         if (!available) return null
-        return PluginWasmRuntime({ id -> java.io.File(packageRoot, id) }, WasmProcessEngine(context))
+        val dirs = com.wangzan101.mika.cap.sandbox.SandboxDirs(context)
+        return PluginWasmRuntime(
+            packageDir = { id -> java.io.File(packageRoot, id) },
+            engine = WasmProcessEngine(context),
+            context = { id, permissions ->
+                val settings = PluginSettings(
+                    java.io.File(packageRoot, id),
+                    com.wangzan101.mika.settings.KeystoreKeyCipher(pluginKeyAlias(id)),
+                )
+                buildJsonObject {
+                    put("pluginId", id)
+                    put("permissions", buildJsonArray { permissions.forEach { add(it) } })
+                    put("settings", buildJsonObject { settings.all().forEach { (k, v) -> put(k, JsonPrimitive(v)) } })
+                    put("secrets", buildJsonObject { settings.secretEnv().forEach { (k, v) -> put(k, JsonPrimitive(v)) } })
+                    put("workspace", dirs.pluginWorkspace(id).absolutePath)
+                }.toString()
+            },
+        )
     }
 }

@@ -17,5 +17,11 @@ object WasmtimeNative {
         }
     }
 
-    external fun nativeCall(wasm: ByteArray, argsJson: String, timeoutMs: Long, memoryLimitBytes: Long): String
+    external fun nativeCall(
+        wasm: ByteArray,
+        contextJson: ByteArray,
+        argsJson: String,
+        timeoutMs: Long,
+        memoryLimitBytes: Long,
+    ): String
 }

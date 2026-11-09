@@ -10,10 +10,10 @@ import android.os.IBinder
  */
 class WasmService : Service() {
     private val binder = object : IWasmRuntime.Stub() {
-        override fun call(wasm: ByteArray, argsJson: String, timeoutMs: Long, memoryLimitBytes: Long): String {
+        override fun call(wasm: ByteArray, contextJson: ByteArray, argsJson: String, timeoutMs: Long, memoryLimitBytes: Long): String {
             try {
                 WasmtimeNative.ensureLoaded()
-                return WasmtimeNative.nativeCall(wasm, argsJson, timeoutMs, memoryLimitBytes)
+                return WasmtimeNative.nativeCall(wasm, contextJson, argsJson, timeoutMs, memoryLimitBytes)
             } catch (e: Throwable) {
                 // 跨 Binder 只能带 RuntimeException;宿主统一映射为 wasm_error
                 throw IllegalStateException(e.message ?: e.javaClass.simpleName, e)
