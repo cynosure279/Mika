@@ -62,6 +62,7 @@ class ToolRiskTest {
         override suspend fun synthesize(request: TtsRequest) = TtsResponse(ByteArray(0), "audio/wav")
         override suspend fun store(response: TtsResponse, nameHint: String?, text: String) = StoredAudio("/workspace/out/audio/x.wav", 0, "audio/wav")
         override suspend fun saveToMusic(path: String, name: String?) = SavedAudio("Music/Mika/x.wav", "content://x", 0)
+        override suspend fun speak(request: TtsRequest) {}
     }
 
     @Test fun readCallsRefuseWhatTheOldListsRefused() = runTest {
@@ -71,10 +72,10 @@ class ToolRiskTest {
                 "mika_open_in_browser", "mika_search_in_browser", "mika_login_site", "mika_confirm_login", "mika_favorites",
                 "phone_call_state", "phone_call_dial", "phone_call_answer", "phone_call_hangup", "phone_call_takeover",
                 "list_device_files", "copy_device_file", "search_device_files", "list_device_directory_hints", "update_device_directory_description",
-                "audio_generate", "audio_save", "audio_transcribe")
+                "audio_generate", "audio_save", "audio_transcribe", "speak")
         assertEquals(refused, allTools().filter { !it.readOnly }.map { it.name }.toSet())
         // root 命令、通话工具都只在给了端口时登记:各给一个,所有工具都在
-        val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, transcribe = NoTranscribePort, root = object : com.wangzan101.mika.core.cap.root.RootPort {
+        val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, audioSpeakTool = true, transcribe = NoTranscribePort, root = object : com.wangzan101.mika.core.cap.root.RootPort {
             override suspend fun run(command: String, timeoutMs: Long) = com.wangzan101.mika.core.cap.root.RootRun.Unavailable
         }, deviceFiles = object : com.wangzan101.mika.core.cap.devicefiles.DeviceFilesPort {
             override suspend fun search(query: com.wangzan101.mika.core.cap.devicefiles.DeviceFileSearchQuery): com.wangzan101.mika.core.cap.devicefiles.DeviceFileSearchResult = error("read call reached device files")

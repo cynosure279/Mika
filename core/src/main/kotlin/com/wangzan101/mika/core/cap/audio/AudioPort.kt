@@ -22,4 +22,7 @@ interface AudioPort {
 
     /** 把工作区里的音频存进 `Music/Mika`（MediaStore.Audio）。 */
     suspend fun saveToMusic(path: String, name: String?): SavedAudio
+
+    /** 合成并在本机播放一段话（不落工作区、不发送）；失败时抛同样的错误。 */
+    suspend fun speak(request: TtsRequest)
 }

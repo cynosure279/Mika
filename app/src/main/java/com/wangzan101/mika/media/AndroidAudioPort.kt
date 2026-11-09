@@ -26,6 +26,7 @@ class AndroidAudioPort(
     private val model: com.wangzan101.mika.core.model.TtsModel,
     override val capabilities: TtsCapabilities,
     private val onSaved: (SavedAudio) -> Unit = {},
+    private val onSpeak: suspend (TtsResponse) -> Unit = {},
 ) : AudioPort {
     override val modelName: String get() = model.name
 
@@ -33,6 +34,8 @@ class AndroidAudioPort(
     private val workspace: File by lazy { dirs.workspace(conversationId) }
 
     override suspend fun synthesize(request: TtsRequest): TtsResponse = model.synthesize(request)
+
+    override suspend fun speak(request: TtsRequest) = onSpeak(model.synthesize(request))
 
     override suspend fun store(response: TtsResponse, nameHint: String?, text: String): StoredAudio {
         val name = baseName(nameHint, text, response.mime)
