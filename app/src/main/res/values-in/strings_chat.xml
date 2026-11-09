@@ -177,4 +177,6 @@
     <string name="chat_placeholder_queue">Tulis tugas berikutnya…</string>
     <string name="voice_placeholder_queue">Ucapkan tugas berikutnya…</string>
     <string name="steer_received_paused">Dimengerti — akan dipakai saat tugas dilanjutkan</string>
+    <string name="chat_read_aloud">Read aloud</string>
+    <string name="chat_stop_speaking">Stop speaking</string>
 </resources>

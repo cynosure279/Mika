@@ -177,4 +177,6 @@
     <string name="chat_placeholder_queue">次のタスクを入力…</string>
     <string name="voice_placeholder_queue">次のタスクを話す…</string>
     <string name="steer_received_paused">了解です — タスクの再開後に反映されます</string>
+    <string name="chat_read_aloud">Read aloud</string>
+    <string name="chat_stop_speaking">Stop speaking</string>
 </resources>

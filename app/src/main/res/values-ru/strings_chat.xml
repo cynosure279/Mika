@@ -192,4 +192,6 @@
     <string name="chat_placeholder_queue">Напишите следующую задачу…</string>
     <string name="voice_placeholder_queue">Продиктуйте следующую задачу…</string>
     <string name="steer_received_paused">Принято — будет учтено после продолжения задачи</string>
+    <string name="chat_read_aloud">Read aloud</string>
+    <string name="chat_stop_speaking">Stop speaking</string>
 </resources>

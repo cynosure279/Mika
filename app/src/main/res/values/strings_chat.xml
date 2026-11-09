@@ -182,4 +182,6 @@
     <string name="chat_placeholder_queue">Write the next task…</string>
     <string name="voice_placeholder_queue">Say the next task…</string>
     <string name="steer_received_paused">Got it — it will be used when the task continues</string>
+    <string name="chat_read_aloud">Read aloud</string>
+    <string name="chat_stop_speaking">Stop speaking</string>
 </resources>

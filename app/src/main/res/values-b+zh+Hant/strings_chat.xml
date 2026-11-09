@@ -177,4 +177,6 @@
     <string name="chat_placeholder_queue">寫下下一件事…</string>
     <string name="voice_placeholder_queue">說下一件事…</string>
     <string name="steer_received_paused">已收到，任務繼續後處理</string>
+    <string name="chat_read_aloud">Read aloud</string>
+    <string name="chat_stop_speaking">Stop speaking</string>
 </resources>

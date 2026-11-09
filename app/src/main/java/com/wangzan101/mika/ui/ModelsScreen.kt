@@ -96,8 +96,13 @@ import com.wangzan101.mika.voice.SpeechOptions
 
 /** 设置 › 模型:和上手时的配置模型是同一页([ModelSetupScreen]),不在引导流程里。 */
 @Composable
-fun ModelsScreen(store: ProviderStore, onBack: () -> Unit, onOpenSpeech: (() -> Unit)? = null, onOpenUsage: (() -> Unit)? = null) {
-    ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech, onOpenUsage = onOpenUsage)
+fun ModelsScreen(
+    store: ProviderStore, onBack: () -> Unit,
+    onOpenSpeech: (() -> Unit)? = null,
+    onOpenVoice: (() -> Unit)? = null,
+    onOpenUsage: (() -> Unit)? = null,
+) {
+    ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech, onOpenVoice = onOpenVoice, onOpenUsage = onOpenUsage)
 }
 
 /** 子页面共用的骨架:顶栏 + 可滚动内容。 */
@@ -814,6 +819,12 @@ object ModelsCopy {
         val unset = s.title == UNSET
         return RoleLine(s.title, s.sub.orEmpty(), isModel = !unset && (ui.speech is SpeechChoice.Provider || ui.speech is SpeechChoice.Doubao || ui.speech is SpeechChoice.FunAsr || ui.speech is SpeechChoice.Bailian), unset = unset, subtitleOk = s.subOk)
     }
+
+    /** 第五个用途「声音模型」:朗读/主动说话,和语音转写一样不在 [ModelRole] 里。 */
+    val VOICE_LABEL: String get() = "${tr(R.string.role_voice)} · ${tr(R.string.role_voice_what)}"
+    val VOICE_ICON: ImageVector get() = MikaIcons.Sound
+
+    fun voiceLine(): RoleLine = RoleLine(tr(R.string.role_voice), tr(R.string.role_voice_what), unset = true)
 
     fun roleIcon(role: ModelRole): ImageVector = when (role) {
         ModelRole.Main -> MikaIcons.Spark

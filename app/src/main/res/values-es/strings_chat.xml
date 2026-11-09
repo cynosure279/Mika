@@ -187,4 +187,6 @@
     <string name="chat_placeholder_queue">Escribe la siguiente tarea…</string>
     <string name="voice_placeholder_queue">Di la siguiente tarea…</string>
     <string name="steer_received_paused">Entendido — se usará cuando continúe la tarea</string>
+    <string name="chat_read_aloud">Read aloud</string>
+    <string name="chat_stop_speaking">Stop speaking</string>
 </resources>

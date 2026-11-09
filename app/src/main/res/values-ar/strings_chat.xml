@@ -202,4 +202,6 @@
     <string name="chat_placeholder_queue">اكتب المهمة التالية…</string>
     <string name="voice_placeholder_queue">تحدّث عن المهمة التالية…</string>
     <string name="steer_received_paused">تم الاستلام — سيُستخدم عند متابعة المهمة</string>
+    <string name="chat_read_aloud">Read aloud</string>
+    <string name="chat_stop_speaking">Stop speaking</string>
 </resources>
