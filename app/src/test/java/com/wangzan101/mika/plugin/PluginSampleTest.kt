@@ -95,6 +95,23 @@ class PluginSampleTest {
         assertTrue(PluginManifest.ERR_KIND in m.validate("0.1.33"))
     }
 
+    @Test fun wasmSampleNeedsRuntimeAndInstallsWhenAvailable() {
+        val wasmEcho = File(examples, "com.example.wasm-echo")
+        val m = PluginManifest.parse(File(wasmEcho, "manifest.json").readText())
+        assertTrue(PluginManifest.ERR_WASM_NOT_SUPPORTED in m.validate("0.1.33"))
+        assertTrue(m.validate("0.1.33", wasmSupported = true).isEmpty())
+        assertTrue(File(wasmEcho, "tools/echo.wasm").isFile)
+
+        val zip = File(tmp.root, "wasm-echo.zip")
+        ZipOutputStream(zip.outputStream()).use { z ->
+            add(z, File(wasmEcho, "manifest.json"), "manifest.json")
+            add(z, File(wasmEcho, "tools/echo.wasm"), "tools/echo.wasm")
+        }
+        val files = tmp.newFolder("wasm-files")
+        val record = PluginInstaller(files, appVersion = "0.1.33", wasmSupported = true).installZip(zip).getOrThrow()
+        assertEquals("com.example.wasm-echo", record.id)
+    }
+
     private fun add(z: ZipOutputStream, file: File, name: String) {
         z.putNextEntry(ZipEntry(name))
         z.write(file.readBytes())

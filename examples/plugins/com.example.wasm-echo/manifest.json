@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "id": "com.example.wasm-echo",
+  "name": "Wasm 回显示例",
+  "version": "0.1.0",
+  "kind": "capability",
+  "minApp": "0.1.33",
+  "author": "Mika 插件示例",
+  "description": "用 Wasm(ABI v1)回显工具参数,演示 Wasm 插件包的最小形态。",
+  "permissions": [],
+  "tools": [
+    {
+      "name": "echo",
+      "description": "回显传入的 JSON,演示 Wasm 工具 ABI",
+      "wasm": "tools/echo.wasm",
+      "timeoutSec": 10,
+      "annotations": { "readOnlyHint": true, "destructiveHint": false, "openWorldHint": false },
+      "inputSchema": {
+        "type": "object",
+        "properties": { "text": { "type": "string", "description": "要回显的文字" } },
+        "required": []
+      }
+    }
+  ]
+}

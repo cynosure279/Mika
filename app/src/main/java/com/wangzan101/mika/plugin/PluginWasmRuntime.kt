@@ -80,13 +80,8 @@ class PluginWasmRuntime(
             return WasmCallResult("invalid_tool_wasm: $path", isError = true)
         }
         val dir = packageDir(pluginId) ?: return WasmCallResult("plugin_error: plugin is not installed", isError = true)
-        val file = File(dir, path)
-        if (!file.isFile) {
-            return WasmCallResult("plugin_error: module is missing; reinstall the plugin", isError = true)
-        }
-        val bytes = runCatching { file.readBytes() }.getOrElse {
-            return WasmCallResult("plugin_error: cannot read module: ${it.message}", isError = true)
-        }
+        val bytes = PluginWasmModules.verified(dir, path)
+            ?: return WasmCallResult("plugin_error: module is missing or changed; reinstall the plugin", isError = true)
         val hash = sha256(bytes)
         val key = "${engine.name}:$hash"
         val started = System.currentTimeMillis()

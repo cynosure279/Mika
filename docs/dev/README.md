@@ -28,6 +28,7 @@
 | [remote-device-access-check.md](remote-device-access-check.md) | 远程亮屏与解锁的验证记录 |
 | [remote-mcp.md](remote-mcp.md) | 自托管远程 CLI / MCP 的部署、手机鉴权和断线语义 |
 | [wasm-plugin-runtime.md](wasm-plugin-runtime.md) | 插件 Wasm 运行时的决策记录：候选实测、选择 Wasmtime、生命周期、安全模型与阶段拆分 |
+| [plugin-wasm-abi.md](plugin-wasm-abi.md) | 插件 Wasm ABI v1：导出、协议、资源限制与最小示例 |
 
 ## 仓库里别处的开发文档
 

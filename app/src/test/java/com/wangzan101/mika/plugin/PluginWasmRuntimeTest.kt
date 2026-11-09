@@ -27,6 +27,7 @@ class PluginWasmRuntimeTest {
     private fun dirWith(name: String, bytes: ByteArray): File = temp().also {
         File(it, "tools").mkdirs()
         File(it, "tools/$name").writeBytes(bytes)
+        PluginWasmModules.writeHashes(it, PluginWasmModules.collect(it))
     }
 
     private val tool = PluginToolDecl(name = "ping", wasm = "tools/ping.wasm")
@@ -35,7 +36,7 @@ class PluginWasmRuntimeTest {
         val dir = temp()
         val r = PluginWasmRuntime({ dir }, Engine()).call("p", tool, buildJsonObject {}, 5)
         assertTrue(r.isError)
-        assertTrue(r.output.contains("module is missing"))
+        assertTrue(r.output.contains("missing or changed"))
         dir.deleteRecursively()
     }
 
@@ -54,10 +55,20 @@ class PluginWasmRuntimeTest {
         runtime.call("p", tool, buildJsonObject {}, 5)
         assertEquals(1, engine.loads.size)
 
-        // 插件更新后内容哈希变化,必须重新编译
+        // 插件更新后内容哈希变化,必须重新编译(安装器会同时更新哈希清单)
         File(dir, "tools/ping.wasm").writeBytes(byteArrayOf(4, 5, 6))
+        PluginWasmModules.writeHashes(dir, PluginWasmModules.collect(dir))
         runtime.call("p", tool, buildJsonObject {}, 5)
         assertEquals(2, engine.loads.size)
+        dir.deleteRecursively()
+    }
+
+    @Test fun tamperedModuleIsRejected() = runTest {
+        val dir = dirWith("ping.wasm", byteArrayOf(1))
+        File(dir, "tools/ping.wasm").writeBytes(byteArrayOf(9))
+        val r = PluginWasmRuntime({ dir }, Engine()).call("p", tool, buildJsonObject {}, 5)
+        assertTrue(r.isError)
+        assertTrue(r.output.contains("changed"))
         dir.deleteRecursively()
     }
 
@@ -72,6 +83,7 @@ class PluginWasmRuntimeTest {
     @Test fun lruEvictsOldestModule() = runTest {
         val dir = dirWith("a.wasm", byteArrayOf(1))
         File(dir, "tools/b.wasm").writeBytes(byteArrayOf(2))
+        PluginWasmModules.writeHashes(dir, PluginWasmModules.collect(dir))
         val engine = Engine()
         val runtime = PluginWasmRuntime({ dir }, engine, WasmModuleCache(maxEntries = 1, maxBytes = 1024))
         runtime.call("p", PluginToolDecl(name = "a", wasm = "tools/a.wasm"), buildJsonObject {}, 5)

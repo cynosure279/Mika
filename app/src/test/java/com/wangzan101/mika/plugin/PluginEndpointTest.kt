@@ -110,6 +110,7 @@ class PluginEndpointTest {
         val dir = java.nio.file.Files.createTempDirectory("wasm-plugin").toFile()
         java.io.File(dir, "tools").mkdirs()
         java.io.File(dir, "tools/ping.wasm").writeBytes(byteArrayOf(1, 2, 3))
+        PluginWasmModules.writeHashes(dir, PluginWasmModules.collect(dir))
         val m = PluginManifest.parse(
             """{"schema":1,"id":"com.example.feishu","name":"f","version":"1.0.0",
                 "permissions":[],"tools":[{"name":"ping","wasm":"tools/ping.wasm","timeoutSec":5}]}""",

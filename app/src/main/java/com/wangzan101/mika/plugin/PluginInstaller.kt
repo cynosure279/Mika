@@ -162,9 +162,17 @@ class PluginInstaller(
                 }
             }
             for (t in m.tools) {
-                val script = t.script ?: throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "tool ${t.name} has no script")
-                if (!File(staging, script).isFile) {
-                    throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "tool ${t.name} script is missing: $script")
+                val source = t.script ?: t.wasm
+                    ?: throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "tool ${t.name} has no script")
+                if (!File(staging, source).isFile) {
+                    throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "tool ${t.name} file is missing: $source")
+                }
+            }
+            if (m.tools.any { it.wasm != null }) {
+                try {
+                    PluginWasmModules.writeHashes(staging, PluginWasmModules.collect(staging))
+                } catch (e: PluginScriptException) {
+                    throw PluginInstallException(e.code, e.message, e)
                 }
             }
             val pagesRoot = File(staging, "pages").canonicalPath + File.separator
