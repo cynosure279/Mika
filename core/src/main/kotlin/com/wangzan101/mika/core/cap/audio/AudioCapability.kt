@@ -15,6 +15,7 @@ internal class AudioCapability(
     val port: AudioPort?,
     val saveEnabled: Boolean,
     private val askBeforeSave: Boolean,
+    val speakTool: Boolean,
 ) : Capability {
     override val id = AUDIO
     override val folds = true
@@ -22,7 +23,7 @@ internal class AudioCapability(
     override fun status(): CapabilityStatus =
         if (port != null) CapabilityStatus.Available else CapabilityStatus.Unavailable("no voice model")
 
-    override fun tools(): List<AgentTool> = AudioGroup.forTask(saveEnabled, askBeforeSave)
+    override fun tools(): List<AgentTool> = AudioGroup.forTask(saveEnabled, askBeforeSave, speakTool)
 
     override fun sections(env: PromptEnv): List<String> =
         if (env.isOpen(id) && tools().any { it.name in env.offered }) listOf(env.gate(Prompts.capability(AUDIO))) else emptyList()
