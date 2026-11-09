@@ -103,6 +103,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     /** 已安装的插件:zip 安装、启停与只读技能;任务开始时给技能目录一份固定快照。 */
     val plugins by lazy {
         com.wangzan101.mika.plugin.PluginRegistry(filesDir, scope,
+            wasmSupported = com.wangzan101.mika.plugin.WasmSupport.available,
             log = { msg, e -> Log.w("MikaPlugin", msg, e) })
     }
     override val tabBudget get() = resources.tabBudget

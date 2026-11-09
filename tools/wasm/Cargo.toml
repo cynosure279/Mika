@@ -1,0 +1,28 @@
+[package]
+name = "mika_wasm"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+name = "mika_wasm"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21"
+sha2 = "0.10"
+wasmtime = { version = "49.0.5", default-features = false, features = [
+    "std",
+    "runtime",
+    "cranelift",
+    "gc",
+    "gc-drc",
+    "gc-copying",
+    "gc-null",
+] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = true

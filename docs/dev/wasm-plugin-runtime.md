@@ -48,15 +48,30 @@ Wasm 路径的目标：把「每次调用起进程」变成「进程内两次函
 | D4 | **池化编译产物，不池化执行状态**：模块按内容哈希缓存（内存 + 可选磁盘 `.cwasm`），实例每次调用新建 | 实例化仅 1–2 ms；复用实例会带 trap 后的脏状态、状态泄漏和并发复杂度 |
 | D5 | 进程懒启动、空闲回收；Wasmtime 放独立进程，连续失败熔断 | 原生崩溃不能带走 App；无 Endive 可回退，熔断后降级到脚本或明确报错 |
 | D6 | 每实例内存上限 + 每次调用执行限额（Wasmtime fuel/epoch）；沿用超时与输出上限 | 脚本路径当前没有内存上限，这是 Wasm 的增量价值 |
-| D7 | ABI：参数/结果走 JSON；传输在线性内存 `ptr+len` 与 WASI stdio 之间二选一，下一阶段定 | 与现有脚本协议同构，便于迁移与回退 |
+| D7 | ABI v1：参数/结果走 JSON，传输用**线性内存 `ptr+len`**（模块导出 `memory`、`mika_buffer`、`mika_buffer_size`、`mika_tool_call`）；WASI stdio 作为以后可选的兼容层 | 与现有脚本协议同构（JSON 进、JSON 出），不引入 WASI 的权限面和额外体积；Rust/C 实现简单，MoonBit 可后续补绑定 |
 | D8 | 脚本路径立即加固：rootfs 只读、`RLIMIT_AS` | 两项小改动，直接消掉「改共享运行时」与「内存 DoS」；不依赖 Wasm |
 | D9 | Wasmtime 体积策略：瘦身特性 + 单 ABI（arm64），按分发渠道选 AAB 动态功能或签名下载 | 全特性 9.7–13.3 MB/ABI，瘦身 6.7–10.1 MB；用户只应下载自己那份 |
 | D10 | 分三阶段：决策与 manifest → 运行时与 ABI → 插件迁移与脚本降级 | 每阶段可独立 review、可回退 |
 
+### ABI v1（D7 的具体形式）
+
+模块必须导出：
+
+- `memory`：线性内存；
+- `mika_buffer() -> i32`：参数/结果共用的缓冲区指针；
+- `mika_buffer_size() -> i32`：缓冲区容量（参数 JSON 不得超过）；
+- `mika_tool_call(ptr, len) -> i64`：工具入口，返回值打包为 `(结果指针 << 32) | 结果长度`，指向同一块缓冲区里的结果 JSON。
+
+宿主行为：每次调用新建 Store/Instance；参数按 UTF-8 写入缓冲区；`StoreLimits` 限制内存（默认 64 MiB）；epoch 每 10 ms 递增，每次调用按 `timeoutSec` 设 deadline，死循环被 trap 并转成 `wasm_error`。模块默认 0 个 import；文件、网络等能力以后由宿主显式注入的 import 提供。
+
+参考 guest：`tools/wasm/test-guest`（回显参数、可选死循环用于验证超时）。
+
 ## 4. 阶段与 PR 拆分
 
 - **阶段一（本 PR）**：本决策记录；manifest 识别 `wasm` 工具声明并**明确拒绝安装**（`wasm_not_supported`），避免装出「调用必报错」的插件；补校验与测试。不改任何现有行为。
-- **阶段二**：`PluginRuntime` 接口 + `WasmtimeRuntime` 实现；原生库构建进 CI（按 ABI）；模块缓存、ABI（JSON + 线性内存/WASI）、内存/执行限额；独立进程 + watchdog + 熔断。
+- **阶段二**：`PluginRuntime` 接口 + `WasmtimeRuntime` 实现；原生库构建进 CI（按 ABI）；模块缓存、ABI（JSON + 线性内存）、内存/执行限额；独立进程 + watchdog + 熔断。
+  - 已完成：`WasmEngine` 契约、`WasmModuleCache`、`PluginWasmRuntime` 与工具分派（PR #449）；Wasmtime JNI 引擎（`tools/wasm`，arm64 库随 APK，模块缓存/epoch 超时/64 MiB 内存上限/ABI v1）。
+  - 待完成：独立进程与熔断、安装器按引擎可用性翻转、真机验证。
 - **阶段三**：新插件默认 Wasm；把示例插件（飞书）迁移为 Wasm；脚本通道降级为兼容层，按实际使用情况决定下线时机。
 
 ## 5. 未决问题

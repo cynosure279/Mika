@@ -48,7 +48,7 @@ fun PluginsScreen(registry: PluginRegistry, onBack: () -> Unit) {
     val plugins by registry.plugins.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val installer = remember { PluginInstaller(context.filesDir) }
+    val installer = remember { PluginInstaller(context.filesDir, wasmSupported = com.wangzan101.mika.plugin.WasmSupport.available) }
     var selectedId by rememberSaveable { mutableStateOf<String?>(null) }
     var installing by remember { mutableStateOf(false) }
     var failure by remember { mutableStateOf<Throwable?>(null) }

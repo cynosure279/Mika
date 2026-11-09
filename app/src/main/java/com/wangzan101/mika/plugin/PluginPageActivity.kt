@@ -82,7 +82,7 @@ class PluginPageActivity : ComponentActivity() {
         pageLog = PluginLog(File(filesDir, "plugins/$pluginId/logs")).also { it.append("page", "open ${page.id}") }
         val sandbox = AndroidSandbox(this, SandboxState.get(this))
         val runner = AndroidPluginScriptRunner(this, sandbox)
-        val endpoint = PluginEndpoint(record, manifest, runner, networkAllowed = { record.networkGranted && sandbox.networkAllowed() })
+        val endpoint = PluginEndpoint(record, manifest, runner, networkAllowed = { record.networkGranted && sandbox.networkAllowed() }, wasm = WasmSupport.runtime(File(filesDir, "plugins")))
         val settings = PluginSettings(File(filesDir, "plugins/$pluginId"), com.wangzan101.mika.settings.KeystoreKeyCipher(pluginKeyAlias(pluginId)))
         networkGranted = "network" in manifest.permissions && record.networkGranted && sandbox.networkAllowed()
         csp = buildString {

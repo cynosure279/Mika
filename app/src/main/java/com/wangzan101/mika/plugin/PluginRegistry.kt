@@ -25,10 +25,13 @@ class PluginRegistry(
     private val filesDir: File,
     private val scope: CoroutineScope,
     private val appVersion: String = BuildConfig.VERSION_NAME,
+    private val wasmSupported: Boolean = false,
     private val log: (String, Throwable?) -> Unit = { _, _ -> },
 ) {
     private val root = File(filesDir, "plugins")
     private val file = File(root, REGISTRY)
+    private val wasmRuntime: PluginWasmRuntime? =
+        if (wasmSupported) WasmSupport.runtime(root) else null
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = true; encodeDefaults = true }
     private val lock = Any()
     private val _plugins = MutableStateFlow<List<PluginRecord>>(emptyList())
@@ -56,9 +59,9 @@ class PluginRegistry(
         networkAllowed: () -> Boolean = { false },
     ): List<McpConnection> = enabledPlugins().mapNotNull { record ->
         val manifest = manifest(record.id) ?: return@mapNotNull null
-        if (manifest.tools.isEmpty() || manifest.validate(appVersion).isNotEmpty()) return@mapNotNull null
+        if (manifest.tools.isEmpty() || manifest.validate(appVersion, wasmSupported).isNotEmpty()) return@mapNotNull null
         McpConnection(
-            endpoint = PluginEndpoint(record, manifest, runner, { record.networkGranted && networkAllowed() }, logFor(record.id)),
+            endpoint = PluginEndpoint(record, manifest, runner, { record.networkGranted && networkAllowed() }, logFor(record.id), wasm = wasmRuntime),
             resultStore = PluginResultStore(root),
             maxCostUnits = manifest.maxCostUnits?.toLong(),
             trust = McpTrust.Restricted,
@@ -95,7 +98,7 @@ class PluginRegistry(
                 log("ignoring ${dir.name}: manifest id is ${manifest.id}", null)
                 continue
             }
-            if (manifest.validate(appVersion).isNotEmpty()) continue
+            if (manifest.validate(appVersion, wasmSupported).isNotEmpty()) continue
             val old = known[manifest.id]
             found += PluginRecord(
                 id = manifest.id,

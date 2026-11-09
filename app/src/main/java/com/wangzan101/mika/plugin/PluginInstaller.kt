@@ -37,6 +37,8 @@ class PluginInstaller(
     private val appVersion: String = BuildConfig.VERSION_NAME,
     private val maxBytes: Long = DEFAULT_MAX_BYTES,
     private val cacheDir: File = File(filesDir.parentFile ?: filesDir, "cache"),
+    /** 当前版本是否带 Wasm 运行时;没有时拒绝安装 wasm 工具。 */
+    private val wasmSupported: Boolean = false,
 ) {
     private val pluginsDir: File get() = File(filesDir, "plugins")
 
@@ -90,7 +92,7 @@ class PluginInstaller(
             } catch (e: Exception) {
                 throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "manifest.json is not valid", e)
             }
-            val problems = parsed.validate(appVersion)
+            val problems = parsed.validate(appVersion, wasmSupported)
             if (problems.isNotEmpty()) {
                 throw PluginInstallException(problems.first(), "manifest rejected: ${problems.joinToString()}")
             }
@@ -121,7 +123,7 @@ class PluginInstaller(
                 } catch (e: Exception) {
                     throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "manifest.json is not valid", e)
                 }
-                val problems = parsed.validate(appVersion)
+                val problems = parsed.validate(appVersion, wasmSupported)
                 if (problems.isNotEmpty()) {
                     throw PluginInstallException(problems.first(), "manifest rejected: ${problems.joinToString()}")
                 }
