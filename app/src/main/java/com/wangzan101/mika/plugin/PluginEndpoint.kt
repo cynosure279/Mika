@@ -54,6 +54,7 @@ class PluginEndpoint(
                 val result = runtime.call(
                     record.id,
                     manifest.permissions,
+                    manifest.settings,
                     tool,
                     arguments,
                     tool.timeoutSec.toLong(),

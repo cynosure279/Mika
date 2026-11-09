@@ -11,8 +11,10 @@
 //! - `fs_read(path_ptr, path_len, out_ptr, out_cap) -> i32`
 //! - `http_request(req_ptr, req_len, out_ptr, out_cap) -> i32`：经宿主回调(`IWasmHost`)
 //!   在 App 进程执行网络请求，策略、代理与限额都在宿主进程。
+//! - `settings_set(key_ptr, key_len, value_ptr, value_len) -> i32`：写插件设置/secret
+//!   (value_len 为 0 表示删除)；只认 manifest 声明过的键与类型，同样经宿主回调落盘。
 //! 权限、设置快照与 workspace 由宿主每次调用经 contextJson 传入，默认拒绝；
-//! 网络回调由宿主决定给不给，未给时 `http_request` 返回 -2。
+//! 回调由宿主决定给不给，未给时对应能力返回 -2。
 
 use std::collections::{HashMap, HashSet};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -30,10 +32,12 @@ struct State {
     permissions: HashSet<String>,
     settings: HashMap<String, String>,
     secrets: HashMap<String, String>,
+    /// manifest 声明的设置键与类型(只有这些键写得进去)。
+    setting_types: HashMap<String, String>,
     workspace: Option<PathBuf>,
     logs: Vec<String>,
     limits: StoreLimits,
-    /// 宿主进程回调(联网能力);未授权时为空。
+    /// 宿主进程回调(联网与设置写入);未授权时为空。
     vm: Option<JavaVM>,
     host: Option<GlobalRef>,
     /// 本次调用的截止时间(和 epoch 超时同一个预算)。
@@ -51,6 +55,7 @@ const LOG_BYTES: usize = 4000;
 const FS_LIMIT: usize = 1024 * 1024;
 const HTTP_REQUEST_LIMIT: usize = 1024 * 1024;
 const HTTP_TIMEOUT_MAX_MS: u64 = 30_000;
+const SETTING_LIMIT: usize = 64 * 1024;
 
 struct Cache {
     map: HashMap<[u8; 32], Module>,
@@ -272,7 +277,7 @@ fn linker() -> &'static Linker<State> {
                     };
                     // 回调超时不超过本次调用剩下的预算;Agent 给的更长也在宿主侧截断
                     let request = clamp_timeout(&request, remaining);
-                    let response = match call_host(vm, host, &request) {
+                    let response = match call_host_method(vm, host, "http", &request) {
                         Ok(response) => response,
                         Err(_) => return -5,
                     };
@@ -280,6 +285,47 @@ fn linker() -> &'static Linker<State> {
                 },
             )
             .expect("mika.http_request");
+        linker
+            .func_wrap(
+                "mika",
+                "settings_set",
+                |mut caller: Caller<'_, State>, key_ptr: i32, key_len: i32, value_ptr: i32, value_len: i32| -> i32 {
+                    if !allowed(caller.data(), "settings.plugin") {
+                        return -2;
+                    }
+                    let Some(key) = read_str(&mut caller, key_ptr, key_len) else { return -1 };
+                    if !valid_setting_key(&key) {
+                        return -1;
+                    }
+                    let Some(kind) = caller.data().setting_types.get(&key).cloned() else { return -3 };
+                    // value_len 为 0 表示删除;其余按 manifest 声明的类型校验
+                    let value = if value_len == 0 {
+                        None
+                    } else {
+                        let Some(text) = read_str(&mut caller, value_ptr, value_len) else { return -1 };
+                        if text.len() > SETTING_LIMIT {
+                            return -4;
+                        }
+                        if !valid_setting_value(&kind, &text) {
+                            return -1;
+                        }
+                        Some(text)
+                    };
+                    let (vm, host) = {
+                        let state = caller.data();
+                        let (Some(vm), Some(host)) = (state.vm.as_ref(), state.host.as_ref()) else {
+                            return -2;
+                        };
+                        (vm, host)
+                    };
+                    let request = serde_json::json!({ "key": key, "value": value }).to_string();
+                    match call_host_method(vm, host, "settingsSet", &request) {
+                        Ok(_) => 0,
+                        Err(_) => -5,
+                    }
+                },
+            )
+            .expect("mika.settings_set");
         linker
     })
 }
@@ -296,11 +342,11 @@ fn clamp_timeout(request: &str, remaining: Duration) -> String {
     value.to_string()
 }
 
-/// 在当前线程上回调宿主进程的 `IWasmHost.http(String): String`。
-fn call_host(vm: &JavaVM, host: &GlobalRef, request: &str) -> Result<String, String> {
+/// 在当前线程上回调宿主进程的 `IWasmHost.<method>(String): String`。
+fn call_host_method(vm: &JavaVM, host: &GlobalRef, method: &str, request: &str) -> Result<String, String> {
     let mut env = vm.attach_current_thread().map_err(|e| format!("attach: {e}"))?;
     let input = env.new_string(request).map_err(|e| format!("request string: {e}"))?;
-    let value = env.call_method(host, "http", "(Ljava/lang/String;)Ljava/lang/String;", &[JValue::Object(&input)]);
+    let value = env.call_method(host, method, "(Ljava/lang/String;)Ljava/lang/String;", &[JValue::Object(&input)]);
     let value = match value {
         Ok(value) => value,
         Err(e) => {
@@ -316,6 +362,26 @@ fn call_host(vm: &JavaVM, host: &GlobalRef, request: &str) -> Result<String, Str
     }
     let string = JString::from(obj);
     env.get_string(&string).map(|s| s.into()).map_err(|e| format!("host string: {e}"))
+}
+
+/// manifest 设置键的格式(与 Kotlin 侧 `PluginManifest.SETTING_KEY` 一致)。
+fn valid_setting_key(key: &str) -> bool {
+    let mut chars = key.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => {}
+        _ => return false,
+    }
+    key.len() <= 64 && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+}
+
+/// 按 manifest 声明的类型校验设置值;secret 与 string 都是任意 UTF-8 文本。
+fn valid_setting_value(kind: &str, value: &str) -> bool {
+    match kind {
+        "string" | "secret" => true,
+        "bool" => value == "true" || value == "false",
+        "number" => value.parse::<f64>().map(f64::is_finite).unwrap_or(false),
+        _ => false,
+    }
 }
 
 fn safe_relative(path: &str) -> bool {
@@ -351,12 +417,17 @@ fn parse_context(bytes: &[u8], memory_limit: usize) -> State {
         .as_object()
         .map(|o| o.iter().filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string()))).collect())
         .unwrap_or_default();
+    let setting_types = value["settingTypes"]
+        .as_object()
+        .map(|o| o.iter().filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string()))).collect())
+        .unwrap_or_default();
     let workspace = value["workspace"].as_str().map(PathBuf::from);
     let limits = StoreLimitsBuilder::new().memory_size(memory_limit).build();
     State {
         permissions,
         settings,
         secrets,
+        setting_types,
         workspace,
         logs: Vec::new(),
         limits,

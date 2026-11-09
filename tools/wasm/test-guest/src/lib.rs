@@ -10,6 +10,7 @@ extern "C" {
     fn settings_get(key_ptr: u32, key_len: u32, out_ptr: u32, out_cap: u32) -> i32;
     fn fs_write(path_ptr: u32, path_len: u32, data_ptr: u32, data_len: u32) -> i32;
     fn http_request(req_ptr: u32, req_len: u32, out_ptr: u32, out_cap: u32) -> i32;
+    fn settings_set(key_ptr: u32, key_len: u32, value_ptr: u32, value_len: u32) -> i32;
 }
 static mut ARGS: [u8; BUF_SIZE] = [0; BUF_SIZE];
 static mut OUT: [u8; BUF_SIZE] = [0; BUF_SIZE];
@@ -47,6 +48,17 @@ pub extern "C" fn mika_tool_call(ptr: u32, len: u32) -> u64 {
     } else if text.contains("\"mode\":\"log\"") {
         unsafe { log(1, text.as_ptr() as u32, text.len() as u32) };
         format!("{{\"ok\":true,\"logged\":{}}}", text.len())
+    } else if text.contains("\"mode\":\"settings_write\"") {
+        let key = between(text, "\"key\":\"").unwrap_or("greeting");
+        let n = if text.contains("\"delete\":true") {
+            unsafe { settings_set(key.as_ptr() as u32, key.len() as u32, 0, 0) }
+        } else {
+            let value = between(text, "\"value\":\"").unwrap_or("wasm-set");
+            unsafe {
+                settings_set(key.as_ptr() as u32, key.len() as u32, value.as_ptr() as u32, value.len() as u32)
+            }
+        };
+        format!("{{\"settings_set\":{n}}}")
     } else if text.contains("\"mode\":\"http\"") {
         // 参数里可以带 "url" 指定地址;不带就用 example.com
         let url = between(text, "\"url\":\"").unwrap_or("https://example.com/");

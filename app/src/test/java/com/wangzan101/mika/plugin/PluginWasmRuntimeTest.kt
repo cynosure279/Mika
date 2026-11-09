@@ -39,7 +39,7 @@ class PluginWasmRuntimeTest {
 
     @Test fun missingModuleFailsCleanly() = runTest {
         val dir = temp()
-        val r = PluginWasmRuntime({ dir }, Engine()).call("p", emptyList(), tool, buildJsonObject {}, 5)
+        val r = PluginWasmRuntime({ dir }, Engine()).call("p", emptyList(), emptyList(), tool, buildJsonObject {}, 5)
         assertTrue(r.isError)
         assertTrue(r.output.contains("missing or changed"))
         dir.deleteRecursively()
@@ -47,7 +47,7 @@ class PluginWasmRuntimeTest {
 
     @Test fun invalidPathRejectedBeforeReading() = runTest {
         val r = PluginWasmRuntime({ File("/nonexistent") }, Engine())
-            .call("p", emptyList(), PluginToolDecl(name = "x", wasm = "../x.wasm"), buildJsonObject {}, 5)
+            .call("p", emptyList(), emptyList(), PluginToolDecl(name = "x", wasm = "../x.wasm"), buildJsonObject {}, 5)
         assertTrue(r.isError)
         assertTrue(r.output.contains("invalid_tool_wasm"))
     }
@@ -56,14 +56,14 @@ class PluginWasmRuntimeTest {
         val dir = dirWith("ping.wasm", byteArrayOf(1, 2, 3))
         val engine = Engine()
         val runtime = PluginWasmRuntime({ dir }, engine)
-        runtime.call("p", emptyList(), tool, buildJsonObject {}, 5)
-        runtime.call("p", emptyList(), tool, buildJsonObject {}, 5)
+        runtime.call("p", emptyList(), emptyList(), tool, buildJsonObject {}, 5)
+        runtime.call("p", emptyList(), emptyList(), tool, buildJsonObject {}, 5)
         assertEquals(1, engine.loads.size)
 
         // 插件更新后内容哈希变化,必须重新编译(安装器会同时更新哈希清单)
         File(dir, "tools/ping.wasm").writeBytes(byteArrayOf(4, 5, 6))
         PluginWasmModules.writeHashes(dir, PluginWasmModules.collect(dir))
-        runtime.call("p", emptyList(), tool, buildJsonObject {}, 5)
+        runtime.call("p", emptyList(), emptyList(), tool, buildJsonObject {}, 5)
         assertEquals(2, engine.loads.size)
         dir.deleteRecursively()
     }
@@ -71,7 +71,7 @@ class PluginWasmRuntimeTest {
     @Test fun tamperedModuleIsRejected() = runTest {
         val dir = dirWith("ping.wasm", byteArrayOf(1))
         File(dir, "tools/ping.wasm").writeBytes(byteArrayOf(9))
-        val r = PluginWasmRuntime({ dir }, Engine()).call("p", emptyList(), tool, buildJsonObject {}, 5)
+        val r = PluginWasmRuntime({ dir }, Engine()).call("p", emptyList(), emptyList(), tool, buildJsonObject {}, 5)
         assertTrue(r.isError)
         assertTrue(r.output.contains("changed"))
         dir.deleteRecursively()
@@ -79,7 +79,7 @@ class PluginWasmRuntimeTest {
 
     @Test fun engineErrorsBecomeErrorResults() = runTest {
         val dir = dirWith("ping.wasm", byteArrayOf(1))
-        val r = PluginWasmRuntime({ dir }, Engine(fail = true)).call("p", emptyList(), tool, buildJsonObject {}, 5)
+        val r = PluginWasmRuntime({ dir }, Engine(fail = true)).call("p", emptyList(), emptyList(), tool, buildJsonObject {}, 5)
         assertTrue(r.isError)
         assertTrue(r.output.contains("wasm_error"))
         dir.deleteRecursively()
@@ -91,9 +91,9 @@ class PluginWasmRuntimeTest {
         PluginWasmModules.writeHashes(dir, PluginWasmModules.collect(dir))
         val engine = Engine()
         val runtime = PluginWasmRuntime({ dir }, engine, WasmModuleCache(maxEntries = 1, maxBytes = 1024))
-        runtime.call("p", emptyList(), PluginToolDecl(name = "a", wasm = "tools/a.wasm"), buildJsonObject {}, 5)
-        runtime.call("p", emptyList(), PluginToolDecl(name = "b", wasm = "tools/b.wasm"), buildJsonObject {}, 5)
-        runtime.call("p", emptyList(), PluginToolDecl(name = "a", wasm = "tools/a.wasm"), buildJsonObject {}, 5)
+        runtime.call("p", emptyList(), emptyList(), PluginToolDecl(name = "a", wasm = "tools/a.wasm"), buildJsonObject {}, 5)
+        runtime.call("p", emptyList(), emptyList(), PluginToolDecl(name = "b", wasm = "tools/b.wasm"), buildJsonObject {}, 5)
+        runtime.call("p", emptyList(), emptyList(), PluginToolDecl(name = "a", wasm = "tools/a.wasm"), buildJsonObject {}, 5)
         assertEquals(3, engine.loads.size)
         dir.deleteRecursively()
     }
@@ -105,16 +105,43 @@ class PluginWasmRuntimeTest {
         val runtime = PluginWasmRuntime(
             { dir },
             engine,
-            context = { _, permissions -> permissions.joinToString(",") },
-            hostFactory = { hosts++; null },
+            context = { _, permissions, _ -> permissions.joinToString(",") },
+            hostFactory = { _, _, _ -> hosts++; null },
         )
-        runtime.call("p", listOf("network", "workspace.own"), tool, buildJsonObject {}, 5)
+        runtime.call("p", listOf("network", "workspace.own"), emptyList(), tool, buildJsonObject {}, 5)
         assertEquals(0, hosts)
         assertEquals("workspace.own", engine.contexts.last())
 
-        runtime.call("p", listOf("network", "workspace.own"), tool, buildJsonObject {}, 5, network = true)
+        runtime.call("p", listOf("network", "workspace.own"), emptyList(), tool, buildJsonObject {}, 5, network = true)
         assertEquals(1, hosts)
         assertEquals("network,workspace.own", engine.contexts.last())
+        dir.deleteRecursively()
+    }
+
+    @Test fun settingsDeclarationsOnlyPassedWithPermission() = runTest {
+        val dir = dirWith("ping.wasm", byteArrayOf(1))
+        val engine = Engine()
+        val factories = mutableListOf<Pair<List<String>, Boolean>>()
+        val runtime = PluginWasmRuntime(
+            { dir },
+            engine,
+            context = { _, permissions, settings ->
+                settings.joinToString(",") { "${it.key}:${it.type}" } + "|" + permissions.joinToString(",")
+            },
+            hostFactory = { _, settings, network ->
+                factories += settings.map { it.key } to network
+                null
+            },
+        )
+        val decl = PluginSettingDecl(key = "greeting", type = "string")
+        runtime.call("p", listOf("settings.plugin"), listOf(decl), tool, buildJsonObject {}, 5)
+        assertEquals("greeting:string|settings.plugin", engine.contexts.last())
+        assertEquals(listOf("greeting") to false, factories.single())
+
+        // 没有 settings.plugin:声明不传给上下文,也不建宿主回调
+        runtime.call("p", emptyList(), listOf(decl), tool, buildJsonObject {}, 5)
+        assertEquals("|", engine.contexts.last())
+        assertEquals(1, factories.size)
         dir.deleteRecursively()
     }
 }

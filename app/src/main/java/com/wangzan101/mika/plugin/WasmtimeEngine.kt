@@ -105,22 +105,31 @@ object WasmSupport {
         return PluginWasmRuntime(
             packageDir = { id -> java.io.File(packageRoot, id) },
             engine = WasmProcessEngine(context),
-            context = { id, permissions ->
-                val settings = PluginSettings(
+            context = { id, permissions, settings ->
+                val store = PluginSettings(
                     java.io.File(packageRoot, id),
                     com.wangzan101.mika.settings.KeystoreKeyCipher(pluginKeyAlias(id)),
                 )
                 buildJsonObject {
                     put("pluginId", id)
                     put("permissions", buildJsonArray { permissions.forEach { add(it) } })
-                    put("settings", buildJsonObject { settings.all().forEach { (k, v) -> put(k, JsonPrimitive(v)) } })
-                    put("secrets", buildJsonObject { settings.secretEnv().forEach { (k, v) -> put(k, JsonPrimitive(v)) } })
+                    put("settings", buildJsonObject { store.all().forEach { (k, v) -> put(k, JsonPrimitive(v)) } })
+                    put("secrets", buildJsonObject { store.secretEnv().forEach { (k, v) -> put(k, JsonPrimitive(v)) } })
+                    put("settingTypes", buildJsonObject { settings.forEach { put(it.key, it.type) } })
                     put("workspace", dirs.pluginWorkspace(id).absolutePath)
                 }.toString()
             },
-            hostFactory = { id ->
-                val log = PluginLog(java.io.File(java.io.File(packageRoot, id), "logs"))
-                WasmHttpHost(PluginHttp(http, log = { line -> log.append("http", line) }))
+            hostFactory = { id, settings, network ->
+                val dir = java.io.File(packageRoot, id)
+                val log = PluginLog(java.io.File(dir, "logs"))
+                WasmHost(
+                    WasmHostHandler(
+                        http = if (network) PluginHttp(http, log = { line -> log.append("http", line) }) else null,
+                        settings = PluginSettings(dir, com.wangzan101.mika.settings.KeystoreKeyCipher(pluginKeyAlias(id))),
+                        declarations = settings.associate { it.key to it.type },
+                        log = { line -> log.append("settings", line) },
+                    ),
+                )
             },
         )
     }

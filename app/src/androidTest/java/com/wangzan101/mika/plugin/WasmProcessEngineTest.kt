@@ -61,6 +61,8 @@ class WasmProcessEngineTest {
                 requests += requestJson
                 return """{"status":200,"headers":{"X-Test":"yes"},"body":"pong"}"""
             }
+
+            override fun settingsSet(requestJson: String): String = throw IllegalStateException("not available")
         }
         val online = engine.call(module, httpContext, """{"mode":"http"}""", 5_000, host)
         assertFalse(online.output, online.isError)
@@ -81,7 +83,7 @@ class WasmProcessEngineTest {
         server.start()
         try {
             server.enqueue(MockResponse().setResponseCode(200).setBody("real-pong"))
-            val real = WasmHttpHost(PluginHttp(OkHttpClient(), isLocal = { false }))
+            val real = WasmHost(WasmHostHandler(http = PluginHttp(OkHttpClient(), isLocal = { false })))
             val url = server.url("/ping").toString()
             val response = engine.call(module, httpContext, """{"mode":"http","url":"$url"}""", 10_000, real)
             assertFalse(response.output, response.isError)
@@ -91,5 +93,45 @@ class WasmProcessEngineTest {
         } finally {
             server.shutdown()
         }
+
+        // 设置写入:只认 manifest 声明;值经宿主回调落盘(secret 同样走宿主)
+        val settingsDir = java.io.File(context.cacheDir, "wasm-test-settings").apply { mkdirs() }
+        val settingsHost = WasmHost(
+            WasmHostHandler(
+                settings = PluginSettings(settingsDir),
+                declarations = mapOf("greeting" to "string", "flag" to "bool"),
+            ),
+        )
+        val settingsContext =
+            """{"permissions":["settings.plugin"],"settings":{},"secrets":{},"settingTypes":{"greeting":"string","flag":"bool"},"workspace":""}"""
+        val wrote = engine.call(module, settingsContext, """{"mode":"settings_write","key":"greeting","value":"wasm-set"}""", 5_000, settingsHost)
+        assertFalse(wrote.output, wrote.isError)
+        assertTrue(wrote.output, wrote.output.contains("\"settings_set\":0"))
+        assertTrue(PluginSettings(settingsDir).get("greeting") == "wasm-set")
+
+        // 未声明的键 → -3;bool 值不合法 → -1
+        val undeclared = engine.call(module, settingsContext, """{"mode":"settings_write","key":"nope","value":"x"}""", 5_000, settingsHost)
+        assertTrue(undeclared.output, undeclared.output.contains("\"settings_set\":-3"))
+        val badBool = engine.call(module, settingsContext, """{"mode":"settings_write","key":"flag","value":"maybe"}""", 5_000, settingsHost)
+        assertTrue(badBool.output, badBool.output.contains("\"settings_set\":-1"))
+
+        // 没有 settings.plugin 权限、或宿主没给回调 → -2
+        val deniedSettings = engine.call(
+            module,
+            """{"permissions":[],"settings":{},"secrets":{},"workspace":""}""",
+            """{"mode":"settings_write","key":"greeting","value":"x"}""",
+            5_000,
+            settingsHost,
+        )
+        assertTrue(deniedSettings.output, deniedSettings.output.contains("\"settings_set\":-2"))
+        val noHost = engine.call(module, settingsContext, """{"mode":"settings_write","key":"greeting","value":"x"}""", 5_000, null)
+        assertTrue(noHost.output, noHost.output.contains("\"settings_set\":-2"))
+
+        // value_len 为 0 表示删除
+        val deleted = engine.call(module, settingsContext, """{"mode":"settings_write","key":"greeting","delete":true}""", 5_000, settingsHost)
+        assertTrue(deleted.output, deleted.output.contains("\"settings_set\":0"))
+        assertTrue(PluginSettings(settingsDir).get("greeting") == null)
+        settingsDir.deleteRecursively()
+        Unit
     }
 }

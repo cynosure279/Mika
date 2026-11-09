@@ -85,14 +85,16 @@ class PluginWasmRuntime(
     private val engine: WasmEngine,
     private val cache: WasmModuleCache = WasmModuleCache(),
     private val log: PluginLog? = null,
-    /** 宿主能力上下文:权限 + 设置/secret 快照;默认空上下文(能力一律拒绝)。 */
-    private val context: (pluginId: String, permissions: List<String>) -> String = { _, _ -> "{}" },
-    /** 联网时给 guest 的宿主回调;为空表示本机没有网络能力实现。 */
-    private val hostFactory: ((pluginId: String) -> IWasmHost?)? = null,
+    /** 宿主能力上下文:权限 + 设置/secret 快照 + 声明的设置类型;默认空上下文(能力一律拒绝)。 */
+    private val context: (pluginId: String, permissions: List<String>, settings: List<PluginSettingDecl>) -> String =
+        { _, _, _ -> "{}" },
+    /** 有联网或设置权限时给 guest 的宿主回调;为空表示本机没有对应能力实现。 */
+    private val hostFactory: ((pluginId: String, settings: List<PluginSettingDecl>, network: Boolean) -> IWasmHost?)? = null,
 ) {
     suspend fun call(
         pluginId: String,
         permissions: List<String>,
+        settings: List<PluginSettingDecl>,
         tool: PluginToolDecl,
         args: JsonObject,
         timeoutMs: Long,
@@ -111,10 +113,11 @@ class PluginWasmRuntime(
         val started = System.currentTimeMillis()
         // 未授权时把 network 从上下文里拿掉,原生侧据此直接拒绝;也不给回连的宿主接口
         val granted = if (network) permissions else permissions - PERMISSION_NETWORK
-        val host = if (network) hostFactory?.invoke(pluginId) else null
+        val declared = if (PERMISSION_SETTINGS in granted) settings else emptyList()
+        val host = if (network || PERMISSION_SETTINGS in granted) hostFactory?.invoke(pluginId, declared, network) else null
         return try {
             val module = cache.getOrLoad(key, bytes) { engine.load(bytes) }
-            val ctx = runCatching { context(pluginId, granted) }.getOrDefault("{}")
+            val ctx = runCatching { context(pluginId, granted, declared) }.getOrDefault("{}")
             val callStarted = System.currentTimeMillis()
             val result = engine.call(module, ctx, args.toString(), timeoutMs.coerceIn(1, 600) * 1000L, host)
             result.logs.forEach { log?.append("guest", it) }
@@ -133,6 +136,7 @@ class PluginWasmRuntime(
 
     private companion object {
         const val PERMISSION_NETWORK = "network"
+        const val PERMISSION_SETTINGS = "settings.plugin"
 
         fun sha256(bytes: ByteArray): String =
             MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
