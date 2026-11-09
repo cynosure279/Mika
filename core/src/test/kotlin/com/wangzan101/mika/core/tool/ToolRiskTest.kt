@@ -14,6 +14,8 @@ import com.wangzan101.mika.core.testing.WEB_SCRIPT_TOOL
 import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.assembly.allTools
 import com.wangzan101.mika.core.cap.audio.AudioPort
+import com.wangzan101.mika.core.cap.transcribe.TranscribePort
+import com.wangzan101.mika.core.cap.transcribe.Transcript
 import com.wangzan101.mika.core.model.SavedAudio
 import com.wangzan101.mika.core.model.StoredAudio
 import com.wangzan101.mika.core.model.TtsCapabilities
@@ -50,6 +52,10 @@ class ToolRiskTest {
         assertEquals(oldWeb, WEB_TOOLS)
     }
 
+    private object NoTranscribePort : TranscribePort {
+        override suspend fun transcribe(path: String, language: String?) = Transcript("")
+    }
+
     private object NoAudioPort : AudioPort {
         override val modelName = "test-voice"
         override val capabilities = TtsCapabilities(maxChars = 100, formats = setOf("wav"))
@@ -65,10 +71,10 @@ class ToolRiskTest {
                 "mika_open_in_browser", "mika_search_in_browser", "mika_login_site", "mika_confirm_login", "mika_favorites",
                 "phone_call_state", "phone_call_dial", "phone_call_answer", "phone_call_hangup", "phone_call_takeover",
                 "list_device_files", "copy_device_file", "search_device_files", "list_device_directory_hints", "update_device_directory_description",
-                "audio_generate", "audio_save")
+                "audio_generate", "audio_save", "audio_transcribe")
         assertEquals(refused, allTools().filter { !it.readOnly }.map { it.name }.toSet())
         // root 命令、通话工具都只在给了端口时登记:各给一个,所有工具都在
-        val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, root = object : com.wangzan101.mika.core.cap.root.RootPort {
+        val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, transcribe = NoTranscribePort, root = object : com.wangzan101.mika.core.cap.root.RootPort {
             override suspend fun run(command: String, timeoutMs: Long) = com.wangzan101.mika.core.cap.root.RootRun.Unavailable
         }, deviceFiles = object : com.wangzan101.mika.core.cap.devicefiles.DeviceFilesPort {
             override suspend fun search(query: com.wangzan101.mika.core.cap.devicefiles.DeviceFileSearchQuery): com.wangzan101.mika.core.cap.devicefiles.DeviceFileSearchResult = error("read call reached device files")
