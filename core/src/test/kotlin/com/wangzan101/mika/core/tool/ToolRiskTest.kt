@@ -11,6 +11,12 @@ import org.junit.Test
 import com.wangzan101.mika.core.testing.WEB_SCRIPT_TOOL
 import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.assembly.allTools
+import com.wangzan101.mika.core.cap.audio.AudioPort
+import com.wangzan101.mika.core.model.SavedAudio
+import com.wangzan101.mika.core.model.StoredAudio
+import com.wangzan101.mika.core.model.TtsCapabilities
+import com.wangzan101.mika.core.model.TtsRequest
+import com.wangzan101.mika.core.model.TtsResponse
 import com.wangzan101.mika.core.testing.SANDBOX_TOOLS
 import com.wangzan101.mika.core.testing.WEB_TOOLS
 
@@ -20,7 +26,7 @@ class ToolRiskTest {
 
     /** 原来要过锁屏/暂停关卡的工具表。 */
     private val oldWriting = both("tap", "scroll", "swipe", "type_text", "clear_text", "back", "press_key", "diagnose") + setOf(
-        "phone_launch_app", "phone_share_text", "phone_gesture", "hand_to_user",
+        "phone_launch_app", "phone_share_text", "phone_share_audio", "phone_gesture", "hand_to_user",
         "phone_set_alarm", "phone_set_timer", "phone_show_alarms", "phone_add_calendar_event", "phone_set_wheel",
         "web_navigate", "web_tabs", "web_upload", "web_interact", "web_site_mode", "phone_open_link", "web_keep_open", "phone_app_after_task",
     )
@@ -42,12 +48,21 @@ class ToolRiskTest {
         assertEquals(oldWeb, WEB_TOOLS)
     }
 
+    private object NoAudioPort : AudioPort {
+        override val modelName = "test-voice"
+        override val capabilities = TtsCapabilities(maxChars = 100, formats = setOf("wav"))
+        override suspend fun synthesize(request: TtsRequest) = TtsResponse(ByteArray(0), "audio/wav")
+        override suspend fun store(response: TtsResponse, nameHint: String?, text: String) = StoredAudio("/workspace/out/audio/x.wav", 0, "audio/wav")
+        override suspend fun saveToMusic(path: String, name: String?) = SavedAudio("Music/Mika/x.wav", "content://x", 0)
+    }
+
     @Test fun readCallsRefuseWhatTheOldListsRefused() = runTest {
         val refused = oldWriting + oldSandbox + WEB_SCRIPT_TOOL +
-            setOf("phone_find", "phone_collect", "phone_dialog", "phone_run", "phone_system_command", "phone_calendar_bulk_insert", "schedule_task", "spawn_agent", "settings_set", "root_run_command", "web_search")
+            setOf("phone_find", "phone_collect", "phone_dialog", "phone_run", "phone_system_command", "phone_calendar_bulk_insert", "schedule_task", "spawn_agent", "settings_set", "root_run_command", "web_search",
+                "audio_generate", "audio_save")
         assertEquals(refused, allTools().filter { !it.readOnly }.map { it.name }.toSet())
         // root 命令只在给了端口时登记:给一个,所有工具都在
-        val d = toolDispatcher(FakeScreen(), root = object : com.wangzan101.mika.core.cap.root.RootPort {
+        val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, root = object : com.wangzan101.mika.core.cap.root.RootPort {
             override suspend fun run(command: String, timeoutMs: Long) = com.wangzan101.mika.core.cap.root.RootRun.Unavailable
         })
         for (name in names) {
