@@ -2,6 +2,13 @@
 //! 只用于验证引擎/ABI,不随 APK 分发。
 
 const BUF_SIZE: usize = 65536;
+static KEY: &[u8] = b"greeting";
+
+#[link(wasm_import_module = "mika")]
+extern "C" {
+    fn log(level: i32, ptr: u32, len: u32);
+    fn settings_get(key_ptr: u32, key_len: u32, out_ptr: u32, out_cap: u32) -> i32;
+}
 static mut ARGS: [u8; BUF_SIZE] = [0; BUF_SIZE];
 static mut OUT: [u8; BUF_SIZE] = [0; BUF_SIZE];
 
@@ -25,11 +32,17 @@ pub extern "C" fn mika_tool_call(ptr: u32, len: u32) -> u64 {
             core::hint::black_box(text.len());
         }
     }
-    let out = format!(
-        "{{\"ok\":true,\"len\":{},\"echo\":\"{}\"}}",
-        text.len(),
-        escape(text)
-    );
+    let out = if text.contains("\"mode\":\"settings\"") {
+        let ptr = core::ptr::addr_of_mut!(OUT) as *mut u8;
+        let key = KEY.as_ptr() as u32;
+        let n = unsafe { settings_get(key, KEY.len() as u32, ptr as u32, BUF_SIZE as u32) };
+        if n < 0 { format!("{{\"error\":{n}}}") } else { String::from_utf8_lossy(unsafe { core::slice::from_raw_parts(ptr, n as usize) }).to_string() }
+    } else if text.contains("\"mode\":\"log\"") {
+        unsafe { log(1, text.as_ptr() as u32, text.len() as u32) };
+        format!("{{\"ok\":true,\"logged\":{}}}", text.len())
+    } else {
+        format!("{{\"ok\":true,\"len\":{},\"echo\":\"{}\"}}", text.len(), escape(text))
+    };
     let bytes = out.as_bytes();
     if bytes.len() > BUF_SIZE {
         return 0;
