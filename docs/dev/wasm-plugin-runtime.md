@@ -70,8 +70,8 @@ Wasm 路径的目标：把「每次调用起进程」变成「进程内两次函
 
 - **阶段一（本 PR）**：本决策记录；manifest 识别 `wasm` 工具声明并**明确拒绝安装**（`wasm_not_supported`），避免装出「调用必报错」的插件；补校验与测试。不改任何现有行为。
 - **阶段二**：`PluginRuntime` 接口 + `WasmtimeRuntime` 实现；原生库构建进 CI（按 ABI）；模块缓存、ABI（JSON + 线性内存）、内存/执行限额；独立进程 + watchdog + 熔断。
-  - 已完成：`WasmEngine` 契约、`WasmModuleCache`、`PluginWasmRuntime` 与工具分派（PR #449）；Wasmtime JNI 引擎（`tools/wasm`，arm64 库随 APK，模块缓存/epoch 超时/64 MiB 内存上限/ABI v1），在调试包启用、发布包暂不启用（`BuildConfig.WASM_PLUGINS`）。
-  - 待完成：独立进程与熔断（完成后发布包才启用）、真机验证。
+  - 已完成：`WasmEngine` 契约、`WasmModuleCache`、`PluginWasmRuntime` 与工具分派（PR #449）；Wasmtime JNI 引擎（`tools/wasm`，arm64 库随 APK，模块缓存/epoch 超时/64 MiB 内存上限/ABI v1）；独立进程 `:wasm`（`WasmService` + AIDL + `WasmProcessEngine`，宿主超时、崩溃重连、连续 3 次失败熔断）。调试包启用（`BuildConfig.WASM_PLUGINS`），发布包等真机 arm64 验收后再打开。
+  - 待完成：真机 arm64 验收、宿主能力 import（文件/网络/设置）与 guest SDK。
 - **阶段三**：新插件默认 Wasm；把示例插件（飞书）迁移为 Wasm；脚本通道降级为兼容层，按实际使用情况决定下线时机。
 
 ## 5. 未决问题

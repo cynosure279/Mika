@@ -42,14 +42,22 @@ class WasmtimeEngine(
 
 /** 本机是否带可用的 Wasm 引擎(原生库随 APK 的 arm64 目录分发)。 */
 object WasmSupport {
-    val available: Boolean by lazy {
-        // 独立进程隔离落地前,发布包不启用;调试包开着便于验收
-        com.wangzan101.mika.BuildConfig.WASM_PLUGINS && runCatching {
-            WasmtimeNative.ensureLoaded()
-            true
-        }.getOrDefault(false)
+    @Volatile
+    private var appContext: android.content.Context? = null
+
+    fun init(context: android.content.Context) {
+        appContext = context.applicationContext
     }
 
-    fun runtime(packageRoot: java.io.File): PluginWasmRuntime? =
-        if (available) PluginWasmRuntime({ id -> java.io.File(packageRoot, id) }, WasmtimeEngine()) else null
+    val available: Boolean
+        // 独立进程隔离已就绪;发布包等真机验收后再打开(BuildConfig.WASM_PLUGINS)
+        get() = com.wangzan101.mika.BuildConfig.WASM_PLUGINS &&
+            appContext != null &&
+            android.os.Build.SUPPORTED_ABIS.firstOrNull() == "arm64-v8a"
+
+    fun runtime(packageRoot: java.io.File): PluginWasmRuntime? {
+        val context = appContext ?: return null
+        if (!available) return null
+        return PluginWasmRuntime({ id -> java.io.File(packageRoot, id) }, WasmProcessEngine(context))
+    }
 }
