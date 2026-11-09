@@ -35,6 +35,7 @@ class WasmtimeEngine(
         contextJson: String,
         argsJson: String,
         timeoutMs: Long,
+        host: IWasmHost?,
     ): WasmCallResult =
         withContext(Dispatchers.IO) {
             val bytes = (module as? Module)?.bytes
@@ -47,6 +48,7 @@ class WasmtimeEngine(
                         argsJson,
                         timeoutMs,
                         memoryLimitBytes,
+                        host,
                     ),
                 )
             } catch (e: CancellationException) {
@@ -89,6 +91,13 @@ object WasmSupport {
             appContext != null &&
             android.os.Build.SUPPORTED_ABIS.firstOrNull() == "arm64-v8a"
 
+    /** 插件网络能力用的客户端:和 Mika 自己的连接一样走设置里的代理,本机/局域网直连。 */
+    private val http: okhttp3.OkHttpClient by lazy {
+        com.wangzan101.mika.core.net.NetProxy.shared.client(
+            okhttp3.OkHttpClient.Builder().connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS),
+        )
+    }
+
     fun runtime(packageRoot: java.io.File): PluginWasmRuntime? {
         val context = appContext ?: return null
         if (!available) return null
@@ -108,6 +117,10 @@ object WasmSupport {
                     put("secrets", buildJsonObject { settings.secretEnv().forEach { (k, v) -> put(k, JsonPrimitive(v)) } })
                     put("workspace", dirs.pluginWorkspace(id).absolutePath)
                 }.toString()
+            },
+            hostFactory = { id ->
+                val log = PluginLog(java.io.File(java.io.File(packageRoot, id), "logs"))
+                WasmHttpHost(PluginHttp(http, log = { line -> log.append("http", line) }))
             },
         )
     }

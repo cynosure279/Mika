@@ -23,5 +23,7 @@ object WasmtimeNative {
         argsJson: String,
         timeoutMs: Long,
         memoryLimitBytes: Long,
+        /** 联网能力的宿主回调;未授权时传 null,guest 调 `mika.http_request` 得到 -2。 */
+        host: IWasmHost?,
     ): String
 }

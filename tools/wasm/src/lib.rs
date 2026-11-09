@@ -1,25 +1,28 @@
-//! Mika 的 Wasm 插件引擎：Wasmtime JNI 桥（ABI v2，只读能力）。
+//! Mika 的 Wasm 插件引擎：Wasmtime JNI 桥（ABI v2）。
 //!
 //! 工具 ABI（v1 兼容）：
 //! - 模块导出 `memory`、`mika_buffer() -> i32`、`mika_buffer_size() -> i32`、
 //!   `mika_tool_call(ptr, len) -> i64`；返回值打包为 `(ptr << 32) | len`。
 //!
-//! 宿主能力（import module `mika`，只读）：
+//! 宿主能力（import module `mika`）：
 //! - `abi_version() -> i32`（当前为 2）
 //! - `log(level, ptr, len)`
 //! - `settings_get(key_ptr, key_len, out_ptr, out_cap) -> i32`
 //! - `fs_read(path_ptr, path_len, out_ptr, out_cap) -> i32`
-//! 权限、设置快照与 workspace 由宿主每次调用经 contextJson 传入，默认拒绝。
+//! - `http_request(req_ptr, req_len, out_ptr, out_cap) -> i32`：经宿主回调(`IWasmHost`)
+//!   在 App 进程执行网络请求，策略、代理与限额都在宿主进程。
+//! 权限、设置快照与 workspace 由宿主每次调用经 contextJson 传入，默认拒绝；
+//! 网络回调由宿主决定给不给，未给时 `http_request` 返回 -2。
 
 use std::collections::{HashMap, HashSet};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use jni::objects::{JByteArray, JObject, JString};
+use jni::objects::{GlobalRef, JByteArray, JObject, JString, JValue};
 use jni::sys::{jlong, jstring, jint};
-use jni::JNIEnv;
+use jni::{JNIEnv, JavaVM};
 use sha2::{Digest, Sha256};
 use wasmtime::{Caller, Config, Engine, Linker, Module, OptLevel, Store, StoreLimits, StoreLimitsBuilder};
 
@@ -30,6 +33,11 @@ struct State {
     workspace: Option<PathBuf>,
     logs: Vec<String>,
     limits: StoreLimits,
+    /// 宿主进程回调(联网能力);未授权时为空。
+    vm: Option<JavaVM>,
+    host: Option<GlobalRef>,
+    /// 本次调用的截止时间(和 epoch 超时同一个预算)。
+    deadline: Option<Instant>,
 }
 
 static ENGINE: OnceLock<Engine> = OnceLock::new();
@@ -41,6 +49,8 @@ const CACHE_MODULES: usize = 32;
 const LOG_LIMIT: usize = 100;
 const LOG_BYTES: usize = 4000;
 const FS_LIMIT: usize = 1024 * 1024;
+const HTTP_REQUEST_LIMIT: usize = 1024 * 1024;
+const HTTP_TIMEOUT_MAX_MS: u64 = 30_000;
 
 struct Cache {
     map: HashMap<[u8; 32], Module>,
@@ -238,7 +248,74 @@ fn linker() -> &'static Linker<State> {
             )
             .expect("mika.fs_read");
         linker
+            .func_wrap(
+                "mika",
+                "http_request",
+                |mut caller: Caller<'_, State>, req_ptr: i32, req_len: i32, out_ptr: i32, out_cap: i32| -> i32 {
+                    if !allowed(caller.data(), "network") {
+                        return -2;
+                    }
+                    let Some(request) = read_str(&mut caller, req_ptr, req_len) else { return -1 };
+                    if request.len() > HTTP_REQUEST_LIMIT {
+                        return -4;
+                    }
+                    let (vm, host, remaining) = {
+                        let state = caller.data();
+                        let (Some(vm), Some(host)) = (state.vm.as_ref(), state.host.as_ref()) else {
+                            return -2;
+                        };
+                        let remaining = state
+                            .deadline
+                            .map(|deadline| deadline.saturating_duration_since(Instant::now()))
+                            .unwrap_or(Duration::from_millis(HTTP_TIMEOUT_MAX_MS));
+                        (vm, host, remaining)
+                    };
+                    // 回调超时不超过本次调用剩下的预算;Agent 给的更长也在宿主侧截断
+                    let request = clamp_timeout(&request, remaining);
+                    let response = match call_host(vm, host, &request) {
+                        Ok(response) => response,
+                        Err(_) => return -5,
+                    };
+                    write_bytes(&mut caller, out_ptr, out_cap, response.as_bytes())
+                },
+            )
+            .expect("mika.http_request");
+        linker
     })
+}
+
+/// 把请求 JSON 里的 timeoutMs 截到本次调用剩余时间里(也截到 30 秒)。
+fn clamp_timeout(request: &str, remaining: Duration) -> String {
+    let budget = remaining.as_millis().clamp(1, HTTP_TIMEOUT_MAX_MS as u128) as u64;
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(request) else {
+        return request.to_string();
+    };
+    let Some(obj) = value.as_object_mut() else { return request.to_string() };
+    let requested = obj.get("timeoutMs").and_then(|v| v.as_u64()).unwrap_or(budget);
+    obj.insert("timeoutMs".to_string(), serde_json::json!(requested.min(budget).max(1)));
+    value.to_string()
+}
+
+/// 在当前线程上回调宿主进程的 `IWasmHost.http(String): String`。
+fn call_host(vm: &JavaVM, host: &GlobalRef, request: &str) -> Result<String, String> {
+    let mut env = vm.attach_current_thread().map_err(|e| format!("attach: {e}"))?;
+    let input = env.new_string(request).map_err(|e| format!("request string: {e}"))?;
+    let value = env.call_method(host, "http", "(Ljava/lang/String;)Ljava/lang/String;", &[JValue::Object(&input)]);
+    let value = match value {
+        Ok(value) => value,
+        Err(e) => {
+            if env.exception_check().unwrap_or(false) {
+                let _ = env.exception_clear();
+            }
+            return Err(format!("host call: {e}"));
+        }
+    };
+    let obj = value.l().map_err(|e| format!("host returned a non-object: {e}"))?;
+    if obj.as_raw().is_null() {
+        return Err("host returned null".to_string());
+    }
+    let string = JString::from(obj);
+    env.get_string(&string).map(|s| s.into()).map_err(|e| format!("host string: {e}"))
 }
 
 fn safe_relative(path: &str) -> bool {
@@ -276,13 +353,35 @@ fn parse_context(bytes: &[u8], memory_limit: usize) -> State {
         .unwrap_or_default();
     let workspace = value["workspace"].as_str().map(PathBuf::from);
     let limits = StoreLimitsBuilder::new().memory_size(memory_limit).build();
-    State { permissions, settings, secrets, workspace, logs: Vec::new(), limits }
+    State {
+        permissions,
+        settings,
+        secrets,
+        workspace,
+        logs: Vec::new(),
+        limits,
+        vm: None,
+        host: None,
+        deadline: None,
+    }
 }
 
-fn run(bytes: &[u8], context: &[u8], args: &str, timeout_ms: u64, memory_limit: usize) -> Result<String, String> {
+fn run(
+    bytes: &[u8],
+    context: &[u8],
+    args: &str,
+    timeout_ms: u64,
+    memory_limit: usize,
+    vm: Option<JavaVM>,
+    host: Option<GlobalRef>,
+) -> Result<String, String> {
     ensure_ticker();
     let module = module_for(bytes)?;
-    let mut store = Store::new(engine(), parse_context(context, memory_limit));
+    let mut state = parse_context(context, memory_limit);
+    state.vm = vm;
+    state.host = host;
+    state.deadline = Some(Instant::now() + Duration::from_millis(timeout_ms));
+    let mut store = Store::new(engine(), state);
     store.limiter(|state| &mut state.limits);
     store.set_epoch_deadline(((timeout_ms + 9) / 10).max(1));
 
@@ -326,7 +425,7 @@ fn run(bytes: &[u8], context: &[u8], args: &str, timeout_ms: u64, memory_limit: 
     Ok(serde_json::json!({ "output": output, "logs": logs }).to_string())
 }
 
-/// Kotlin: `nativeCall(wasm: ByteArray, contextJson: ByteArray, argsJson: String, timeoutMs: Long, memoryLimitBytes: Long): String`
+/// Kotlin: `nativeCall(wasm: ByteArray, contextJson: ByteArray, argsJson: String, timeoutMs: Long, memoryLimitBytes: Long, host: IWasmHost?): String`
 #[no_mangle]
 pub extern "system" fn Java_com_wangzan101_mika_plugin_WasmtimeNative_nativeCall<'local>(
     mut env: JNIEnv<'local>,
@@ -336,6 +435,7 @@ pub extern "system" fn Java_com_wangzan101_mika_plugin_WasmtimeNative_nativeCall
     args_json: JString<'local>,
     timeout_ms: jlong,
     memory_limit: jlong,
+    host: JObject<'local>,
 ) -> jstring {
     let outcome = catch_unwind(AssertUnwindSafe(|| -> Result<String, String> {
         let bytes = env.convert_byte_array(&wasm).map_err(|e| format!("read wasm bytes: {e}"))?;
@@ -345,7 +445,14 @@ pub extern "system" fn Java_com_wangzan101_mika_plugin_WasmtimeNative_nativeCall
         let args: String = env.get_string(&args_json).map_err(|e| format!("read args: {e}"))?.into();
         let timeout = timeout_ms.max(1) as u64;
         let limit = memory_limit.max(1 << 20) as usize;
-        run(&bytes, &context, &args, timeout, limit)
+        // 宿主没给回调(未授权联网)时保持 None,guest 的 http_request 会得到 -2
+        let vm = env.get_java_vm().ok();
+        let host = if host.as_raw().is_null() {
+            None
+        } else {
+            Some(env.new_global_ref(&host).map_err(|e| format!("host ref: {e}"))?)
+        };
+        run(&bytes, &context, &args, timeout, limit, vm, host)
     }));
     match outcome {
         Ok(Ok(output)) => env.new_string(output).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut()),

@@ -9,6 +9,7 @@ extern "C" {
     fn log(level: i32, ptr: u32, len: u32);
     fn settings_get(key_ptr: u32, key_len: u32, out_ptr: u32, out_cap: u32) -> i32;
     fn fs_write(path_ptr: u32, path_len: u32, data_ptr: u32, data_len: u32) -> i32;
+    fn http_request(req_ptr: u32, req_len: u32, out_ptr: u32, out_cap: u32) -> i32;
 }
 static mut ARGS: [u8; BUF_SIZE] = [0; BUF_SIZE];
 static mut OUT: [u8; BUF_SIZE] = [0; BUF_SIZE];
@@ -46,6 +47,21 @@ pub extern "C" fn mika_tool_call(ptr: u32, len: u32) -> u64 {
     } else if text.contains("\"mode\":\"log\"") {
         unsafe { log(1, text.as_ptr() as u32, text.len() as u32) };
         format!("{{\"ok\":true,\"logged\":{}}}", text.len())
+    } else if text.contains("\"mode\":\"http\"") {
+        // 参数里可以带 "url" 指定地址;不带就用 example.com
+        let url = between(text, "\"url\":\"").unwrap_or("https://example.com/");
+        let request = format!("{{\"method\":\"GET\",\"url\":\"{url}\",\"timeoutMs\":5000}}");
+        let ptr = core::ptr::addr_of_mut!(OUT) as *mut u8;
+        let n = unsafe {
+            http_request(request.as_ptr() as u32, request.len() as u32, ptr as u32, BUF_SIZE as u32)
+        };
+        if n < 0 {
+            format!("{{\"http\":{n}}}")
+        } else {
+            let response = String::from_utf8_lossy(unsafe { core::slice::from_raw_parts(ptr, n as usize) });
+            // http_request 写回的就是响应 JSON,直接嵌进结果
+            format!("{{\"http\":{n},\"response\":{response}}}")
+        }
     } else {
         format!("{{\"ok\":true,\"len\":{},\"echo\":\"{}\"}}", text.len(), escape(text))
     };
@@ -58,6 +74,14 @@ pub extern "C" fn mika_tool_call(ptr: u32, len: u32) -> u64 {
         core::ptr::copy_nonoverlapping(bytes.as_ptr(), dst, bytes.len());
         ((dst as u64) << 32) | bytes.len() as u64
     }
+}
+
+/// 取出 `"prefix":"` 之后、下一个引号之前的内容(测试用,不做完整 JSON 解析)。
+fn between<'a>(text: &'a str, prefix: &str) -> Option<&'a str> {
+    let start = text.find(prefix)? + prefix.len();
+    let rest = &text[start..];
+    let end = rest.find('"')?;
+    Some(&rest[..end])
 }
 
 fn escape(s: &str) -> String {

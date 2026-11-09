@@ -12,14 +12,19 @@ class PluginWasmRuntimeTest {
     private class Engine(private val fail: Boolean = false) : WasmEngine {
         override val name = "fake"
         val loads = mutableListOf<String>()
+        val contexts = mutableListOf<String>()
+        val hosts = mutableListOf<IWasmHost?>()
 
         override suspend fun load(bytes: ByteArray): LoadedWasmModule {
             loads += bytes.joinToString(",")
             return object : LoadedWasmModule {}
         }
 
-        override suspend fun call(module: LoadedWasmModule, contextJson: String, argsJson: String, timeoutMs: Long): WasmCallResult =
-            if (fail) throw IllegalStateException("boom") else WasmCallResult("""{"ok":true}""")
+        override suspend fun call(module: LoadedWasmModule, contextJson: String, argsJson: String, timeoutMs: Long, host: IWasmHost?): WasmCallResult {
+            contexts += contextJson
+            hosts += host
+            return if (fail) throw IllegalStateException("boom") else WasmCallResult("""{"ok":true}""")
+        }
     }
 
     private fun temp(): File = Files.createTempDirectory("wasm-rt").toFile()
@@ -90,6 +95,26 @@ class PluginWasmRuntimeTest {
         runtime.call("p", emptyList(), PluginToolDecl(name = "b", wasm = "tools/b.wasm"), buildJsonObject {}, 5)
         runtime.call("p", emptyList(), PluginToolDecl(name = "a", wasm = "tools/a.wasm"), buildJsonObject {}, 5)
         assertEquals(3, engine.loads.size)
+        dir.deleteRecursively()
+    }
+
+    @Test fun networkPermissionAndHostOnlyWhenGranted() = runTest {
+        val dir = dirWith("ping.wasm", byteArrayOf(1))
+        val engine = Engine()
+        var hosts = 0
+        val runtime = PluginWasmRuntime(
+            { dir },
+            engine,
+            context = { _, permissions -> permissions.joinToString(",") },
+            hostFactory = { hosts++; null },
+        )
+        runtime.call("p", listOf("network", "workspace.own"), tool, buildJsonObject {}, 5)
+        assertEquals(0, hosts)
+        assertEquals("workspace.own", engine.contexts.last())
+
+        runtime.call("p", listOf("network", "workspace.own"), tool, buildJsonObject {}, 5, network = true)
+        assertEquals(1, hosts)
+        assertEquals("network,workspace.own", engine.contexts.last())
         dir.deleteRecursively()
     }
 }

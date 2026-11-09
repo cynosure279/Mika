@@ -57,6 +57,7 @@ class PluginEndpoint(
                     tool,
                     arguments,
                     tool.timeoutSec.toLong(),
+                    network = "network" in manifest.permissions && networkAllowed(),
                 )
                 McpResult(text = result.output, isError = result.isError)
             } catch (e: CancellationException) {

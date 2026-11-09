@@ -29,7 +29,14 @@ interface WasmEngine {
     suspend fun load(bytes: ByteArray): LoadedWasmModule
 
     /** 调用工具入口;contextJson 是宿主能力上下文(权限/设置快照),args/输出都是 JSON 文本。 */
-    suspend fun call(module: LoadedWasmModule, contextJson: String, argsJson: String, timeoutMs: Long): WasmCallResult
+    suspend fun call(
+        module: LoadedWasmModule,
+        contextJson: String,
+        argsJson: String,
+        timeoutMs: Long,
+        /** 联网能力的宿主回调;未授权时为空,guest 调 `mika.http_request` 得到 -2。 */
+        host: IWasmHost? = null,
+    ): WasmCallResult
 }
 
 /**
@@ -80,6 +87,8 @@ class PluginWasmRuntime(
     private val log: PluginLog? = null,
     /** 宿主能力上下文:权限 + 设置/secret 快照;默认空上下文(能力一律拒绝)。 */
     private val context: (pluginId: String, permissions: List<String>) -> String = { _, _ -> "{}" },
+    /** 联网时给 guest 的宿主回调;为空表示本机没有网络能力实现。 */
+    private val hostFactory: ((pluginId: String) -> IWasmHost?)? = null,
 ) {
     suspend fun call(
         pluginId: String,
@@ -87,6 +96,8 @@ class PluginWasmRuntime(
         tool: PluginToolDecl,
         args: JsonObject,
         timeoutMs: Long,
+        /** 本次调用是否已获得联网授权(manifest 声明 + 用户允许 + 全局联网开关)。 */
+        network: Boolean = false,
     ): WasmCallResult {
         val path = tool.wasm ?: return WasmCallResult("invalid_tool: ${tool.name} has no wasm", isError = true)
         if (!PluginManifest.WASM.matches(path) || ".." in path) {
@@ -98,11 +109,14 @@ class PluginWasmRuntime(
         val hash = sha256(bytes)
         val key = "${engine.name}:$hash"
         val started = System.currentTimeMillis()
+        // 未授权时把 network 从上下文里拿掉,原生侧据此直接拒绝;也不给回连的宿主接口
+        val granted = if (network) permissions else permissions - PERMISSION_NETWORK
+        val host = if (network) hostFactory?.invoke(pluginId) else null
         return try {
             val module = cache.getOrLoad(key, bytes) { engine.load(bytes) }
-            val ctx = runCatching { context(pluginId, permissions) }.getOrDefault("{}")
+            val ctx = runCatching { context(pluginId, granted) }.getOrDefault("{}")
             val callStarted = System.currentTimeMillis()
-            val result = engine.call(module, ctx, args.toString(), timeoutMs.coerceIn(1, 600) * 1000L)
+            val result = engine.call(module, ctx, args.toString(), timeoutMs.coerceIn(1, 600) * 1000L, host)
             result.logs.forEach { log?.append("guest", it) }
             log?.append(
                 "tool",
@@ -118,6 +132,8 @@ class PluginWasmRuntime(
     }
 
     private companion object {
+        const val PERMISSION_NETWORK = "network"
+
         fun sha256(bytes: ByteArray): String =
             MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
     }

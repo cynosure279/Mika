@@ -43,6 +43,7 @@ class WasmProcessEngine(
         contextJson: String,
         argsJson: String,
         timeoutMs: Long,
+        host: IWasmHost?,
     ): WasmCallResult =
         withContext(Dispatchers.IO) {
             if (fused) {
@@ -64,6 +65,7 @@ class WasmProcessEngine(
                         argsJson,
                         timeoutMs,
                         WasmtimeEngine.DEFAULT_MEMORY_LIMIT,
+                        host,
                     )
                 }
                 failures.set(0)
