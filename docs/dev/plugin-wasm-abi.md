@@ -4,7 +4,7 @@
 
 ## 已实现的能力(ABI v2 只读)
 
-import module `mika`:`abi_version()`、`log(level,ptr,len)`、`settings_get(key_ptr,key_len,out_ptr,out_cap)`、`fs_read(path_ptr,path_len,out_ptr,out_cap)`。权限与设置快照由宿主每次调用传入上下文;未授权返回 `-2`。`fs_read` 只读插件自己的 workspace。写入与网络能力尚未实现。
+import module `mika`:`abi_version()`、`log(level,ptr,len)`、`settings_get(key_ptr,key_len,out_ptr,out_cap)`、`fs_read(path_ptr,path_len,out_ptr,out_cap)`、`fs_write(path_ptr,path_len,data_ptr,data_len)`。权限与设置快照由宿主每次调用传入上下文;未授权返回 `-2`。`fs_read`/`fs_write` 只作用于插件自己的 workspace,写入有路径校验与 1MB 上限。设置写入与网络能力尚未实现。
 
 ## 模块要求
 
