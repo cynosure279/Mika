@@ -1,0 +1,83 @@
+package com.wangzan101.mika.plugin
+
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.buildJsonObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.io.File
+import java.nio.file.Files
+
+class PluginWasmRuntimeTest {
+    private class Engine(private val fail: Boolean = false) : WasmEngine {
+        override val name = "fake"
+        val loads = mutableListOf<String>()
+
+        override suspend fun load(bytes: ByteArray): LoadedWasmModule {
+            loads += bytes.joinToString(",")
+            return object : LoadedWasmModule {}
+        }
+
+        override suspend fun call(module: LoadedWasmModule, argsJson: String, timeoutMs: Long): WasmCallResult =
+            if (fail) throw IllegalStateException("boom") else WasmCallResult("""{"ok":true}""")
+    }
+
+    private fun temp(): File = Files.createTempDirectory("wasm-rt").toFile()
+
+    private fun dirWith(name: String, bytes: ByteArray): File = temp().also {
+        File(it, "tools").mkdirs()
+        File(it, "tools/$name").writeBytes(bytes)
+    }
+
+    private val tool = PluginToolDecl(name = "ping", wasm = "tools/ping.wasm")
+
+    @Test fun missingModuleFailsCleanly() = runTest {
+        val dir = temp()
+        val r = PluginWasmRuntime({ dir }, Engine()).call("p", tool, buildJsonObject {}, 5)
+        assertTrue(r.isError)
+        assertTrue(r.output.contains("module is missing"))
+        dir.deleteRecursively()
+    }
+
+    @Test fun invalidPathRejectedBeforeReading() = runTest {
+        val r = PluginWasmRuntime({ File("/nonexistent") }, Engine())
+            .call("p", PluginToolDecl(name = "x", wasm = "../x.wasm"), buildJsonObject {}, 5)
+        assertTrue(r.isError)
+        assertTrue(r.output.contains("invalid_tool_wasm"))
+    }
+
+    @Test fun moduleIsCachedByContent() = runTest {
+        val dir = dirWith("ping.wasm", byteArrayOf(1, 2, 3))
+        val engine = Engine()
+        val runtime = PluginWasmRuntime({ dir }, engine)
+        runtime.call("p", tool, buildJsonObject {}, 5)
+        runtime.call("p", tool, buildJsonObject {}, 5)
+        assertEquals(1, engine.loads.size)
+
+        // 插件更新后内容哈希变化,必须重新编译
+        File(dir, "tools/ping.wasm").writeBytes(byteArrayOf(4, 5, 6))
+        runtime.call("p", tool, buildJsonObject {}, 5)
+        assertEquals(2, engine.loads.size)
+        dir.deleteRecursively()
+    }
+
+    @Test fun engineErrorsBecomeErrorResults() = runTest {
+        val dir = dirWith("ping.wasm", byteArrayOf(1))
+        val r = PluginWasmRuntime({ dir }, Engine(fail = true)).call("p", tool, buildJsonObject {}, 5)
+        assertTrue(r.isError)
+        assertTrue(r.output.contains("wasm_error"))
+        dir.deleteRecursively()
+    }
+
+    @Test fun lruEvictsOldestModule() = runTest {
+        val dir = dirWith("a.wasm", byteArrayOf(1))
+        File(dir, "tools/b.wasm").writeBytes(byteArrayOf(2))
+        val engine = Engine()
+        val runtime = PluginWasmRuntime({ dir }, engine, WasmModuleCache(maxEntries = 1, maxBytes = 1024))
+        runtime.call("p", PluginToolDecl(name = "a", wasm = "tools/a.wasm"), buildJsonObject {}, 5)
+        runtime.call("p", PluginToolDecl(name = "b", wasm = "tools/b.wasm"), buildJsonObject {}, 5)
+        runtime.call("p", PluginToolDecl(name = "a", wasm = "tools/a.wasm"), buildJsonObject {}, 5)
+        assertEquals(3, engine.loads.size)
+        dir.deleteRecursively()
+    }
+}

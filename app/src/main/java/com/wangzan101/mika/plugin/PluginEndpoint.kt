@@ -22,6 +22,8 @@ class PluginEndpoint(
     /** 全局联网开关;插件自己的 network 权限还要同时满足。 */
     private val networkAllowed: () -> Boolean = { false },
     private val log: PluginLog? = null,
+    /** Wasm 工具的执行入口;为空时 wasm 工具明确报 wasm_not_supported。 */
+    private val wasm: PluginWasmRuntime? = null,
 ) : McpEndpoint {
     override val serverId: String = record.id
 
@@ -42,13 +44,26 @@ class PluginEndpoint(
     override suspend fun call(name: String, arguments: JsonObject): McpResult {
         val tool = manifest.tools.firstOrNull { it.name == name }
             ?: return McpResult("unknown plugin tool: $name", isError = true)
-        val script = tool.script ?: return McpResult(
-            if (tool.wasm != null) "wasm_not_supported: ${tool.name}" else "invalid_tool: ${tool.name} has no script",
-            isError = true,
-        )
+        if (tool.script == null) {
+            if (tool.wasm == null) {
+                return McpResult("invalid_tool: ${tool.name} has no script", isError = true)
+            }
+            val runtime = wasm
+                ?: return McpResult("wasm_not_supported: ${tool.name}", isError = true)
+            return try {
+                val result = runtime.call(record.id, tool, arguments, tool.timeoutSec.toLong())
+                McpResult(text = result.output, isError = result.isError)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log?.append("tool", "${tool.name} wasm error=${e.javaClass.simpleName}")
+                McpResult("plugin_error: ${e.message ?: e.javaClass.simpleName}", isError = true)
+            }
+        }
         if ("sandbox.run" !in manifest.permissions) {
             return McpResult("permission_denied: sandbox.run", isError = true)
         }
+        val script = tool.script
         val network = "network" in manifest.permissions && networkAllowed()
         val started = System.currentTimeMillis()
         return try {

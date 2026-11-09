@@ -28,10 +28,14 @@ data class PluginManifest(
 ) {
     /**
      * 校验 manifest;返回问题编码(空表示通过)。P2 认技能、工具、页面和非密设置:
-     * 未知权限、工具缺 `sandbox.run`、页面缺 `page`、设置缺 `settings.plugin` 都拒绝安装。
-     * [currentAppVersion] 用于 `minApp` 比较。
+     * 未知权限、脚本工具缺 `sandbox.run`、页面缺 `page`、设置缺 `settings.plugin` 都拒绝安装。
+     * [currentAppVersion] 用于 `minApp` 比较;[wasmSupported] 表示当前版本是否带 Wasm 运行时,
+     * 没有时 wasm 工具明确拒绝安装,避免装出调用必报错的插件。
      */
-    fun validate(currentAppVersion: String = BuildConfig.VERSION_NAME): List<String> = buildList {
+    fun validate(
+        currentAppVersion: String = BuildConfig.VERSION_NAME,
+        wasmSupported: Boolean = false,
+    ): List<String> = buildList {
         if (schema != SCHEMA) add(ERR_SCHEMA)
         if (!ID.matches(id)) add(ERR_ID)
         if (name.isBlank()) add(ERR_NAME)
@@ -59,8 +63,8 @@ data class PluginManifest(
                 script != null && (!SCRIPT.matches(script) || ".." in script || script.endsWith("/")) -> add(ERR_TOOL_SCRIPT)
                 wasm != null && (!WASM.matches(wasm) || ".." in wasm) -> add(ERR_TOOL_WASM)
             }
-            // Wasm 运行时还没落地:先认这个字段,安装时明确拒绝,避免装出调用必报错的插件
-            if (wasm != null) add(ERR_WASM_NOT_SUPPORTED)
+            // Wasm 运行时未随当前版本提供时明确拒绝,避免装出调用必报错的插件
+            if (wasm != null && !wasmSupported) add(ERR_WASM_NOT_SUPPORTED)
             if (t.timeoutSec !in 1..600) add(ERR_TOOL_TIMEOUT)
             if (t.maxCostUnits != null && t.maxCostUnits < 0) add(ERR_TOOL_COST)
             val schema = t.inputSchema

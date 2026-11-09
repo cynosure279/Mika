@@ -204,4 +204,11 @@ class PluginManifestTest {
         val neither = """{"name":"ping"}"""
         assertTrue(PluginManifest.ERR_TOOL_SCRIPT in problems(toolManifest(tool = neither)))
     }
+
+    @Test fun wasmToolsAcceptedWhenRuntimeIsAvailable() {
+        val wasmTool = """{"name":"ping","wasm":"tools/ping.wasm"}"""
+        val text = toolManifest(tool = wasmTool, permissions = "[]")
+        assertTrue(PluginManifest.ERR_WASM_NOT_SUPPORTED in PluginManifest.parse(text).validate("0.1.33"))
+        assertTrue(PluginManifest.parse(text).validate("0.1.33", wasmSupported = true).isEmpty())
+    }
 }

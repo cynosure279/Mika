@@ -95,6 +95,40 @@ class PluginEndpointTest {
         assertTrue(runner.calls.isEmpty())
     }
 
+    private class FakeEngine : WasmEngine {
+        override val name = "fake"
+        var loads = 0
+        override suspend fun load(bytes: ByteArray): LoadedWasmModule {
+            loads++
+            return object : LoadedWasmModule {}
+        }
+        override suspend fun call(module: LoadedWasmModule, argsJson: String, timeoutMs: Long): WasmCallResult =
+            WasmCallResult("""{"echo":$argsJson}""")
+    }
+
+    @Test fun wasmToolsDispatchThroughRuntimeWhenAvailable() = runTest {
+        val dir = java.nio.file.Files.createTempDirectory("wasm-plugin").toFile()
+        java.io.File(dir, "tools").mkdirs()
+        java.io.File(dir, "tools/ping.wasm").writeBytes(byteArrayOf(1, 2, 3))
+        val m = PluginManifest.parse(
+            """{"schema":1,"id":"com.example.feishu","name":"f","version":"1.0.0",
+                "permissions":[],"tools":[{"name":"ping","wasm":"tools/ping.wasm","timeoutSec":5}]}""",
+        )
+        val engine = FakeEngine()
+        val runtime = PluginWasmRuntime({ dir }, engine)
+        val endpoint = PluginEndpoint(record, m, FakeRunner(), wasm = runtime)
+        val args = buildJsonObject { put("x", 1) }
+
+        val result = endpoint.call("ping", args)
+        assertFalse(result.isError)
+        assertTrue(result.text.contains("\"x\":1"))
+        assertEquals(1, engine.loads)
+
+        endpoint.call("ping", args)
+        assertEquals(1, engine.loads) // 第二次命中模块缓存
+        dir.deleteRecursively()
+    }
+
     @Test fun lastJsonLineIsTheResultOtherwiseWholeOutput() = runTest {
         val json = PluginEndpoint(record, manifest(), FakeRunner(ScriptResult("log line\n{\"ok\":true}", exitCode = 0)))
         assertEquals("{\"ok\":true}", json.call("send", buildJsonObject {}).text)
