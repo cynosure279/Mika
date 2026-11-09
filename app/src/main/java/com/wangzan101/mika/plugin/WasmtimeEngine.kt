@@ -43,7 +43,8 @@ class WasmtimeEngine(
 /** 本机是否带可用的 Wasm 引擎(原生库随 APK 的 arm64 目录分发)。 */
 object WasmSupport {
     val available: Boolean by lazy {
-        runCatching {
+        // 独立进程隔离落地前,发布包不启用;调试包开着便于验收
+        com.wangzan101.mika.BuildConfig.WASM_PLUGINS && runCatching {
             WasmtimeNative.ensureLoaded()
             true
         }.getOrDefault(false)
