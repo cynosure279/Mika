@@ -42,10 +42,13 @@ class PluginEndpoint(
     override suspend fun call(name: String, arguments: JsonObject): McpResult {
         val tool = manifest.tools.firstOrNull { it.name == name }
             ?: return McpResult("unknown plugin tool: $name", isError = true)
+        val script = tool.script ?: return McpResult(
+            if (tool.wasm != null) "wasm_not_supported: ${tool.name}" else "invalid_tool: ${tool.name} has no script",
+            isError = true,
+        )
         if ("sandbox.run" !in manifest.permissions) {
             return McpResult("permission_denied: sandbox.run", isError = true)
         }
-        val script = tool.script ?: return McpResult("invalid_tool: ${tool.name} has no script", isError = true)
         val network = "network" in manifest.permissions && networkAllowed()
         val started = System.currentTimeMillis()
         return try {

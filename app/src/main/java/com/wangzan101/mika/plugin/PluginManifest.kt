@@ -43,7 +43,8 @@ data class PluginManifest(
         }
         // 权限逐项 fail closed;P2 认工具、页面、非密设置用到的权限
         if (permissions.distinct().size != permissions.size || permissions.any { it !in PERMISSIONS }) add(ERR_PERMISSIONS)
-        if (tools.isNotEmpty() && "sandbox.run" !in permissions) add(ERR_TOOLS_NEED_SANDBOX)
+        // 脚本工具需要沙箱;Wasm 工具没有环境权限,不在此列
+        if (tools.any { it.script != null } && "sandbox.run" !in permissions) add(ERR_TOOLS_NEED_SANDBOX)
         if (pages.isNotEmpty() && "page" !in permissions) add(ERR_PAGES_NEED_PAGE)
         if (settings.isNotEmpty() && "settings.plugin" !in permissions) add(ERR_SETTINGS_NEED_PERMISSION)
         if (maxCostUnits != null && maxCostUnits < 0) add(ERR_TOOL_COST)
@@ -51,7 +52,15 @@ data class PluginManifest(
         for (t in tools) {
             if (!TOOL_NAME.matches(t.name) || !toolNames.add(t.name)) add(ERR_TOOL)
             val script = t.script
-            if (script == null || !SCRIPT.matches(script) || ".." in script || script.endsWith("/")) add(ERR_TOOL_SCRIPT)
+            val wasm = t.wasm
+            when {
+                script == null && wasm == null -> add(ERR_TOOL_SCRIPT)
+                script != null && wasm != null -> add(ERR_TOOL_WASM)
+                script != null && (!SCRIPT.matches(script) || ".." in script || script.endsWith("/")) -> add(ERR_TOOL_SCRIPT)
+                wasm != null && (!WASM.matches(wasm) || ".." in wasm) -> add(ERR_TOOL_WASM)
+            }
+            // Wasm 运行时还没落地:先认这个字段,安装时明确拒绝,避免装出调用必报错的插件
+            if (wasm != null) add(ERR_WASM_NOT_SUPPORTED)
             if (t.timeoutSec !in 1..600) add(ERR_TOOL_TIMEOUT)
             if (t.maxCostUnits != null && t.maxCostUnits < 0) add(ERR_TOOL_COST)
             val schema = t.inputSchema
@@ -88,6 +97,8 @@ data class PluginManifest(
         val SETTING_KEY = Regex("^[a-z][a-z0-9_]{0,63}$")
         /** 包内脚本相对路径;只允许 scripts/ 下,不允许反斜杠、盘符和 ..。 */
         val SCRIPT = Regex("^scripts/[A-Za-z0-9._/-]+$")
+        /** 包内 Wasm 模块相对路径;只允许 tools/ 下、.wasm 结尾。 */
+        val WASM = Regex("^tools/[A-Za-z0-9._/-]+\\.wasm$")
 
         /** P3 认的权限;phone.apps 仍不能装。 */
         val PERMISSIONS = setOf("sandbox.run", "workspace.own", "settings.plugin", "network", "page")
@@ -111,6 +122,8 @@ data class PluginManifest(
         const val ERR_SETTING_SECRET = "setting_secret_unsupported"
         const val ERR_TOOL = "invalid_tool"
         const val ERR_TOOL_SCRIPT = "invalid_tool_script"
+        const val ERR_TOOL_WASM = "invalid_tool_wasm"
+        const val ERR_WASM_NOT_SUPPORTED = "wasm_not_supported"
         const val ERR_TOOL_TIMEOUT = "invalid_tool_timeout"
         const val ERR_TOOL_SCHEMA = "invalid_tool_schema"
         const val ERR_TOOL_COST = "invalid_tool_cost"
@@ -129,6 +142,8 @@ data class PluginToolDecl(
     val name: String = "",
     val description: String = "",
     val script: String? = null,
+    /** Wasm 模块路径(tools 目录下的 .wasm);和 [script] 二选一。阶段一只认字段、不接受安装。 */
+    val wasm: String? = null,
     val timeoutSec: Int = 60,
     val risk: String? = null,
     val annotations: Map<String, Boolean> = emptyMap(),

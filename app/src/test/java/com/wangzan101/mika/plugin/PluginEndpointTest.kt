@@ -83,6 +83,18 @@ class PluginEndpointTest {
         assertTrue(result.text.contains("boom"))
     }
 
+    @Test fun wasmToolsAreRejectedUntilRuntimeLands() = runTest {
+        val m = PluginManifest.parse(
+            """{"schema":1,"id":"com.example.feishu","name":"f","version":"1.0.0",
+                "permissions":[],"tools":[{"name":"ping","wasm":"tools/ping.wasm"}]}""",
+        )
+        val runner = FakeRunner()
+        val result = PluginEndpoint(record, m, runner).call("ping", buildJsonObject {})
+        assertTrue(result.isError)
+        assertTrue(result.text.contains("wasm_not_supported"))
+        assertTrue(runner.calls.isEmpty())
+    }
+
     @Test fun lastJsonLineIsTheResultOtherwiseWholeOutput() = runTest {
         val json = PluginEndpoint(record, manifest(), FakeRunner(ScriptResult("log line\n{\"ok\":true}", exitCode = 0)))
         assertEquals("{\"ok\":true}", json.call("send", buildJsonObject {}).text)

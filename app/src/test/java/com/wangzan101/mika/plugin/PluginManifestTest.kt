@@ -2,6 +2,7 @@ package com.wangzan101.mika.plugin
 
 import kotlinx.serialization.SerializationException
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -178,5 +179,29 @@ class PluginManifestTest {
              "skills":[{"name":"feishu","path":"skills/feishu"},{"name":"feishu","path":"skills/feishu"}]}
         """.trimIndent()
         assertTrue(PluginManifest.ERR_SKILL in problems(dup))
+    }
+
+    @Test fun wasmToolsAreRecognizedButNotInstallableYet() {
+        val wasmTool = """{"name":"ping","description":"ping","wasm":"tools/ping.wasm","timeoutSec":10}"""
+        val p = problems(toolManifest(tool = wasmTool, permissions = "[]"))
+        assertTrue(PluginManifest.ERR_WASM_NOT_SUPPORTED in p)
+        // Wasm 工具没有沙箱权限要求,也不该被当成缺脚本
+        assertFalse(PluginManifest.ERR_TOOLS_NEED_SANDBOX in p)
+        assertFalse(PluginManifest.ERR_TOOL_SCRIPT in p)
+        assertFalse(PluginManifest.ERR_TOOL_WASM in p)
+    }
+
+    @Test fun wasmToolPathsAreValidated() {
+        fun bad(path: String) = problems(toolManifest(tool = """{"name":"ping","wasm":"$path"}""", permissions = "[]"))
+        for (path in listOf("tools/../ping.wasm", "/abs/ping.wasm", "scripts/ping.wasm", "tools/ping.txt", "tools/ping.WASM")) {
+            assertTrue(path, PluginManifest.ERR_TOOL_WASM in bad(path))
+        }
+    }
+
+    @Test fun toolNeedsExactlyOneSource() {
+        val both = """{"name":"ping","script":"scripts/ping.py","wasm":"tools/ping.wasm"}"""
+        assertTrue(PluginManifest.ERR_TOOL_WASM in problems(toolManifest(tool = both)))
+        val neither = """{"name":"ping"}"""
+        assertTrue(PluginManifest.ERR_TOOL_SCRIPT in problems(toolManifest(tool = neither)))
     }
 }
