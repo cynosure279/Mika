@@ -101,6 +101,15 @@ fn read_str(caller: &mut Caller<'_, State>, ptr: i32, len: i32) -> Option<String
     String::from_utf8(slice.to_vec()).ok()
 }
 
+fn read_bytes(caller: &mut Caller<'_, State>, ptr: i32, len: i32) -> Option<Vec<u8>> {
+    let memory = caller.get_export("memory")?.into_memory()?;
+    let data = memory.data(caller);
+    let start = usize::try_from(ptr).ok()?;
+    let len = usize::try_from(len).ok()?;
+    let end = start.checked_add(len)?;
+    data.get(start..end).map(|s| s.to_vec())
+}
+
 fn write_bytes(caller: &mut Caller<'_, State>, ptr: i32, cap: i32, bytes: &[u8]) -> i32 {
     let Some(memory) = caller.get_export("memory").and_then(|e| e.into_memory()) else {
         return -1;
@@ -163,6 +172,43 @@ fn linker() -> &'static Linker<State> {
                 },
             )
             .expect("mika.settings_get");
+        linker
+            .func_wrap(
+                "mika",
+                "fs_write",
+                |mut caller: Caller<'_, State>, path_ptr: i32, path_len: i32, data_ptr: i32, data_len: i32| -> i32 {
+                    if !allowed(caller.data(), "workspace.own") {
+                        return -2;
+                    }
+                    let Some(path) = read_str(&mut caller, path_ptr, path_len) else { return -1 };
+                    if !safe_relative(&path) {
+                        return -1;
+                    }
+                    let Some(workspace) = caller.data().workspace.clone() else { return -2 };
+                    if std::fs::create_dir_all(&workspace).is_err() {
+                        return -5;
+                    }
+                    let Ok(root) = workspace.canonicalize() else { return -5 };
+                    let target = root.join(&path);
+                    let Some(parent) = target.parent() else { return -1 };
+                    if std::fs::create_dir_all(parent).is_err() {
+                        return -5;
+                    }
+                    let Ok(parent) = parent.canonicalize() else { return -1 };
+                    if !parent.starts_with(&root) {
+                        return -1;
+                    }
+                    let Some(data) = read_bytes(&mut caller, data_ptr, data_len) else { return -1 };
+                    if data.len() > FS_LIMIT {
+                        return -4;
+                    }
+                    match std::fs::write(&target, &data) {
+                        Ok(()) => data.len() as i32,
+                        Err(_) => -5,
+                    }
+                },
+            )
+            .expect("mika.fs_write");
         linker
             .func_wrap(
                 "mika",

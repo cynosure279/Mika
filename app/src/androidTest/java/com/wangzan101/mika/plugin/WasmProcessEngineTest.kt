@@ -37,6 +37,17 @@ class WasmProcessEngineTest {
         val logged = engine.call(module, callContext, """{"mode":"log"}""", 5_000)
         assertFalse(logged.output, logged.isError)
         assertTrue(logged.logs.isNotEmpty())
+
+        // ABI v2 写入:fs_write 只写插件 workspace
+        val workspace = java.io.File(context.cacheDir, "wasm-test-workspace").apply { mkdirs() }
+        val writeContext = """{"permissions":["workspace.own"],"settings":{},"secrets":{},"workspace":"${workspace.absolutePath}"}"""
+        val written = engine.call(module, writeContext, """{"mode":"write"}""", 5_000)
+        assertFalse(written.output, written.isError)
+        assertTrue(written.output.contains("\"written\":15"))
+        val file = java.io.File(workspace, "out.txt")
+        assertTrue(file.isFile)
+        assertTrue(file.readText() == "hello from wasm")
+        workspace.deleteRecursively()
         assertFalse(again.output, again.isError)
     }
 }

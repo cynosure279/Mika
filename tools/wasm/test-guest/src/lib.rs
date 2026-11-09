@@ -8,6 +8,7 @@ static KEY: &[u8] = b"greeting";
 extern "C" {
     fn log(level: i32, ptr: u32, len: u32);
     fn settings_get(key_ptr: u32, key_len: u32, out_ptr: u32, out_cap: u32) -> i32;
+    fn fs_write(path_ptr: u32, path_len: u32, data_ptr: u32, data_len: u32) -> i32;
 }
 static mut ARGS: [u8; BUF_SIZE] = [0; BUF_SIZE];
 static mut OUT: [u8; BUF_SIZE] = [0; BUF_SIZE];
@@ -32,7 +33,12 @@ pub extern "C" fn mika_tool_call(ptr: u32, len: u32) -> u64 {
             core::hint::black_box(text.len());
         }
     }
-    let out = if text.contains("\"mode\":\"settings\"") {
+    let out = if text.contains("\"mode\":\"write\"") {
+        let path = b"out.txt";
+        let data = b"hello from wasm";
+        let n = unsafe { fs_write(path.as_ptr() as u32, path.len() as u32, data.as_ptr() as u32, data.len() as u32) };
+        format!("{{\"written\":{n}}}")
+    } else if text.contains("\"mode\":\"settings\"") {
         let ptr = core::ptr::addr_of_mut!(OUT) as *mut u8;
         let key = KEY.as_ptr() as u32;
         let n = unsafe { settings_get(key, KEY.len() as u32, ptr as u32, BUF_SIZE as u32) };
