@@ -221,4 +221,5 @@
     <string name="tool_audio_generate">生成语音</string>
     <string name="tool_audio_save">保存音频</string>
     <string name="tool_share_audio">分享音频到 App</string>
+    <string name="tool_audio_transcribe">转写音频</string>
 </resources>

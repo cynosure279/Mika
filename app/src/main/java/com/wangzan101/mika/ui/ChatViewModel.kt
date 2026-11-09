@@ -1833,6 +1833,7 @@ class ToolLabels(private val tools: ToolIndex, private val legacy: LegacyNames =
             "分享音频到 App" to R.string.tool_share_audio,
             "生成语音" to R.string.tool_audio_generate,
             "保存音频" to R.string.tool_audio_save,
+            "转写音频" to R.string.tool_audio_transcribe,
             "设闹钟" to R.string.tool_set_alarm,
             "设计时器" to R.string.tool_set_timer,
             "查看闹钟" to R.string.tool_show_alarms,

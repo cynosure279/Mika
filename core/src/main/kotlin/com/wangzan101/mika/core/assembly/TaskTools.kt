@@ -124,6 +124,8 @@ fun toolDispatcher(
     audioSaveEnabled: Boolean = false,
     /** 每次保存前是否问用户;默认问。 */
     audioAskBeforeSave: Boolean = true,
+    /** 音频转写;为空时不装转写能力(没配置服务商转写模型)。 */
+    transcribe: com.wangzan101.mika.core.cap.transcribe.TranscribePort? = null,
     /** 以 root 跑命令(已 root 的手机上用户打开了「允许 Mika 执行 root 命令」才给);为空时 root 工具不登记。 */
     root: RootPort? = null,
     /** 用户配置并启用的通用网页搜索;为空时保持原有浏览器搜索路径。 */
@@ -145,7 +147,12 @@ fun toolDispatcher(
             override fun open(spec: RunSpec) = SandboxCapability(sandbox, workspace, visionEnabled,
                 onSandboxCommand, onSandboxProgress, onSandboxPreparing, onSandboxScript)
         },
-    ) + listOfNotNull(audio?.let { port ->
+    ) + listOfNotNull(transcribe?.let { port ->
+        object : CapabilityProvider {
+            override val id = com.wangzan101.mika.core.cap.transcribe.TRANSCRIBE
+            override fun open(spec: RunSpec) = com.wangzan101.mika.core.cap.transcribe.TranscribeCapability(port)
+        }
+    }) + listOfNotNull(audio?.let { port ->
         object : CapabilityProvider {
             override val id = com.wangzan101.mika.core.cap.audio.AUDIO
             override fun open(spec: RunSpec) = com.wangzan101.mika.core.cap.audio.AudioCapability(port, audioSaveEnabled, audioAskBeforeSave)
@@ -201,7 +208,7 @@ fun recordedTools(): ToolIndex = legacyNames().let { legacy -> ToolIndex(allTool
 
 /** Mika 所有可能提供的工具,按发给模型的顺序。 */
 internal fun allTools(): List<AgentTool> =
-    GeneralGroup.tools + PhoneCapability.tools() + WebGroup.tools + SandboxGroup.tools + com.wangzan101.mika.core.cap.audio.AudioGroup.tools + RootGroup.tools
+    GeneralGroup.tools + PhoneCapability.tools() + WebGroup.tools + SandboxGroup.tools + com.wangzan101.mika.core.cap.audio.AudioGroup.tools + com.wangzan101.mika.core.cap.transcribe.TranscribeGroup.tools + RootGroup.tools
 
 /** Mika 所有可能提供的工具的声明。 */
 fun knownTools(): ToolIndex = ToolIndex(allTools())

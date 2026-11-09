@@ -12,6 +12,8 @@ import com.wangzan101.mika.core.testing.WEB_SCRIPT_TOOL
 import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.assembly.allTools
 import com.wangzan101.mika.core.cap.audio.AudioPort
+import com.wangzan101.mika.core.cap.transcribe.TranscribePort
+import com.wangzan101.mika.core.cap.transcribe.Transcript
 import com.wangzan101.mika.core.model.SavedAudio
 import com.wangzan101.mika.core.model.StoredAudio
 import com.wangzan101.mika.core.model.TtsCapabilities
@@ -48,6 +50,10 @@ class ToolRiskTest {
         assertEquals(oldWeb, WEB_TOOLS)
     }
 
+    private object NoTranscribePort : TranscribePort {
+        override suspend fun transcribe(path: String, language: String?) = Transcript("")
+    }
+
     private object NoAudioPort : AudioPort {
         override val modelName = "test-voice"
         override val capabilities = TtsCapabilities(maxChars = 100, formats = setOf("wav"))
@@ -59,10 +65,10 @@ class ToolRiskTest {
     @Test fun readCallsRefuseWhatTheOldListsRefused() = runTest {
         val refused = oldWriting + oldSandbox + WEB_SCRIPT_TOOL +
             setOf("phone_find", "phone_collect", "phone_dialog", "phone_run", "phone_system_command", "phone_calendar_bulk_insert", "schedule_task", "spawn_agent", "settings_set", "root_run_command", "web_search",
-                "audio_generate", "audio_save")
+                "audio_generate", "audio_save", "audio_transcribe")
         assertEquals(refused, allTools().filter { !it.readOnly }.map { it.name }.toSet())
         // root 命令只在给了端口时登记:给一个,所有工具都在
-        val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, root = object : com.wangzan101.mika.core.cap.root.RootPort {
+        val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, transcribe = NoTranscribePort, root = object : com.wangzan101.mika.core.cap.root.RootPort {
             override suspend fun run(command: String, timeoutMs: Long) = com.wangzan101.mika.core.cap.root.RootRun.Unavailable
         })
         for (name in names) {
