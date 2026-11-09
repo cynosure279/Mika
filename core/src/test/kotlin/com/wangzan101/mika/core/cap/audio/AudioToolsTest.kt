@@ -26,6 +26,7 @@ class AudioToolsTest {
         var requests = mutableListOf<TtsRequest>()
         var savedPath: String? = null
         var savedName: String? = null
+        var spoken: String? = null
 
         override suspend fun synthesize(request: TtsRequest): TtsResponse {
             requests += request
@@ -34,6 +35,10 @@ class AudioToolsTest {
 
         override suspend fun store(response: TtsResponse, nameHint: String?, text: String) =
             StoredAudio("/workspace/out/audio/line.wav", response.bytes.size, response.mime, response.durationMs)
+
+        override suspend fun speak(request: TtsRequest) {
+            spoken = request.text
+        }
 
         override suspend fun saveToMusic(path: String, name: String?): SavedAudio {
             savedPath = path
@@ -44,8 +49,8 @@ class AudioToolsTest {
 
     private fun JsonObject.s(k: String) = this[k]!!.jsonPrimitive.content
 
-    private fun dispatcher(port: AudioPort? = FakePort(), save: Boolean = false, ask: Boolean = true) =
-        toolDispatcher(LocScreen(), audio = port, audioSaveEnabled = save, audioAskBeforeSave = ask)
+    private fun dispatcher(port: AudioPort? = FakePort(), save: Boolean = false, ask: Boolean = true, speak: Boolean = false) =
+        toolDispatcher(LocScreen(), audio = port, audioSaveEnabled = save, audioAskBeforeSave = ask, audioSpeakTool = speak)
 
     private fun call(name: String, args: String) = Part.ToolCall("c-$name", name, args)
 
@@ -82,6 +87,16 @@ class AudioToolsTest {
         assertTrue(risk?.ask != null)
         val quiet = dispatcher(save = true, ask = false)
         assertNull(quiet.approvalRisk("audio_save", JsonObject(mapOf("path" to JsonPrimitive("/workspace/out/audio/line.wav"))))?.ask)
+    }
+
+    @Test fun speakIsOnlyOfferedWhenAllowedAndPlaysThroughThePort() = runTest {
+        assertFalse("speak" in dispatcher(speak = false).definitions().map { it.name })
+        val port = FakePort()
+        val d = dispatcher(port, speak = true)
+        assertTrue("speak" in d.definitions().map { it.name })
+        val r = d.execute(call("speak", """{"text":"hello"}"""), ActionPass()).content
+        assertEquals("true", r.s("ok"))
+        assertEquals("hello", port.spoken)
     }
 
     @Test fun saveWritesThroughThePort() = runTest {

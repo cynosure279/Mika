@@ -60,15 +60,16 @@ class ToolRiskTest {
         override suspend fun synthesize(request: TtsRequest) = TtsResponse(ByteArray(0), "audio/wav")
         override suspend fun store(response: TtsResponse, nameHint: String?, text: String) = StoredAudio("/workspace/out/audio/x.wav", 0, "audio/wav")
         override suspend fun saveToMusic(path: String, name: String?) = SavedAudio("Music/Mika/x.wav", "content://x", 0)
+        override suspend fun speak(request: TtsRequest) {}
     }
 
     @Test fun readCallsRefuseWhatTheOldListsRefused() = runTest {
         val refused = oldWriting + oldSandbox + WEB_SCRIPT_TOOL +
             setOf("phone_find", "phone_collect", "phone_dialog", "phone_run", "phone_system_command", "phone_calendar_bulk_insert", "schedule_task", "spawn_agent", "settings_set", "root_run_command", "web_search",
-                "audio_generate", "audio_save", "audio_transcribe")
+                "audio_generate", "audio_save", "audio_transcribe", "speak")
         assertEquals(refused, allTools().filter { !it.readOnly }.map { it.name }.toSet())
         // root 命令只在给了端口时登记:给一个,所有工具都在
-        val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, transcribe = NoTranscribePort, root = object : com.wangzan101.mika.core.cap.root.RootPort {
+        val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, audioSpeakTool = true, transcribe = NoTranscribePort, root = object : com.wangzan101.mika.core.cap.root.RootPort {
             override suspend fun run(command: String, timeoutMs: Long) = com.wangzan101.mika.core.cap.root.RootRun.Unavailable
         })
         for (name in names) {

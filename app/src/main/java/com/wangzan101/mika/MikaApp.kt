@@ -386,6 +386,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             },
             voiceReady = voiceSettings.state.map { it.enabled && it.choice != null }
                 .stateIn(scope, SharingStarted.Eagerly, voiceSettings.state.value.enabled && voiceSettings.state.value.choice != null),
+            autoRead = voiceSettings.state.map { it.autoRead }
+                .stateIn(scope, SharingStarted.Eagerly, voiceSettings.state.value.autoRead),
             voicePlayback = voicePlayer.state,
             speakText = { text -> speak(text) },
             stopVoice = { voicePlayer.stop() },

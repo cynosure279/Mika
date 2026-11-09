@@ -124,6 +124,8 @@ fun toolDispatcher(
     audioSaveEnabled: Boolean = false,
     /** 每次保存前是否问用户;默认问。 */
     audioAskBeforeSave: Boolean = true,
+    /** 用户允许模型主动说话;默认关。 */
+    audioSpeakTool: Boolean = false,
     /** 音频转写;为空时不装转写能力(没配置服务商转写模型)。 */
     transcribe: com.wangzan101.mika.core.cap.transcribe.TranscribePort? = null,
     /** 以 root 跑命令(已 root 的手机上用户打开了「允许 Mika 执行 root 命令」才给);为空时 root 工具不登记。 */
@@ -155,7 +157,7 @@ fun toolDispatcher(
     }) + listOfNotNull(audio?.let { port ->
         object : CapabilityProvider {
             override val id = com.wangzan101.mika.core.cap.audio.AUDIO
-            override fun open(spec: RunSpec) = com.wangzan101.mika.core.cap.audio.AudioCapability(port, audioSaveEnabled, audioAskBeforeSave)
+            override fun open(spec: RunSpec) = com.wangzan101.mika.core.cap.audio.AudioCapability(port, audioSaveEnabled, audioAskBeforeSave, audioSpeakTool)
         }
     }) + listOfNotNull(root?.let { port ->
         object : CapabilityProvider {

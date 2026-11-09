@@ -455,6 +455,8 @@ class ChatViewModel(
     private val voicePlayback: StateFlow<com.wangzan101.mika.voice.VoicePlayback> =
         MutableStateFlow(com.wangzan101.mika.voice.VoicePlayback.Idle),
     private val voiceReady: StateFlow<Boolean> = MutableStateFlow(false),
+    /** 每条完成的回答自动朗读;默认关。 */
+    private val autoRead: StateFlow<Boolean> = MutableStateFlow(false),
 ) {
     /** 用户在对话页上关掉留在后台的那一页。 */
     fun closeKeptPage() = closeKept()
@@ -469,6 +471,18 @@ class ChatViewModel(
     }
 
     fun stopSpeaking() = stopVoice()
+
+    /** 已经自动朗读过的那条回答;同一条不重复读。 */
+    private var autoReadKey: String? = null
+
+    private fun maybeAutoRead(ex: Exchange) {
+        if (!autoRead.value) return
+        val status = ex.status as? ExchangeStatus.Done ?: return
+        val key = ex.runId ?: "${ex.startedAt}-${status.answer.hashCode()}"
+        if (key == autoReadKey) return
+        autoReadKey = key
+        speak(status.answer)
+    }
 
     private val _ui = MutableStateFlow(ChatUi())
     val ui: StateFlow<ChatUi> = _ui.asStateFlow()
@@ -659,6 +673,7 @@ class ChatViewModel(
         scope.launch { screenOpen.collect { if (it && ownTask()) onScreenOpened() } }
         scope.launch { sandboxReady.collect { r -> _ui.update { it.copy(attachEnabled = r) } } }
         scope.launch { sharedFiles.collect { if (ownTask()) onSharedFiles(it) } }
+        scope.launch { autoRead.collect { if (!it) autoReadKey = null } }
         scope.launch { runNotes.collect { notes -> _ui.update { ui -> ui.copy(exchanges = ui.exchanges.map { withNotes(it, notes) }) } } }
         scope.launch { activities.collect { if (ownTask()) onActivities(it) } }
         scope.launch { steers.collect { if (ownTask()) onSteers(it) } }
@@ -1563,6 +1578,7 @@ class ChatViewModel(
                 },
             )
         }
+        _ui.value.exchanges.getOrNull(liveIndex)?.let(::maybeAutoRead)
         if (!s.active() && s != TaskState.Idle) {
             liveIndex = -1
             // 这一轮可能已先一步存进对话、补到了屏上:按运行编号并成一条
@@ -1834,6 +1850,7 @@ class ToolLabels(private val tools: ToolIndex, private val legacy: LegacyNames =
             "生成语音" to R.string.tool_audio_generate,
             "保存音频" to R.string.tool_audio_save,
             "转写音频" to R.string.tool_audio_transcribe,
+            "说话" to R.string.tool_speak,
             "设闹钟" to R.string.tool_set_alarm,
             "设计时器" to R.string.tool_set_timer,
             "查看闹钟" to R.string.tool_show_alarms,

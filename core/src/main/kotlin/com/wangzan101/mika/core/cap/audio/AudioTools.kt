@@ -152,3 +152,38 @@ private fun failure(e: Throwable): ToolExecution = when (e) {
     is ModelError.BadResponse -> fail("audio_bad_response", "The voice service returned something unreadable.")
     else -> fail("audio_failed", e.message?.take(300) ?: "Speech generation failed.")
 }
+
+/** 让 Mika 在本机主动说一句;默认不提供,用户在声音设置里打开后才给。 */
+internal object Speak : AgentTool {
+    override val capability: String get() = AUDIO
+    override val verb = Verb.Speak
+    override val label = "说话"
+    override val risk = Risk.Read
+    override val offScreen = true
+    override val entry = Entry.Opens
+    override val def = ToolDef("speak",
+        Prompts.tool("speak"),
+        mapOf(
+            "text" to str("The line to say, 1-2000 characters."),
+            "voice" to str("Optional voice name; leave out to use the configured voice."),
+        ), listOf("text"))
+
+    override fun available(ctx: ToolContext) = ctx[AudioCapability.KEY]?.let { it.port != null && it.speakTool } == true
+
+    override suspend fun execute(a: Args, ctx: ToolContext): ToolExecution {
+        val cap = ctx[AudioCapability.KEY] ?: return fail("audio_unavailable", "No voice model is configured.")
+        val port = cap.port ?: return fail("audio_unavailable", "No voice model is configured.")
+        val text = a.str("text", max = port.capabilities.maxChars)!!.trim()
+        return try {
+            port.speak(TtsRequest(text, a.str("voice"), null, "wav"))
+            ToolExecution(okObj { put("played", true) })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            failure(e)
+        }
+    }
+
+    override fun logTarget(o: JsonObject, r: ToolExecution, ctx: ToolContext): String? =
+        (o["text"] as? JsonPrimitive)?.content?.take(200)
+}
