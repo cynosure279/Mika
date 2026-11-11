@@ -50,6 +50,8 @@ internal class ToolConfig(
     val self: com.wangzan101.mika.core.self.SelfPort? = null,
     /** 操作 Mika 自己的界面/文件/通知/剪贴板;用户打开「允许 Mika 操作自己的界面」时才给。 */
     val selfOperate: com.wangzan101.mika.core.self.SelfPort? = null,
+    /** Save a captured PNG in this task's workspace; screen tools do not depend on the sandbox capability. */
+    val saveScreenshot: (suspend (String, ByteArray) -> String)? = null,
 )
 
 /**

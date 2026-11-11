@@ -225,6 +225,7 @@ class TaskRun(
     private val _tagged = Mirrored<Pair<String, TaskState>?>(conversationId to _state.value, service.taskState._shownTask)
     private val _takeoverStage = Mirrored(Takeover.Stage.None, service.taskState._takeoverStage)
     private val _frames = Mirrored<Bitmap?>(null, service.taskState._frames)
+    private val _phoneFrames = MutableStateFlow<Bitmap?>(null)
     private val _activities = Mirrored<List<RunEvent.Activity>>(emptyList(), service.taskState._activities)
     /** 活动只追加;发布的是前 n 条的只读视图,每来一条不复制已有的。 */
     private val activityLog = ArrayList<RunEvent.Activity>()
@@ -245,6 +246,8 @@ class TaskRun(
     val sharedFiles: StateFlow<List<SharedFile>> = _sharedFiles.flow
     val takeoverStage: StateFlow<Takeover.Stage> = _takeoverStage.flow
     val frames: StateFlow<Bitmap?> = _frames.flow
+    /** 个人助手的缩略图只收本任务获准展示的手机画面。 */
+    val phoneFrames: StateFlow<Bitmap?> = _phoneFrames.asStateFlow()
     /** 本任务到此刻的活动(实际做过的事);悬浮胶囊的卡片按任务取,不只看显示中的那个。 */
     val activities: StateFlow<List<RunEvent.Activity>> = _activities.flow
     /** 本任务的虚拟屏编号;屏到用到系统命令、事件工具或第一次打开 App 时才建,之前和释放之后为 -1。 */
@@ -509,8 +512,9 @@ class TaskRun(
         val traceTicket = traces.ticket()
         var record: RunHandle? = null
         var runStore: RunStore? = null
-        // 这次运行里经计量的模型请求(含旁路调用),收尾时记进运行记录
-        val tally = RunUsageTally()
+        // 整个运行共用一份已报告 Token 预算；子任务沿用协程上下文里的这份，不另开额度。
+        val tokenBudget = if (conditionCheck) null else FeatureFlags.get(service).taskTokenBudget()
+        val tally = RunUsageTally(tokenBudget)
         // 第一次打开网址时才建;没建过就不用关
         var webStack: WebStack? = null
         // 当前界面(手机/网页)要看分发器;画中画的画面来源随它切换
@@ -608,8 +612,25 @@ class TaskRun(
                         create()
                     }.also { d ->
                         _displayId.value = d.displayId
-                        side.launch { d.frames.collect { if (dispatcher?.surface != WEB) _frames.value = if (previewAllowed()) it else null } }
-                        side.launch { appAccess.state.collect { if (dispatcher?.surface != WEB && !previewAllowed()) _frames.value = null } }
+                        side.launch {
+                            combine(d.frames, _appShown.flow) { frame, shown -> frame to shown }.collect { (frame, shown) ->
+                                if (dispatcher?.surface != WEB) {
+                                    val allowed = frame.takeIf { previewAllowed() }
+                                    if (dispatcher?.surface != WEB) {
+                                        _frames.value = allowed
+                                        _phoneFrames.value = allowed.takeIf { shown }
+                                    }
+                                }
+                            }
+                        }
+                        side.launch {
+                            appAccess.state.collect {
+                                if (dispatcher?.surface != WEB && !previewAllowed()) {
+                                    _frames.value = null
+                                    _phoneFrames.value = null
+                                }
+                            }
+                        }
                     }
                 }
                 val audio = recovery.audioMute(shell, key).also { mute = it }
@@ -670,16 +691,24 @@ class TaskRun(
                 val id = phone?.display?.current?.displayId ?: return false
                 return moveTask(taskId, id)
             }
+            val app = service.application as MikaApp
+            // 微信只使用当前绑定会话的独立授权；仍保留 Channel 来源及原有确认/接管规则。
+            val unlockAuthorized = taskUnlockAuthorization(provenance.origin, channelPeer) { peer ->
+                app.wechat.store.canUnlock(peer)
+            }
             val taskGate = TaskGate(states.locked, shellUp,
                 refreshLocked = states::refresh,
-                unattendedUnlock = if (provenance.origin == RunOrigin.Trigger) {
+                unattendedUnlock = unlockAuthorized?.let { authorized ->
                     {
-                        val result = (service.application as MikaApp).deviceAccess.access.unlock()
+                        val result = app.deviceAccess.access.unlock(authorized)
                         states.refresh()
-                        Log.i(TAG, "scheduled unlock finished: ${result.status}")
+                        Log.i(TAG, "${provenance.origin} unlock finished: ${result.status}")
                         result.status
                     }
-                } else null,
+                },
+                unlockFailureMessage = {
+                    tr(if (provenance.origin == RunOrigin.Channel) R.string.wechat_unlock_failed else R.string.trigger_unlock_failed)
+                },
             ) {
                 val t = phone?.screen?.target?.value
                 t != null && t.taskId >= 0 && moveBackToAgent(t.taskId)
@@ -735,6 +764,7 @@ class TaskRun(
                     while (true) {
                         delay(WEB_FRAME_MS)
                         val surface = dispatcher?.surface
+                        if (surface == WEB) _phoneFrames.value = null
                         if (surface != last) {
                             _frames.value = null
                             last = surface
@@ -773,7 +803,7 @@ class TaskRun(
             val runSpec = RunSpec(RunId(key), goal, conversationId,
                 priorTurns,
                 provenance, if (conditionCheck) setOf("web", "sandbox") else null, readOnly = conditionCheck,
-                stepBudget = stepLimit)
+                stepBudget = stepLimit, tokenBudget = tokenBudget)
             // 外部 MCP server 只在主任务接;子任务/条件检查/评测不接,避免绕过父任务审批、影响评测可复现
             if (!conditionCheck) {
                 // 连上的当场归 resources:收尾(含取消、失败、连到一半被停)关作用域时一起关,stdio server 的进程和沙箱租约跟着放掉
@@ -815,6 +845,9 @@ class TaskRun(
                 (service.application as? MikaApp)?.let { app -> com.wangzan101.mika.self.AndroidSelfPort(app, conversationId, key) }
             } else null
             val tools = toolDispatcher(accessedPhone, model.capabilities.vision, catalog, recordFrames = true, vision = vision?.let { VisionService(it, BitmapImageOps) },
+                phoneCalls = (service.application as MikaApp).callPort.takeIf {
+                    !conditionCheck && (service.application as MikaApp).calls.settings.state.value.enabled
+                },
                 // 设置里允许 Mika 改自己时,才把 settings_list、settings_set 发给模型
                 selfConfig = if (FeatureFlags.get(service).selfConfig()) {
                     com.wangzan101.mika.settings.SelfConfigImpl(FeatureFlags.get(service))
@@ -1010,6 +1043,7 @@ class TaskRun(
             handoffUnconsumed()
             side.cancel()
             _frames.value = null
+            _phoneFrames.value = null
             _webOpen.value = false
             synchronized(publishLock) { ended = true }
             if (awake != null && service.hasQueuedRuns()) wakeHandoff = service.wakeLock.lease().also { it.acquire() }

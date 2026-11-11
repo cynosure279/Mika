@@ -21,6 +21,9 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import java.io.File
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.util.UUID
 
 /** 每个对话一个小 JSON 文件,放在 App 私有目录;重启后仍在。 */
@@ -92,6 +95,12 @@ class ConversationStore(
      */
     fun list(): List<ConversationSummary> = listPage(0, Int.MAX_VALUE)
 
+    /**
+     * 侧栏搜索用的正文索引:标题由调用方连同 [ConversationSummary] 一起传进来,正文按对话文件的修改时间缓存。
+     * 读文件不占本类的锁,不挡正在收尾的任务补写。
+     */
+    val search: ConversationSearch = ConversationSearch(::file) { read(it)?.map { record -> record.first } }
+
     /** 尚未保存首轮的活动对话排在前面，与磁盘上的对话共用一套分页。 */
     @Synchronized
     fun listPage(offset: Int, limit: Int, pending: List<ConversationSummary> = emptyList()): List<ConversationSummary> {
@@ -138,14 +147,19 @@ class ConversationStore(
      */
     @Synchronized
     fun delete(conversationId: String) {
-        deleted += safe(conversationId)
         val main = file(conversationId).name
-        firstMessages.remove(main)
-        dir.listFiles { f ->
-            f.isFile && (f.name == main || f.name.startsWith("$main.") || f.name == titleFile(conversationId).name || f.name == pinFile(conversationId).name ||
-                f.name == pageFile(conversationId).name || f.name == branchFile(conversationId).name)
+        val metadata = setOf(titleFile(conversationId).name, pinFile(conversationId).name,
+            pageFile(conversationId).name, branchFile(conversationId).name)
+        val files = dir.listFiles { f -> f.name == main || f.name.startsWith("$main.") || f.name in metadata }
+            ?: if (Files.notExists(dir.toPath())) emptyArray() else throw IOException("Cannot list conversation files")
+        // Leave the history in place if any of its companion files cannot be removed.
+        files.sortedBy { it.name == main }.forEach { file ->
+            val path = file.toPath()
+            if (Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) throw IOException("Unexpected conversation directory: ${file.name}")
+            Files.deleteIfExists(path)
         }
-            .orEmpty().forEach { it.delete() }
+        deleted += safe(conversationId)
+        firstMessages.remove(main)
         // 删掉的正是用户此刻在的那个:不再指着它,胶囊回落到最近那个
         if (_current.value == CurrentChat.Open(safe(conversationId))) setCurrent(null)
         _changes.tryEmit(conversationId)
@@ -300,6 +314,29 @@ class ConversationStore(
         return read(f).orEmpty()
     }
 
+    internal data class RecordsSnapshot(
+        val conversations: List<Pair<String, List<Pair<Turn, List<SharedFile>>>>>,
+        val hasReadFailures: Boolean,
+    )
+
+    /** 读取所有已保存的对话；单个文件读不到时保留其余结果并标记失败。 */
+    @Synchronized
+    internal fun allRecords(): RecordsSnapshot {
+        val exists = runCatching { dir.exists() }.getOrElse { return RecordsSnapshot(emptyList(), true) }
+        if (!exists) return RecordsSnapshot(emptyList(), false)
+        val files = runCatching { dir.listFiles { f -> f.isFile && f.name.endsWith(".json") } }.getOrNull()
+            ?: return RecordsSnapshot(emptyList(), true)
+        var failed = false
+        val conversations = files.sortedBy { it.name }.mapNotNull { f ->
+            val records = runCatching { read(f) }.getOrNull()
+            if (records == null) {
+                failed = true
+                null
+            } else f.nameWithoutExtension to records
+        }
+        return RecordsSnapshot(conversations, failed)
+    }
+
     /** 读不懂(不是 JSON 数组)时返回 null。 */
     private fun read(f: File): List<Pair<Turn, List<SharedFile>>>? = try {
         (Json.parseToJsonElement(readConversation(f)) as? JsonArray)?.mapNotNull { e ->
@@ -334,7 +371,7 @@ class ConversationStore(
     private fun fileOf(e: kotlinx.serialization.json.JsonElement): SharedFile? {
         val o = e as? JsonObject ?: return null
         fun field(k: String) = (o[k] as? JsonPrimitive)?.contentOrNull
-        return SharedFile(field("name") ?: return null, field("size")?.toLongOrNull() ?: 0, field("savedAs") ?: return null, field("uri") ?: return null, field("sha256"))
+        return SharedFile(field("name") ?: return null, field("size")?.toLongOrNull() ?: 0, field("savedAs").orEmpty(), field("uri").orEmpty(), field("sha256"))
     }
 
     @Synchronized
