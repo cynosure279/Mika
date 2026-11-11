@@ -33,6 +33,12 @@
     <string name="mcp_advanced_hide">إخفاء الإعدادات المتقدمة</string>
     <string name="mcp_advanced_sub">مفاتيح الوصول والرموز والإيقاظ عن بُعد</string>
     <string name="mcp_port_detail">المنفذ %1$d. يتوقف الوصول عبر USB بعد إعادة تشغيل الهاتف.</string>
+    <string name="mcp_port_title">منفذ الاستماع</string>
+    <string name="mcp_port_dialog_sub">غيّره إذا كان المنفذ الافتراضي مستخدمًا من خدمة أخرى على هذا الهاتف. يُطبَّق فورًا ويعيد الحاسوب الاتصال عبر المنفذ الجديد.</string>
+    <string name="mcp_port_default">الافتراضي (%1$d)</string>
+    <string name="mcp_port_custom">المنفذ</string>
+    <string name="mcp_port_invalid">أدخل رقمًا صحيحًا من 1024 إلى 65535.</string>
+    <string name="mcp_port_apply">تطبيق</string>
     <string name="mcp_network_scope">السماح بالوصول عبر Wi-Fi والشبكات الخاصة. يتطلب كل طلب رمزًا.</string>
     <string name="mcp_cli_install">1. إعداد الكمبيوتر</string>
     <string name="mcp_cli_install_sub">أرسل دليل التثبيت إلى مساعد الذكاء الاصطناعي على الكمبيوتر، أو اتبعه بنفسك على الكمبيوتر.</string>
@@ -63,4 +69,6 @@
     <string name="mcp_cli_network_sub">احفظ الرمز في ملف خاص على الكمبيوتر، ثم استبدل /path/to/token في الأمر بمسار ذلك الملف. إذا كنت تستخدم Skill فقط، فاطلب من الوكيل استخدام العميل المرفق بها.</string>
     <string name="mcp_copy_token">نسخ الرمز</string>
     <string name="mcp_cli_connection_check">يتحقق connect من الاتصال. يؤدي نجاح الطلب إلى تحديث الوقت أعلاه.</string>
+    <string name="mcp_history_title">السماح بعرض السجل</string>
+    <string name="mcp_history_detail">السماح لأجهزة الكمبيوتر الموثقة عبر USB والشبكة الخاصة بقراءة المحادثات والتتبع التفصيلي. الإعداد متوقف افتراضيًا.</string>
 </resources>

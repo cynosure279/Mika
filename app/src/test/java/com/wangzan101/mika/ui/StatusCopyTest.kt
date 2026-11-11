@@ -73,6 +73,7 @@ class StatusCopyTest {
     fun replayAndBatchCopy() {
         assertEquals("按以往的做法快速执行中(第 2/5 步)", StatusCopy.progress(RunProgress.Replay(2, 5)))
         assertEquals("一次执行 3 步", StatusCopy.progress(RunProgress.Batch(3)))
+        assertEquals("已收集 · 12/36 · 2026-10-31", StatusCopy.progress(RunProgress.Task("已收集", 12, 36, "2026-10-31")))
 
         val ex = Exchange("查电量", emptyList(), ExchangeStatus.Working, live = true)
         val replaying = ChatViewModel.reduce(ex, TaskState.Running(0, "按以往的做法操作", progress = RunProgress.Replay(2, 5)))

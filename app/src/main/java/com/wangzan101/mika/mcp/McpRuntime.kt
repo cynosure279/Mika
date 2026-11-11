@@ -19,6 +19,10 @@ import com.wangzan101.mika.core.mcp.McpUsb
 import com.wangzan101.mika.core.shell.HelperHandoff
 import com.wangzan101.mika.device.AndroidDeviceAccess
 import com.wangzan101.mika.core.remote.RemoteTasks
+import com.wangzan101.mika.core.remote.RunExportSource
+import com.wangzan101.mika.record.RunStore
+import com.wangzan101.mika.task.RemoteRunExport
+import com.wangzan101.mika.task.RemoteTaskHub
 import com.wangzan101.mika.settings.McpSettings
 import com.wangzan101.mika.settings.McpUsbSettings
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,16 +48,19 @@ class McpRuntime(
     private val context: Context, val settings: McpSettings, val usb: McpUsbSettings, private val tasks: RemoteTasks,
     val device: AndroidDeviceAccess,
     val relaySettings: RelaySettings,
+    private val history: com.wangzan101.mika.core.remote.RemoteHistory? = null,
+    calls: com.wangzan101.mika.core.calls.PhoneCallPort? = null,
 ) {
     private val _state = MutableStateFlow<McpServerState>(McpServerState.Off)
     val state: StateFlow<McpServerState> = _state.asStateFlow()
     @Volatile private var host: RemoteHost? = null
     private var hostListen = McpModes.Listen.Off
-    private val endpoints = RemoteEndpoints(tasks, BuildConfig.VERSION_NAME, device = device.access)
+    private val records: RunExportSource? = (tasks as? RemoteTaskHub)?.let { hub -> RemoteRunExport(hub) { RunStore(context) } }
+    private val endpoints = RemoteEndpoints(tasks, BuildConfig.VERSION_NAME, device = device.access, history = history, records = records, calls = calls)
     private val relayAccess = RemoteAccess(token = { if (relaySettings.config.value.enabled) settings.token() else null })
     // 经网关来的请求要另开「允许经网关唤醒和解锁」才看得到屏幕能力;手机上的远程亮屏与解锁许可照样要开。
     private val relay = RelayClient(CoroutineScope(SupervisorJob() + Dispatchers.IO), { req ->
-        relayAccess.handle(req) { endpoints.handle(it, deviceAccess = relaySettings.config.value.deviceAccess) }
+        relayAccess.handle(req) { endpoints.handle(it, deviceAccess = relaySettings.config.value.deviceAccess, historyAccess = false) }
     })
     private val relayNetwork = RelayNetwork(context, relay::networkChanged)
     val relayState get() = relay.state
@@ -102,6 +109,13 @@ class McpRuntime(
         apply()
     }
 
+    /** 换监听端口:存下、按新端口重写电脑上跑的脚本;有一种连接开着就重起服务按新端口重绑并重发连接信息。 */
+    fun setPort(port: Int) {
+        settings.setPort(port)
+        writeUsbScript()
+        apply()
+    }
+
     /** 开关变了:还有一种开着就让服务按新的开关重新监听,都关了就停服务。 */
     private fun apply() {
         if (active) ensureRunning() else {
@@ -115,7 +129,7 @@ class McpRuntime(
      * 等下次打开 Mika 的界面再起。
      */
     fun ensureRunning() {
-        if (!active) return
+        if (!active || com.wangzan101.mika.settings.FeatureFlags.get(context).quitRequested()) return
         runCatching { context.startForegroundService(Intent(context, McpService::class.java)) }
             .onFailure { e ->
                 Log.w(TAG, "could not start computer access service", e)
@@ -128,8 +142,10 @@ class McpRuntime(
      * 本地监听和远程通道均未启用或未能启动时返回 false。
      */
     @Synchronized internal fun sync(): Boolean {
+        if (com.wangzan101.mika.settings.FeatureFlags.get(context).quitRequested()) return false
         val want = listen()
-        if (host != null && hostListen != want) stopListener()
+        // 端口改了也要重绑(RemoteHost 绑精确端口,boundPort 就是实际监听的口)
+        if (host != null && (hostListen != want || host!!.boundPort != settings.port)) stopListener()
         if (want == McpModes.Listen.Off) _state.value = McpServerState.Off
         val ok = want != McpModes.Listen.Off && (host != null || startServer(want))
         if (ok && usb.enabled.value) runCatching { usb.publish(host!!.boundPort) }.onFailure { Log.w(TAG, "cannot write USB connection info", it) }

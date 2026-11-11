@@ -32,9 +32,13 @@ interface DeviceAccessPort {
     suspend fun dismiss(): Boolean
     /** 安全锁屏还停在通知/指纹页时,尝试一次通用的系统导航来露出凭据页;不识别文字,不输入凭据。 */
     suspend fun revealCredential(): Boolean = false
+    /** 上滑后仍是生物识别优先页、没有凭据框时,做一次通用的回退点击(点最大的可点目标);找不到目标就不动。 */
+    suspend fun revealCredentialFallback(): Boolean = false
     suspend fun credentialReady(kind: CredentialKind): Boolean
     /** 只读识别当前唯一的系统凭据框;未知、歧义或平台不支持时返回 null,不聚焦或输入。 */
     suspend fun detectedCredentialKind(): CredentialKind? = null
+    /** 认不出凭据页时给出不含屏上文字和凭据的受限诊断,便于定位通用识别规则的缺口。 */
+    suspend fun credentialDiagnostics(): List<String> = emptyList()
     suspend fun enter(credential: DeviceCredential): Boolean
 }
 
@@ -50,7 +54,8 @@ interface DeviceAccessStore {
 
 data class DeviceAccessResult(val status: String, val state: DeviceState?, val enabled: Boolean,
     val credentialConfigured: Boolean, val attemptBlocked: Boolean,
-    val storedKind: CredentialKind? = null, val detectedKind: CredentialKind? = null)
+    val storedKind: CredentialKind? = null, val detectedKind: CredentialKind? = null,
+    val keyguardDiagnostics: List<String> = emptyList())
 
 /** 整个进程共用一份。并发调用串行化,成功依据系统状态,不依据按键或命令的返回码。 */
 class DeviceAccess(private val port: DeviceAccessPort, private val store: DeviceAccessStore,
@@ -71,18 +76,23 @@ class DeviceAccess(private val port: DeviceAccessPort, private val store: Device
         result(if (after?.interactive == true) "awake" else "wake_failed", after)
     }
 
-    suspend fun unlock(): DeviceAccessResult = mutex.withLock {
-        prepare()?.let { return@withLock it }
+    /** 来源授权只能进一步收窄本机总开关；等待锁和系统界面后、每次操作前都重新核对。 */
+    suspend fun unlock(authorized: () -> Boolean = { true }): DeviceAccessResult = mutex.withLock {
+        fun allowed() = store.enabled && authorized()
+        prepare(authorized)?.let { return@withLock it }
         var now = read() ?: return@withLock result("device_unavailable")
         if (now.ready) return@withLock result("unlocked", now)
         if (!now.interactive) {
+            if (!allowed()) return@withLock result("disabled", now)
             if (!port.wake()) return@withLock result("wake_failed", read())
-            now = await { it.interactive } ?: return@withLock result("device_unavailable")
+            now = await { !allowed() || it.interactive } ?: return@withLock result("device_unavailable")
+            if (!allowed()) return@withLock result("disabled", now)
             if (!now.interactive) return@withLock result("wake_failed", now)
         }
-        if (!store.enabled) return@withLock result("disabled", now)
+        if (!allowed()) return@withLock result("disabled", now)
         if (!port.dismiss()) return@withLock result("dismiss_failed", read())
-        now = await { it.ready || it.secure && it.keyguardShowing } ?: return@withLock result("device_unavailable")
+        now = await { !allowed() || it.ready || it.secure && it.keyguardShowing } ?: return@withLock result("device_unavailable")
+        if (!allowed()) return@withLock result("disabled", now)
         if (now.ready) return@withLock result("unlocked", now)
         if (!now.secure) return@withLock result("unlock_failed", now)
         if (store.attemptBlocked) return@withLock result("attempt_blocked", now)
@@ -91,35 +101,45 @@ class DeviceAccess(private val port: DeviceAccessPort, private val store: Device
             if (!DeviceCredential.valid(it.kind, it.value)) return@withLock result("credential_unavailable", now)
             var targetReady = false
             var revealed = false
+            var fallbackTried = false
             var waited = 0L
             while (!targetReady && waited < waitMs) {
                 val current = read() ?: return@withLock result("device_unavailable")
                 if (current.ready) return@withLock result("unlocked", current)
-                if (!store.enabled) return@withLock result("disabled", current)
+                if (!allowed()) return@withLock result("disabled", current)
                 if (!current.helperAvailable) return@withLock result("helper_unavailable", current)
                 targetReady = port.credentialReady(it.kind)
                 // dismiss 后先给系统凭据页一个轮询周期;仍认不出时才做一次导航,避免在已经可用的 PIN 页上多余滑动。
-                if (!targetReady && !revealed && waited >= pollMs) {
-                    revealed = true
-                    port.revealCredential()
+                if (!targetReady) {
+                    if (!revealed && waited >= pollMs) {
+                        if (!allowed()) return@withLock result("disabled", current)
+                        revealed = true
+                        port.revealCredential()
+                    } else if (revealed && !fallbackTried && waited >= pollMs * 2) {
+                        // 上滑后仍是生物识别优先页(没有凭据框)时,再给一次回退点击的机会。
+                        if (!allowed()) return@withLock result("disabled", current)
+                        fallbackTried = true
+                        port.revealCredentialFallback()
+                    }
+                    delay(pollMs); waited += pollMs
                 }
-                if (!targetReady) { delay(pollMs); waited += pollMs }
             }
             if (!targetReady) {
                 val current = read() ?: return@withLock result("device_unavailable")
                 if (current.ready) return@withLock result("unlocked", current)
-                if (!store.enabled) return@withLock result("disabled", current)
+                if (!allowed()) return@withLock result("disabled", current)
                 if (!current.helperAvailable) return@withLock result("helper_unavailable", current)
                 val detected = port.detectedCredentialKind()
+                val diagnostics = port.credentialDiagnostics()
                 if (detected != null && detected != it.kind) {
-                    return@withLock result("credential_kind_mismatch", current, it.kind, detected)
+                    return@withLock result("credential_kind_mismatch", current, it.kind, detected, diagnostics)
                 }
-                return@withLock result("unsupported_keyguard", current)
+                return@withLock result("unsupported_keyguard", current, keyguardDiagnostics = diagnostics)
             }
-            if (!store.enabled) return@withLock result("disabled", read())
+            if (!allowed()) return@withLock result("disabled", read())
             if (!store.beginAttempt(it)) return@withLock result("attempt_blocked", read())
             // 从此刻起中断也保留占位,不重复输入。只有系统已解锁才清掉。
-            if (!store.enabled) return@withLock result("disabled", read())
+            if (!allowed()) return@withLock result("disabled", read())
             if (!port.enter(it)) {
                 val after = read()
                 if (after?.ready == true) { store.completeAttempt(it); return@withLock result("unlocked", after) }
@@ -131,8 +151,8 @@ class DeviceAccess(private val port: DeviceAccessPort, private val store: Device
         }
     }
 
-    private suspend fun prepare(): DeviceAccessResult? {
-        if (!store.enabled) return result("disabled", read())
+    private suspend fun prepare(authorized: () -> Boolean = { true }): DeviceAccessResult? {
+        if (!store.enabled || !authorized()) return result("disabled", read())
         val s = read() ?: return result("device_unavailable")
         if (!s.userUnlocked) return result("first_unlock_required", s)
         if (!s.helperAvailable) return result("helper_unavailable", s)
@@ -146,6 +166,8 @@ class DeviceAccess(private val port: DeviceAccessPort, private val store: Device
         while (s != null && !done(s) && waited < waitMs) { delay(pollMs); waited += pollMs; s = read() }
         return s
     }
-    private fun result(status: String, s: DeviceState? = null, storedKind: CredentialKind? = null, detectedKind: CredentialKind? = null) =
-        DeviceAccessResult(status, s, store.enabled, store.credentialConfigured, store.attemptBlocked, storedKind, detectedKind)
+    private fun result(status: String, s: DeviceState? = null, storedKind: CredentialKind? = null, detectedKind: CredentialKind? = null,
+        keyguardDiagnostics: List<String> = emptyList()) =
+        DeviceAccessResult(status, s, store.enabled, store.credentialConfigured, store.attemptBlocked, storedKind, detectedKind,
+            keyguardDiagnostics)
 }

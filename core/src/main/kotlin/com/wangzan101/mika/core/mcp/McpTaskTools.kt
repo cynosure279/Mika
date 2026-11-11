@@ -23,11 +23,13 @@ import kotlinx.serialization.json.putJsonObject
 class McpTaskTools(
     private val service: RemoteTaskService,
     device: DeviceAccess? = null,
+    calls: com.wangzan101.mika.core.calls.PhoneCallPort? = null,
 ) {
     constructor(tasks: RemoteTasks, pollMs: Long = 250, device: DeviceAccess? = null) :
         this(RemoteTaskService(tasks, pollMs), device)
 
     private val deviceTools = device?.let(::McpDeviceTools)
+    private val callTools = calls?.let(::McpCallTools)
     class ToolError(message: String) : Exception(message)
 
     data class Tool(val name: String, val description: String, val schema: JsonObject, val readOnly: Boolean)
@@ -77,7 +79,7 @@ class McpTaskTools(
             schema(required = emptyList()) {
                 putJsonObject("limit") { put("type", "integer"); put("minimum", 1); put("maximum", MAX_LIST); put("description", "How many (default $DEFAULT_LIST).") }
             }, readOnly = true),
-    ) + deviceTools?.tools.orEmpty()
+    ) + deviceTools?.tools.orEmpty() + callTools?.tools.orEmpty()
 
     /** MCP 的工具定义(tools/list 的一项)。 */
     fun definitions(): JsonArray = buildJsonArray {
@@ -133,12 +135,14 @@ class McpTaskTools(
                 }
             }
             else -> if (deviceTools?.tools?.any { it.name == name } == true) deviceTools.call(name, args)
+                else if (callTools?.tools?.any { it.name == name } == true) callTools.call(name, args)
                 else throw ToolError("Unknown tool: $name")
         }
     } catch (e: RemoteTaskError) {
         // 按错误类型换回原 MCP 客户端看到的说法(带 MCP 工具名);共用服务不包含 MCP 命令名。
         throw ToolError(when (e) {
             is RemoteTaskError.NoSuchTask -> "No MCP task with id ${e.id}"
+            is RemoteTaskError.NoSuchRecord -> e.message.orEmpty()
             is RemoteTaskError.BadConversation -> "conversation must be one returned by an earlier MCP task (looks like mcp-<uuid>)"
             is RemoteTaskError.NeedsPhone -> ON_PHONE_NOTE
             is RemoteTaskError.QuestionClosed -> "The question is no longer open; check mika_task_status."

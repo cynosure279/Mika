@@ -17,7 +17,7 @@ var webFiles embed.FS
 var webPage = template.Must(template.ParseFS(webFiles, "web/page.html"))
 var translations = func() map[string]map[string]string {
 	result := map[string]map[string]string{}
-	for _, lang := range []string{"en", "zh-Hans", "zh-Hant"} {
+	for _, lang := range []string{"en", "fa", "zh-Hans", "zh-Hant"} {
 		b, err := webFiles.ReadFile("web/" + lang + ".json")
 		if err != nil {
 			panic(err)
@@ -43,6 +43,9 @@ func normalizeLanguage(tag string) string {
 	parts := strings.Split(strings.ToLower(strings.ReplaceAll(tag, "_", "-")), "-")
 	if parts[0] == "en" {
 		return "en"
+	}
+	if parts[0] == "fa" {
+		return "fa"
 	}
 	if parts[0] != "zh" {
 		return ""

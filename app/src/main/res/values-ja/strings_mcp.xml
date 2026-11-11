@@ -33,6 +33,12 @@
     <string name="mcp_advanced_hide">詳細設定を非表示</string>
     <string name="mcp_advanced_sub">アクセスのスイッチ、トークン、リモートでのスリープ解除</string>
     <string name="mcp_port_detail">ポート %1$d。USB アクセスはスマホを再起動するとオフになります。</string>
+    <string name="mcp_port_title">リッスンポート</string>
+    <string name="mcp_port_dialog_sub">既定のポートがこの端末の他のサービスに使われているときに変更します。変更はすぐ反映され、パソコンは新しいポートで再接続します。</string>
+    <string name="mcp_port_default">既定（%1$d）</string>
+    <string name="mcp_port_custom">ポート</string>
+    <string name="mcp_port_invalid">1024～65535 の整数を入力してください。</string>
+    <string name="mcp_port_apply">適用</string>
     <string name="mcp_network_scope">Wi-Fi とプライベートネットワークからのアクセスを許可します。リクエストにはすべてトークンが必要です。</string>
     <string name="mcp_cli_install">1. パソコンを準備</string>
     <string name="mcp_cli_install_sub">インストールガイドをパソコンの AI に送るか、パソコンで自分で手順を進めてください。</string>
@@ -63,4 +69,6 @@
     <string name="mcp_cli_network_sub">トークンをパソコン上の非公開ファイルに保存し、コマンドの /path/to/token をそのパスに置き換えてください。Skill だけの場合は、agent に付属のクライアントを使ってもらってください。</string>
     <string name="mcp_copy_token">トークンをコピー</string>
     <string name="mcp_cli_connection_check">connect で接続を確認できます。リクエストが成功すると、上の時刻が更新されます。</string>
+    <string name="mcp_history_title">コンピューターに履歴の閲覧を許可</string>
+    <string name="mcp_history_detail">接続したコンピューターは、すべての会話、実行記録、記録済みの Trace 本文を読み取れます。機密情報を伏せたモデルへのリクエストと応答も含みます。USB とプライベートネットワーク接続に適用されます。</string>
 </resources>

@@ -13,6 +13,7 @@
     <string name="language_russian" translatable="false">Русский</string>
     <string name="language_indonesian" translatable="false">Bahasa Indonesia</string>
     <string name="language_arabic" translatable="false">العربية</string>
+    <string name="language_persian" translatable="false">فارسی</string>
     <string name="settings_basic">Common</string>
     <string name="settings_language_appearance">Language &amp; appearance</string>
     <string name="settings_model">Model</string>
@@ -92,6 +93,8 @@
     <string name="capsule_mode_off_detail">Notifications only</string>
     <string name="capsule_mode_tasks_detail">Appears while a task runs or waits for you, and goes away a few seconds after</string>
     <string name="capsule_mode_always_detail">Keeps a Mika icon on screen even with no tasks</string>
+    <string name="capsule_idle_opacity">Idle opacity</string>
+    <string name="capsule_idle_opacity_detail">After a few seconds untouched; anything needing your attention stays fully visible</string>
     <string name="routes_saved">Saved routes</string>
     <string name="loading">Loading</string>
     <plurals name="routes_count">
@@ -175,4 +178,14 @@
     <string name="mcp_servers_status_fail">Connection failed: %1$s</string>
     <string name="mcp_servers_refresh_all">Test all</string>
     <string name="mcp_servers_allowlist">Allowed tools (comma separated, empty = all)</string>
+    <string name="quit_title">Quit Mika completely</string>
+    <string name="quit_row_sub">Stops background tasks and hides the floating capsule</string>
+    <string name="quit_confirm_body">Tasks that are running will stop, and the floating capsule and notifications will go away. Open Mika again and everything comes back.</string>
+    <string name="quit_confirm_action">Quit</string>
+    <string name="settings_task_token_budget">Token budget per task</string>
+    <string name="settings_task_token_budget_sub">Only provider-reported input and output tokens count. Once the budget is reached, no further requests are made. An in-flight request may take usage past the budget; calls without reported usage count as 0.</string>
+    <string name="settings_token_budget_unlimited">No limit</string>
+    <string name="settings_token_budget_custom">Custom token budget</string>
+    <string name="settings_token_budget_apply">Use</string>
+    <string name="settings_token_budget_invalid">Enter a whole number from %1$s to %2$s.</string>
 </resources>

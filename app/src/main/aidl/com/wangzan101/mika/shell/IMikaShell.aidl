@@ -4,6 +4,7 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.os.ParcelFileDescriptor;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.view.Surface;
 
 // 运行在 shell 身份(uid 2000)进程里的常驻服务:经无线调试拉起的内置助手。
@@ -31,8 +32,8 @@ interface IMikaShell {
     // 以 shell 身份把剪贴板设成这段纯文字(不弹系统的「已复制」浮层),供粘贴到只认真实输入的编辑区。
     // 内容标为敏感(API 33+)。第一次设置前记下原剪贴板;读不到原剪贴板时不动它。返回 0=已设置 1=读不到原剪贴板(未改动) 2=出错
     int setClipText(String text) = 14;
-    // 还原 setClipText 之前的剪贴板(原先为空则清空);剪贴板已被用户换成别的内容、或此刻读不到时不动;被清空了就放回去
-    void restoreClip() = 15;
+    // 还原 setClipText 之前的剪贴板(原先为空则清空);已被用户换掉时不动并视为完成,此刻读不到则保留记录、返回 false 待下次再还原
+    boolean restoreClip() = 15;
     // 打开链接或安卓设置页(action 为空时按 VIEW 打开 uri;packageName 限定由哪个 App 打开)。
     // 返回值同 startApp,另有 5=没有 App 能打开 6=链接不允许;解析出的 App 在主屏有任务时不启动、返回 1
     int startView(int displayId, String action, String uri, String packageName) = 17;
@@ -41,7 +42,8 @@ interface IMikaShell {
     // setClipText 之前用户剪贴板的文字(原先为空或不是文字时为空串);没有待还原的返回 null。供 Mika 加密留底,进程被杀后还原
     String savedClipText() = 19;
     // 剪贴板仍是 Mika 放进去的 ours 时,换回用户原来的文字 original(空串则清空);已被用户换掉时不动
-    void restoreClipText(String original, String ours) = 20;
+    // 已还原、用户已换掉或已不需要还原返回 true;此刻读不到或写入失败返回 false,调用方保留加密留底
+    boolean restoreClipText(String original, String ours) = 20;
     // 服务所在进程的 [uid, pid];Mika 收下内置助手的 Binder 前据此确认它就在来交接的那个进程里
     int[] identity() = 21;
     // 撤掉 Mika 这次绑定留下的改动(还原剪贴板、解除静音、释放所有虚拟屏),进程不退出;内置助手解绑时用
@@ -53,8 +55,8 @@ interface IMikaShell {
     Bundle runSystemCommand(int displayId, String command) = 24;
     // 当前虚拟屏最上面 Activity 的完整类名；没有任务时返回 null。
     String topActivity(int displayId) = 25;
-    // 往这块屏发 Ctrl+键(只放行 A 全选、V 粘贴):树里没有输入框、只知道焦点在哪时打字用
-    boolean injectCtrlKey(int displayId, int keyCode) = 26;
+    // 往这块屏发 Ctrl+键(只放行 A 全选、V 粘贴):0=按下未投递 1=完整按键已投递 2=可能只投递了一部分
+    int injectCtrlKey(int displayId, int keyCode) = 26;
     // `pm list users` 的原样输出;出错为 null
     String listUsers() = 27;
     // `pm list packages --user <userId>` 的原样输出;出错为 null
@@ -97,7 +99,8 @@ interface IMikaShell {
     // 主屏设备准备,与虚拟屏按键白名单分开;凭据只经 Binder 传入,不经 shell 命令行。
     boolean wakeDevice() = 41;
     boolean dismissDeviceKeyguard() = 42;
-    boolean enterDeviceCredential(int kind, in byte[] credential) = 43;
+    // clear=输入前要回删的已有字符数(空框为 0,避免在部分系统上空框 DEL 关掉密码页)
+    boolean enterDeviceCredential(int kind, in byte[] credential, int clear) = 43;
 
     // 同 getAudioMode / setAudioMuted / setAudioMode,作用在 userId 那份用户里的那份(分身、工作资料);
     // userId 是 Mika 自己的用户时等同原来的几个。PLAY_AUDIO 按包 + 用户分开设,两份互不影响
@@ -113,6 +116,21 @@ interface IMikaShell {
     Bundle finishDisplay(int displayId, in String[] keep, in String[] close) = 48;
     // 安全锁屏还停在通知/指纹页时,做一次定向给 SystemUI 的通用上滑;不含凭据。
     boolean revealDeviceCredential() = 49;
+
+    // 只在 Mika 的虚拟屏、指定的最前面任务里,把可打印 ASCII 作为键盘事件输入;不发送控制字符
+    // 0=未发送 1=全部事件已投递 2=投递不确定(可能只输入了前缀)
+    int injectAsciiText(int displayId, int taskId, String packageName, String text) = 50;
+
+    // 对 SystemUI 做一次定向点击,用于生物识别优先锁屏页上「用密码解锁」这类回退按钮;不含凭据。
+    boolean revealDeviceCredentialTap(int x, int y) = 51;
+
+    // 通话音频独立于通话控制。0=自动,1=直连运营商音频,2=Android PSTN 重定向。
+    Bundle probeCallAudio(int mode) = 52;
+    // 仅 ACTIVE 运营商通话；owner 每通独立，死亡时停止。下行可读/上行可写的匿名管道均为单声道 PCM16LE。
+    Bundle openCallAudio(int mode, IBinder owner) = 53;
+    void stopCallAudio(IBinder owner) = 54;
+    boolean flushCallAudio(IBinder owner) = 55;
+    Bundle callAudioStats(IBinder owner) = 56;
 
     // 沿用早先定下的销毁事务号;AIDL 要求要么全部方法编号要么都不编号
     void destroy() = 16777114;
