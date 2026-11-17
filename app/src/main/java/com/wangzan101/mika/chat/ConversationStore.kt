@@ -2,11 +2,8 @@ package com.wangzan101.mika.chat
 
 import android.content.Context
 import com.wangzan101.mika.core.agent.Turn
-<<<<<<< HEAD
 import com.wangzan101.mika.settings.PersonaStore
-=======
 import com.wangzan101.mika.core.chat.GeneratedAudio
->>>>>>> 16f5c534 (更像人 2/3 续：聊天音频卡片与分支复制)
 import com.wangzan101.mika.core.memory.MemoryNote
 import com.wangzan101.mika.core.memory.NoteKind
 import com.wangzan101.mika.core.skills.SkillNote

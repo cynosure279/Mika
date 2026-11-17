@@ -486,18 +486,12 @@ class ChatViewModel(
     private val voicePlayback: StateFlow<com.wangzan101.mika.voice.VoicePlayback> =
         MutableStateFlow(com.wangzan101.mika.voice.VoicePlayback.Idle),
     private val voiceReady: StateFlow<Boolean> = MutableStateFlow(false),
-<<<<<<< HEAD
     /** 人格;为 null 时不提供选择(测试或没有此功能)。 */
     private val personaStore: PersonaStore? = null,
-=======
     /** 每条完成的回答自动朗读;默认关。 */
     private val autoRead: StateFlow<Boolean> = MutableStateFlow(false),
-<<<<<<< HEAD
->>>>>>> b3e328bb (更像人 2/3 续：自动朗读与主动说话)
-=======
     /** 播放工作区里的一段音频(对话编号, 路径);默认不做。 */
     private val playAudio: suspend (String, String) -> Unit = { _, _ -> },
->>>>>>> 16f5c534 (更像人 2/3 续：聊天音频卡片与分支复制)
 ) {
     /** 用户在对话页上关掉留在后台的那一页。 */
     fun closeKeptPage() = closeKept()
