@@ -26,6 +26,7 @@ class AndroidAudioPort(
     private val model: com.wangzan101.mika.core.model.TtsModel,
     override val capabilities: TtsCapabilities,
     private val onSaved: (SavedAudio) -> Unit = {},
+    private val onGenerated: (com.wangzan101.mika.core.chat.GeneratedAudio) -> Unit = {},
     private val onSpeak: suspend (TtsResponse) -> Unit = {},
 ) : AudioPort {
     override val modelName: String get() = model.name
@@ -44,7 +45,9 @@ class AndroidAudioPort(
                 val (actual, g) = dirs.gate.createNumbered(workspace, DIRECTORY, name)
                 try {
                     g.write(response.bytes)
-                    StoredAudio("${SandboxPaths.WORKSPACE}/$DIRECTORY/$actual", response.bytes.size, response.mime, response.durationMs)
+                    val path = "${SandboxPaths.WORKSPACE}/$DIRECTORY/$actual"
+                    onGenerated(com.wangzan101.mika.core.chat.GeneratedAudio(path, response.durationMs, text, System.currentTimeMillis()))
+                    StoredAudio(path, response.bytes.size, response.mime, response.durationMs)
                 } finally {
                     g.close()
                 }

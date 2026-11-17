@@ -236,6 +236,7 @@ class TaskRun(
 
     private val _runId = Mirrored<String?>(null, service.taskState._runId)
     private val _sharedFiles = Mirrored<List<SharedFile>>(emptyList(), service.taskState._sharedFiles)
+    private val _audios = Mirrored<List<com.wangzan101.mika.core.chat.GeneratedAudio>>(emptyList(), service.taskState._audios)
     private val _state = Mirrored<TaskState>(TaskState.Running(0, TaskService.PREPARING), service.taskState._state)
     /** 同一状态带上对话编号,和 [_state] 一起写:界面据此只收屏上那个对话的状态。 */
     private val _tagged = Mirrored<Pair<String, TaskState>?>(conversationId to _state.value, service.taskState._shownTask)
@@ -264,6 +265,8 @@ class TaskRun(
     val runId: StateFlow<String?> = _runId.flow
     /** 本任务导出的文件;结束时随这一轮存进对话。 */
     val sharedFiles: StateFlow<List<SharedFile>> = _sharedFiles.flow
+    /** 本任务生成并留在工作区里的音频;结束时随这一轮存进对话。 */
+    val audios: StateFlow<List<com.wangzan101.mika.core.chat.GeneratedAudio>> = _audios.flow
     val takeoverStage: StateFlow<Takeover.Stage> = _takeoverStage.flow
     val frames: StateFlow<Bitmap?> = _frames.flow
     /** 个人助手的缩略图只收本任务获准展示的手机画面。 */
@@ -281,7 +284,7 @@ class TaskRun(
     /** 本任务进行中插的话和它们的去向;悬浮胶囊的对话卡片按任务取。 */
     val steers: StateFlow<List<SteerNote>> = _steers.flow
     // 带对话编号的那份先写:收不带编号的状态时读到的编号就已经是这个任务的(界面据此不把别的对话的状态接到屏上)
-    private val mirrored = listOf(_runId, _sharedFiles, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _pipSoundOn, _appShown, _webOpen, _activities, _steers)
+    private val mirrored = listOf(_runId, _sharedFiles, _audios, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _pipSoundOn, _appShown, _webOpen, _activities, _steers)
 
     private fun setState(s: TaskState) = synchronized(service.taskState.shownLock) {
         _tagged.value = conversationId to s
@@ -565,6 +568,7 @@ class TaskRun(
         else audioSettings.capabilities()?.let { caps ->
             com.wangzan101.mika.settings.ProviderStore.get(service).ttsModel(choice, caps)?.let { model ->
                 com.wangzan101.mika.media.AndroidAudioPort(service, conversationId, model, caps, onSaved = ::addSavedAudio,
+                    onGenerated = ::addAudio,
                     onSpeak = { response -> (service.application as com.wangzan101.mika.MikaApp).voicePlayer.play(response.bytes, response.mime) })
             }
         }
@@ -572,6 +576,11 @@ class TaskRun(
 
     /** 沙箱导出了一个文件(share_file 或 `mika share`)。 */
     fun addShared(f: SharedFile) = synchronized(service.taskState.shownLock) { _sharedFiles.value = _sharedFiles.value + f }
+
+    /** 音频能力生成了一段音频(写进工作区时由端口回调)。 */
+    fun addAudio(a: com.wangzan101.mika.core.chat.GeneratedAudio) = synchronized(service.taskState.shownLock) {
+        _audios.value = _audios.value + a
+    }
 
     /** 音频能力把一段音频存进了音乐库:当作这一轮导出的文件,聊天里出现卡片。 */
     fun addSavedAudio(s: com.wangzan101.mika.core.model.SavedAudio) {

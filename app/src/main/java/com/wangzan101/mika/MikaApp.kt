@@ -356,6 +356,24 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     val voicePlayer by lazy { com.wangzan101.mika.voice.VoicePlayer(this) }
     private val voiceSettings by lazy { com.wangzan101.mika.settings.VoiceSettings.get(this) }
 
+    /** 播放工作区里的一段音频(生成结果);读不到时什么都不做。 */
+    private suspend fun playWorkspaceAudio(conversationId: String, path: String) {
+        val prefix = com.wangzan101.mika.core.workspace.SandboxPaths.WORKSPACE + "/"
+        if (!path.startsWith(prefix)) return
+        val rel = path.removePrefix(prefix)
+        if (rel.isEmpty() || rel.split('/').any { it.isEmpty() || it == "." || it == ".." }) return
+        val dirs = com.wangzan101.mika.cap.sandbox.SandboxDirs(this)
+        val bytes = dirs.tree.shared {
+            dirs.gate.openRead(dirs.workspace(conversationId), rel).use { g ->
+                if (g.size > 20L * 1024 * 1024) null else g.read(0, g.size.toInt())
+            }
+        } ?: return
+        val mime = android.webkit.MimeTypeMap.getSingleton()
+            .getMimeTypeFromExtension(path.substringAfterLast('.', "").lowercase())
+            ?.takeIf { it.startsWith("audio/") } ?: "audio/wav"
+        voicePlayer.play(bytes, mime)
+    }
+
     /** 合成一句话并在本机播放;没配置声音模型或合成失败时什么都不做。 */
     private suspend fun speak(text: String) {
         val state = voiceSettings.state.value
@@ -441,6 +459,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             sandboxReady = SandboxState.get(app).status.map { it !is SandboxStatus.Unsupported }
                 .stateIn(scope, SharingStarted.Eagerly, SandboxState.get(app).status.value !is SandboxStatus.Unsupported),
             sharedFiles = taskState.sharedFiles,
+            generatedAudios = taskState.audios,
+            playAudio = { id, path -> playWorkspaceAudio(id, path) },
             activities = taskState.activities,
             steers = taskState.steers,
             summarizing = taskState.summarizing,
