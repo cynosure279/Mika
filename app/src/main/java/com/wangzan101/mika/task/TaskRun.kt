@@ -401,6 +401,12 @@ class TaskRun(
 
     private val audioSettings by lazy { com.wangzan101.mika.settings.VoiceSettings.get(service) }
 
+    /** 本任务的视频端口:手机上开始的任务才给(视频看/存只对用户本机文件有意义)。 */
+    private val videoPort by lazy {
+        if (provenance.origin != RunOrigin.Ui) null
+        else com.wangzan101.mika.media.AndroidVideoPort(service, conversationId)
+    }
+
     /** 本任务的转写端口:用户选的是服务商转写模型、且这是手机上开始的任务时才建。 */
     private val transcribePort by lazy {
         val choice = com.wangzan101.mika.voice.SpeechSettings.get(service).choice.value as? com.wangzan101.mika.voice.SpeechChoice.Provider
@@ -1017,6 +1023,7 @@ class TaskRun(
                 imageSaveEnabled = imageSettings.state.value.saveEnabled,
                 imageAskBeforeSave = imageSettings.state.value.askBeforeSave,
                 imageMaxPerTask = imageSettings.state.value.maxPerTask,
+                video = videoPort,
                 transcribe = transcribePort,
                 audioSaveEnabled = audioSettings.state.value.saveEnabled,
                 audioAskBeforeSave = audioSettings.state.value.askBeforeSave,

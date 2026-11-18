@@ -264,4 +264,7 @@
     <string name="tool_image_edit">ویرایش تصویر</string>
     <string name="tool_image_save">ذخیرهٔ تصویر</string>
     <string name="tool_share_image">اشتراک تصویر با برنامه</string>
+    <string name="tool_video_frames">Look at video</string>
+    <string name="tool_video_info">Video info</string>
+    <string name="tool_video_save">Save video</string>
 </resources>

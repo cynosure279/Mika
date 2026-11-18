@@ -1,0 +1,1 @@
+Save a workspace video into the phone's movie library (Movies/Mika). By default the user gets an approval card for the save; if the user declines, do not try another way and do not claim it was saved. The result gives the library path and a content URI. Saving does not send or upload the video.

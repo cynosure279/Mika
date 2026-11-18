@@ -260,4 +260,7 @@
     <string name="tool_image_edit">修改图片</string>
     <string name="tool_image_save">保存图片</string>
     <string name="tool_share_image">分享图片到 App</string>
+    <string name="tool_video_frames">看视频</string>
+    <string name="tool_video_info">查看视频信息</string>
+    <string name="tool_video_save">保存视频</string>
 </resources>

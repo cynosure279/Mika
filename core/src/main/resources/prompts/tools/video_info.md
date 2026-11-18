@@ -1,0 +1,1 @@
+Read a workspace video's metadata without decoding frames: duration, width/height, MIME, byte size and whether it has an audio track. Use it before deciding how many frames to sample or whether the user's clip is too long/large.
