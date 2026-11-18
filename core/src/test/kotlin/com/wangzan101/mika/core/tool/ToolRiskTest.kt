@@ -17,7 +17,11 @@ import com.wangzan101.mika.core.cap.audio.AudioPort
 import com.wangzan101.mika.core.cap.image.ImagePort
 import com.wangzan101.mika.core.cap.image.SavedImage
 import com.wangzan101.mika.core.cap.image.StoredImage
+import com.wangzan101.mika.core.cap.video.VideoTake
 import com.wangzan101.mika.core.cap.video.SavedVideo
+import com.wangzan101.mika.core.cap.video.VideoGenerationPort
+import com.wangzan101.mika.core.cap.video.VideoGenerationRequest
+import com.wangzan101.mika.core.model.VideoCapabilities
 import com.wangzan101.mika.core.cap.video.VideoFrame
 import com.wangzan101.mika.core.cap.video.VideoInfo
 import com.wangzan101.mika.core.cap.video.VideoPort
@@ -71,6 +75,13 @@ class ToolRiskTest {
         override suspend fun saveToMovies(path: String, name: String?) = SavedVideo("Movies/Mika/x.mp4", "content://x", 0)
     }
 
+    private object NoVideoGeneration : VideoGenerationPort {
+        override val modelName = "test-video"
+        override val capabilities = VideoCapabilities()
+        override suspend fun generate(request: VideoGenerationRequest, onProgress: suspend (String) -> Unit) =
+            VideoTake("/workspace/out/video/x.mp4", null, 0, 0, null)
+    }
+
     private object NoTranscribePort : TranscribePort {
         override suspend fun transcribe(path: String, language: String?) = Transcript("")
     }
@@ -102,11 +113,11 @@ class ToolRiskTest {
                 "list_device_files", "copy_device_file", "search_device_files", "list_device_directory_hints", "update_device_directory_description",
                 "audio_generate", "audio_save", "audio_transcribe", "speak",
                 "image_generate", "image_edit", "image_save",
-                "video_frames", "video_info", "video_save")
+                "video_frames", "video_info", "video_save", "video_generate")
         assertEquals(refused, allTools().filter { !it.readOnly }.map { it.name }.toSet())
         // root 命令、通话工具都只在给了端口时登记:各给一个,所有工具都在
         val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, audioSpeakTool = true, transcribe = NoTranscribePort,
-            image = NoImagePort, imageSaveEnabled = true, video = NoVideoPort, root = object : com.wangzan101.mika.core.cap.root.RootPort {
+            image = NoImagePort, imageSaveEnabled = true, video = NoVideoPort, videoGeneration = NoVideoGeneration, root = object : com.wangzan101.mika.core.cap.root.RootPort {
             override suspend fun run(command: String, timeoutMs: Long) = com.wangzan101.mika.core.cap.root.RootRun.Unavailable
         }, deviceFiles = object : com.wangzan101.mika.core.cap.devicefiles.DeviceFilesPort {
             override suspend fun search(query: com.wangzan101.mika.core.cap.devicefiles.DeviceFileSearchQuery): com.wangzan101.mika.core.cap.devicefiles.DeviceFileSearchResult = error("read call reached device files")

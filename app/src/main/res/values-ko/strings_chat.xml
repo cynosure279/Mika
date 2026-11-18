@@ -298,4 +298,6 @@
     <string name="chat_audio">Audio</string>
     <string name="chat_audio_play">Play</string>
     <string name="chat_audio_stop">Stop</string>
+    <string name="chat_video">동영상</string>
+    <string name="chat_video_play">재생</string>
 </resources>

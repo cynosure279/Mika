@@ -273,4 +273,18 @@
     <string name="tool_video_info">Video info</string>
     <string name="tool_video_save">Save video</string>
     <string name="tool_share_video">Share video to app</string>
+    <string name="role_video">Modelo de vídeo</string>
+    <string name="role_video_what">Permite que Mika genere vídeos cortos</string>
+    <string name="video_hint">Mika puede generar vídeos cortos a partir de una descripción con tu propio modelo de vídeo. Las descripciones se envían al servicio que elijas y cada vídeo se factura en ese servicio.</string>
+    <string name="video_enable">Permitir que Mika genere vídeos</string>
+    <string name="video_enable_note">Desactivado de forma predeterminada. El servicio factura cada generación</string>
+    <string name="video_provider">Servicio</string>
+    <string name="video_no_providers">Añade primero un servicio de modelos (el vídeo usa el mismo servicio y la misma clave).</string>
+    <string name="video_model_name">Modelo</string>
+    <string name="video_duration">Duración (segundos)</string>
+    <string name="video_max_per_task">Vídeos por tarea</string>
+    <string name="video_aspect">Relación de aspecto</string>
+    <string name="video_resolution">Resolución</string>
+    <string name="video_footer">La generación se ejecuta en segundo plano y puede tardar unos minutos. El vídeo terminado se guarda en el espacio de trabajo, en out/video.</string>
+    <string name="tool_video_generate">Generar vídeo</string>
 </resources>

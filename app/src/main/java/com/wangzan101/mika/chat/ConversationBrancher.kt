@@ -80,6 +80,9 @@ class AndroidBranchWorkspace(
                     skipped = inbox.skipped + audio.skipped + images.skipped,
                     truncated = inbox.truncated || audio.truncated || images.truncated,
                 )
+                val video = copyGeneratedVideoTree(srcDir, dstDir, maxBytes) ?: return@withContext inbox
+                BranchCopyResult(inbox.copied + audio.copied + video.copied, inbox.skipped + audio.skipped + video.skipped,
+                    inbox.truncated || audio.truncated || video.truncated)
             }
         }
 
@@ -278,14 +281,20 @@ private fun copyTree(source: File, target: File, sub: String, maxBytes: Long, tm
     return BranchCopyResult(copied, skipped)
 }
 
-internal fun copyGeneratedAudioTree(source: File, target: File, maxBytes: Long): BranchCopyResult? {
-    val sourceInbox = File(source, "out/audio")
+internal fun copyGeneratedAudioTree(source: File, target: File, maxBytes: Long): BranchCopyResult? =
+    copyGeneratedTree(source, target, "out/audio", "audio", maxBytes)
+
+internal fun copyGeneratedVideoTree(source: File, target: File, maxBytes: Long): BranchCopyResult? =
+    copyGeneratedTree(source, target, "out/video", "video", maxBytes)
+
+private fun copyGeneratedTree(source: File, target: File, outDir: String, tag: String, maxBytes: Long): BranchCopyResult? {
+    val sourceInbox = File(source, outDir)
     if (!sourceInbox.isDirectory || Files.isSymbolicLink(sourceInbox.toPath())) return null
     val sourceRoot = sourceInbox.canonicalFile.toPath()
     if (!target.isDirectory && !target.mkdirs()) return null
-    val dest = File(target, "out/audio")
+    val dest = File(target, outDir)
     if (dest.exists() || Files.isSymbolicLink(dest.toPath())) return BranchCopyResult(copied = 0, skipped = 1)
-    val tmp = File(target, ".audio-tmp-${UUID.randomUUID()}")
+    val tmp = File(target, ".$tag-tmp-${UUID.randomUUID()}")
     if (!tmp.mkdirs()) return null
     val tmpRoot = tmp.canonicalFile.toPath()
     var copied = 0

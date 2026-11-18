@@ -34,7 +34,7 @@ enum class Verb {
     ListDeviceFiles, CopyDeviceFile, SearchDeviceFiles, ListDeviceDirectoryHints, UpdateDeviceDirectoryDescription,
     AudioGenerate, AudioSave, AudioTranscribe, Speak,
     ImageGenerate, ImageEdit, ImageSave,
-    VideoFrames, VideoInfo, VideoSave,
+    VideoFrames, VideoInfo, VideoSave, VideoGenerate,
     RootCommand,
     CallState, CallDial, CallAnswer, CallHangup, CallTakeover,
     Wait, AskUser, RequestConfirmation, HandToUser, HandleObstacle, EndNotDone,

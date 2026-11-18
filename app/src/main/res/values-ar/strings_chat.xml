@@ -368,4 +368,6 @@
     <string name="chat_audio">Audio</string>
     <string name="chat_audio_play">Play</string>
     <string name="chat_audio_stop">Stop</string>
+    <string name="chat_video">فيديو</string>
+    <string name="chat_video_play">تشغيل</string>
 </resources>

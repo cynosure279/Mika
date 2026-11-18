@@ -570,7 +570,7 @@ class TaskService : Service() {
             stopRunId?.let { id -> taskState._summarizing.update { it + id } }
             run.mcpExternalId?.let { (application as com.wangzan101.mika.MikaApp).remoteTasks.ended(it, end, run.steers.value, run.runId.value, run.sharedFiles.value) }
             run.end(end)
-            if (!run.conditionCheck) recordTurn(store, run, end, run.runId.value, run.sharedFiles.value, run.audios.value, run.photos.value, run.joinedSteers(), run.usedGroups, run.joinedInterrupted(), run.joinedFinished())
+            if (!run.conditionCheck) recordTurn(store, run, end, run.runId.value, run.sharedFiles.value, run.audios.value, run.photos.value, run.videos.value, run.joinedSteers(), run.usedGroups, run.joinedInterrupted(), run.joinedFinished())
             // Sequential workflows must know whether the step actually completed before dispatching the next one.
             // Reuse the existing outcome judge once; unknown/partial results remain for the user to resolve.
             val workflowJudged = if (run.workflowAttemptId != null) runCatching { run.settleOutcome(end, store) }.getOrNull() else null
@@ -591,7 +591,7 @@ class TaskService : Service() {
                     run.triggerThreadId.orEmpty(), outcome)
                 if (outcome is ConditionOutcome.Error) {
                     val failure = TaskState.Failed(tr(R.string.task_check_unfinished, outcome.reason), FailKind.Environment)
-                    recordTurn(store, run, failure, run.runId.value, audios = run.audios.value)
+                    recordTurn(store, run, failure, run.runId.value, audios = run.audios.value, videos = run.videos.value)
                     runCatching { notifyResult(run, prepareResult(run, failure, "condition:${run.key}")) }
                         .onFailure { Log.w(TAG, "condition failure notification failed", it) }
                 }
@@ -752,7 +752,7 @@ class TaskService : Service() {
             TriggerRuntime.actionFailed(this, key, Conversation.CANCELLED_OUTCOME)
         }
         run.end(TaskState.Cancelled)
-        recordTurn(ConversationStore.shared(this), run, TaskState.Cancelled, null, audios = run.audios.value)
+        recordTurn(ConversationStore.shared(this), run, TaskState.Cancelled, null, audios = run.audios.value, videos = run.videos.value)
         run.mcpExternalId = null
         publishRuns()
         center.queued().forEachIndexed { i, q -> q.queue(i + 1) }
@@ -808,6 +808,7 @@ class TaskService : Service() {
     private fun recordTurn(store: ConversationStore, run: TaskRun, end: TaskState, runId: String?, files: List<SharedFile> = emptyList(),
         audios: List<com.wangzan101.mika.core.chat.GeneratedAudio> = emptyList(),
         photos: List<com.wangzan101.mika.core.chat.GeneratedPhoto> = emptyList(),
+        videos: List<com.wangzan101.mika.core.chat.GeneratedVideo> = emptyList(),
         steers: List<String> = emptyList(), groups: List<String> = emptyList(), interrupted: List<String> = emptyList(),
         finished: List<String> = emptyList()) {
         val goal = run.triggerCondition ?: run.goal
@@ -819,7 +820,7 @@ class TaskService : Service() {
             TaskState.Cancelled -> Turn(goal, Conversation.CANCELLED_OUTCOME, "cancelled", outcomeSystemType = "task_cancelled")
             else -> return
         }.copy(runId = runId, remoteTaskId = run.mcpExternalId, steers = steers, groups = groups, interruptedReplies = interrupted, finishedReplies = finished,
-            audios = audios, photos = photos)
+            audios = audios, photos = photos, videos = videos)
             // 这一轮留下了一页:记下站点(已经关了的连同原因),对话页那一轮下面据此显示
             .let { t -> keeper.recordFor(runId)?.let { (host, closed) -> t.copy(keptPage = host, keptPageClosed = closed) } ?: t }
         runCatching { store.append(run.conversationId, turn, files) }.onFailure { Log.w(TAG, "could not save conversation turn", it) }

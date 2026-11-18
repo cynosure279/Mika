@@ -110,6 +110,8 @@ fun ModelSetupScreen(
     onOpenVoice: (() -> Unit)? = null,
     /** 设置里点「图片模型」卡片去设置页;上手流程不传,卡片就不出现。 */
     onOpenImage: (() -> Unit)? = null,
+    /** 设置里点「视频模型」卡片去设置页;上手流程不传,卡片就不出现。 */
+    onOpenVideo: (() -> Unit)? = null,
     /** 设置里查看 Token 用量;上手流程不传。 */
     onOpenUsage: (() -> Unit)? = null,
 ) {
@@ -317,6 +319,8 @@ class ModelSetupActions(
     val openVoice: (() -> Unit)? = null,
     /** 打开「图片模型」设置页;为 null 时不显示这张卡(上手流程)。 */
     val openImage: (() -> Unit)? = null,
+    /** 打开视频模型设置;上手流程不传。 */
+    val openVideo: (() -> Unit)? = null,
     /** 打开 Token 用量;为 null 时不显示入口(上手流程)。 */
     val openUsage: (() -> Unit)? = null,
     /** Independent opt-in decision service; the three model roles remain unchanged. */
@@ -380,6 +384,7 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
                     RolesSection(ui, onPick, actions.setReasoningEffort, actions.setModelContext)
                     SpeechVoiceSection(ui, actions.openSpeech, actions.openVoice)
                     ImageModelSection(ui, actions.openImage)
+                    VideoModelSection(ui, actions.openVideo)
                     actions.openDecision?.let { openDecision ->
                         GroupCard {
                             ListRow(MikaIcons.Route, stringResource(R.string.jev_title), stringResource(R.string.jev_row_sub),
@@ -773,6 +778,13 @@ private fun ImageModelSection(ui: ModelSetupUi, onImage: (() -> Unit)?) {
     GroupCard {
         ListRow(ModelsCopy.IMAGE_ICON, stringResource(R.string.role_image), subtitle = stringResource(R.string.role_image_what), first = true, onClick = onImage) {
             RowValue(ModelsCopy.imageLine(ui).title)
+/** 视频模型:生成短视频,和语音一样单独一行。 */
+@Composable
+private fun VideoModelSection(ui: ModelSetupUi, onVideo: (() -> Unit)?) {
+    if (onVideo == null) return
+    GroupCard {
+        ListRow(ModelsCopy.VIDEO_ICON, stringResource(R.string.role_video), subtitle = stringResource(R.string.role_video_what), first = true, onClick = onVideo) {
+            RowValue(ModelsCopy.videoLine().title)
             RowChevron()
         }
     }

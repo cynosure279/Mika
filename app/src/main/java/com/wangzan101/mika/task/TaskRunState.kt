@@ -7,6 +7,7 @@ import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.core.chat.GeneratedAudio
 import com.wangzan101.mika.core.chat.GeneratedPhoto
 import com.wangzan101.mika.core.cap.image.SavedImage
+import com.wangzan101.mika.core.chat.GeneratedVideo
 import com.wangzan101.mika.core.model.SavedAudio
 import com.wangzan101.mika.core.record.RunEvent
 import com.wangzan101.mika.takeover.Takeover
@@ -43,6 +44,7 @@ internal class TaskRunState(
     internal val _sharedFiles = Mirrored<List<SharedFile>>(emptyList(), service.taskState._sharedFiles)
     internal val _audios = Mirrored<List<GeneratedAudio>>(emptyList(), service.taskState._audios)
     internal val _photos = Mirrored<List<GeneratedPhoto>>(emptyList(), service.taskState._photos)
+    internal val _videos = Mirrored<List<GeneratedVideo>>(emptyList(), service.taskState._videos)
     internal val _state = Mirrored<TaskState>(TaskState.Running(0, TaskService.PREPARING), service.taskState._state)
     /** 同一状态带上对话编号,和 [_state] 一起写:界面据此只收屏上那个对话的状态。 */
     internal val _tagged = Mirrored<Pair<String, TaskState>?>(conversationId to _state.value, service.taskState._shownTask)
@@ -72,6 +74,8 @@ internal class TaskRunState(
     val audios: StateFlow<List<GeneratedAudio>> = _audios.flow
     /** 本任务生成并留在工作区里的图;结束时随这一轮存进对话。 */
     val photos: StateFlow<List<GeneratedPhoto>> = _photos.flow
+    /** 本任务生成并留在工作区里的视频;结束时随这一轮存进对话。 */
+    val videos: StateFlow<List<GeneratedVideo>> = _videos.flow
     val takeoverStage: StateFlow<Takeover.Stage> = _takeoverStage.flow
     val frames: StateFlow<Bitmap?> = _frames.flow
     val phoneFrames: StateFlow<Bitmap?> = _phoneFrames.asStateFlow()
@@ -87,6 +91,7 @@ internal class TaskRunState(
 
     /** 带对话编号的那份先写:收不带编号的状态时读到的编号就已经是这个任务的。 */
     private val mirrored = listOf(_runId, _sharedFiles, _audios, _photos, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _pipSoundOn, _appShown, _webOpen, _activities, _steers)
+    private val mirrored = listOf(_runId, _sharedFiles, _audios, _videos, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _pipSoundOn, _appShown, _webOpen, _activities, _steers)
 
     /** 发布与收尾互斥;[ended] 之后不再写状态,迟到的发布不能盖掉终态或重新拿锁。 */
     internal val publishLock = Any()
@@ -116,6 +121,11 @@ internal class TaskRunState(
     /** 音频能力生成了一段音频(写进工作区时由端口回调)。 */
     fun addAudio(a: GeneratedAudio) = synchronized(service.taskState.shownLock) {
         _audios.value = _audios.value + a
+    }
+
+    /** 视频能力生成了一段视频(写进工作区时由端口回调)。 */
+    fun addVideo(v: GeneratedVideo) = synchronized(service.taskState.shownLock) {
+        _videos.value = _videos.value + v
     }
 
     /** 音频能力把一段音频存进了音乐库:当作这一轮导出的文件,聊天里出现卡片。 */

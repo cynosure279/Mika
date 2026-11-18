@@ -652,6 +652,9 @@ private fun MikaRoot(
         Route.Models -> ModelsScreen(store, onBack = back, onOpenSpeech = { nav.push(Route.SpeechModel) }, onOpenVoice = { nav.push(Route.VoiceModel) }, onOpenImage = { nav.push(Route.ImageModel) }, onOpenUsage = { nav.push(Route.Usage) })
         Route.VoiceModel -> VoiceModelScreen(store, onBack = back)
         Route.ImageModel -> ImageModelScreen(store, onBack = back)
+        Route.Models -> ModelsScreen(store, onBack = back, onOpenSpeech = { nav.push(Route.SpeechModel) }, onOpenVoice = { nav.push(Route.VoiceModel) }, onOpenVideo = { nav.push(Route.VideoModel) }, onOpenUsage = { nav.push(Route.Usage) })
+        Route.VoiceModel -> VoiceModelScreen(store, onBack = back)
+        Route.VideoModel -> VideoModelScreen(store, onBack = back)
         Route.Persona -> if (personasOn) PersonaScreen(app.personas, onBack = back) else LaunchedEffect(Unit) { nav.back() }
         Route.Usage -> UsageScreen(app.usage, store, onBack = back, onOpenUrl = { openInBrowser(context, it) })
         Route.SpeechModel -> SpeechModelScreen(store, onBack = back)

@@ -18,7 +18,10 @@ import com.wangzan101.mika.core.model.Capabilities
 import com.wangzan101.mika.core.model.Author
 import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.model.ClientHeaders
+import com.wangzan101.mika.core.model.ArkSeedanceModel
 import com.wangzan101.mika.core.model.GeminiModel
+import com.wangzan101.mika.core.model.VideoCapabilities
+import com.wangzan101.mika.core.model.VideoModel
 import com.wangzan101.mika.core.model.GeminiTtsModel
 import com.wangzan101.mika.core.model.OpenAiSpeechModel
 import com.wangzan101.mika.core.model.TtsCapabilities
@@ -985,6 +988,17 @@ class ProviderStore(
      * 声音模型:地址、Key、请求头取这家服务商;不套对话模型的计量(朗读用量由调用方另记)。
      * 服务商、模型或协议缺失时为 null。合成比一句话慢,读超时放到 120 秒。
      */
+    /** 视频生成模型:复用服务商地址/Key/请求头;没有选模型时为 null。 */
+    fun videoModel(choice: VideoChoice, capabilities: VideoCapabilities): VideoModel? {
+        val p = provider(choice.providerId) ?: return null
+        val client = modelHttp.newBuilder().readTimeout(180, TimeUnit.SECONDS).build()
+        val header = headers(p.sessionHeader, ModelSession.fresh())
+        val key = providerKey(p.id).orEmpty()
+        return when (choice.protocol) {
+            VideoProtocol.ArkSeedance -> ArkSeedanceModel(p.baseUrl, key, choice.model, capabilities, client, header)
+        }
+    }
+
     fun ttsModel(choice: VoiceChoice, capabilities: TtsCapabilities): TtsModel? {
         val p = provider(choice.providerId) ?: return null
         val client = modelHttp.newBuilder().readTimeout(120, TimeUnit.SECONDS).build()

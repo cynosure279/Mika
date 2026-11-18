@@ -2,6 +2,7 @@ package com.wangzan101.mika.core.agent
 
 import com.wangzan101.mika.core.chat.GeneratedAudio
 import com.wangzan101.mika.core.chat.GeneratedPhoto
+import com.wangzan101.mika.core.chat.GeneratedVideo
 import com.wangzan101.mika.core.model.Author
 import com.wangzan101.mika.core.model.Message
 import com.wangzan101.mika.core.model.Part
@@ -39,6 +40,8 @@ data class Turn(
     val audios: List<GeneratedAudio> = emptyList(),
     /** 这一轮 Mika 生成并留在工作区里的图；对话页在回答下面画成照片格子。 */
     val photos: List<GeneratedPhoto> = emptyList(),
+    /** 这一轮 Mika 生成并留在工作区里的视频；对话页在回答下面画成视频卡片。 */
+    val videos: List<GeneratedVideo> = emptyList(),
     /** 这一轮存进对话的毫秒时刻;旧记录没有时为 null,不由文件时间猜测。 */
     val atMs: Long? = null,
     /** 实际核验的结果。未核验和没有该字段的旧记录均为 null。 */

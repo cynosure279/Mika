@@ -288,4 +288,18 @@
     <string name="tool_video_info">Video info</string>
     <string name="tool_video_save">Save video</string>
     <string name="tool_share_video">Share video to app</string>
+    <string name="role_video">نموذج الفيديو</string>
+    <string name="role_video_what">يتيح لـ Mika إنشاء مقاطع فيديو قصيرة</string>
+    <string name="video_hint">يستطيع Mika إنشاء مقاطع فيديو قصيرة من وصف نصي باستخدام نموذج الفيديو الذي تضبطه. تُرسل الأوصاف إلى الخدمة التي تختارها، وتُحتسب تكلفة كل فيديو على تلك الخدمة.</string>
+    <string name="video_enable">السماح لـ Mika بإنشاء مقاطع الفيديو</string>
+    <string name="video_enable_note">متوقف افتراضيًا. تُحتسب تكلفة كل عملية إنشاء على الخدمة</string>
+    <string name="video_provider">الخدمة</string>
+    <string name="video_no_providers">أضف خدمة نموذج أولًا (يستخدم الفيديو الخدمة والمفتاح نفسيهما).</string>
+    <string name="video_model_name">النموذج</string>
+    <string name="video_duration">المدة (بالثواني)</string>
+    <string name="video_max_per_task">عدد الفيديوهات لكل مهمة</string>
+    <string name="video_aspect">نسبة العرض إلى الارتفاع</string>
+    <string name="video_resolution">الدقة</string>
+    <string name="video_footer">يجري الإنشاء في الخلفية وقد يستغرق بضع دقائق. يُحفظ الفيديو الناتج في مساحة العمل ضمن out/video.</string>
+    <string name="tool_video_generate">إنشاء فيديو</string>
 </resources>

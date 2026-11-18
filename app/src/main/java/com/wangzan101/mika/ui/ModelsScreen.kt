@@ -107,6 +107,10 @@ fun ModelsScreen(
     onOpenUsage: (() -> Unit)? = null,
 ) {
     ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech, onOpenVoice = onOpenVoice, onOpenImage = onOpenImage, onOpenUsage = onOpenUsage)
+    onOpenVideo: (() -> Unit)? = null,
+    onOpenUsage: (() -> Unit)? = null,
+) {
+    ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech, onOpenVoice = onOpenVoice, onOpenVideo = onOpenVideo, onOpenUsage = onOpenUsage)
 }
 
 /** 子页面共用的骨架:顶栏 + 可滚动内容。 */
@@ -1103,6 +1107,11 @@ object ModelsCopy {
     val IMAGE_ICON: ImageVector get() = MikaIcons.Photo
 
     fun imageLine(ui: ModelSetupUi): RoleLine = RoleLine(tr(R.string.role_image), tr(R.string.role_image_what), unset = true)
+    /** 第六个用途「视频模型」:生成短视频,同样不在 [ModelRole] 里。 */
+    val VIDEO_LABEL: String get() = "${tr(R.string.role_video)} · ${tr(R.string.role_video_what)}"
+    val VIDEO_ICON: ImageVector get() = MikaIcons.Camera
+
+    fun videoLine(): RoleLine = RoleLine(tr(R.string.role_video), tr(R.string.role_video_what), unset = true)
 
     fun roleIcon(role: ModelRole): ImageVector = when (role) {
         ModelRole.Main -> MikaIcons.Spark

@@ -29,6 +29,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -123,6 +124,8 @@ import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.MikaApp
@@ -969,6 +972,7 @@ private fun LazyListScope.exchange(
     if (ex.photos.isNotEmpty()) item("p$index") {
         Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { GeneratedPhotos(ex.photos, conversationId, 292.dp) }
     }
+    if (ex.videos.isNotEmpty()) item("vi$index") { GeneratedVideoCards(ex.videos, vm) }
     if (ex.files.isNotEmpty()) item("f$index") {
         JumpHighlight(highlightKey == "f$index", reduceMotion) { FileCards(ex.files) }
     }
@@ -1559,6 +1563,47 @@ private fun GeneratedAudioCards(audios: List<com.wangzan101.mika.core.chat.Gener
                             stringResource(if (playing) R.string.chat_audio_stop else R.string.chat_audio_play),
                         ).joinToString(" · "),
                         style = FileMeta, color = if (playing) c.accent else c.ink3, maxLines = 1,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** 这一轮生成的视频:首帧封面、时长、点开用系统播放器。 */
+@Composable
+private fun GeneratedVideoCards(videos: List<com.wangzan101.mika.core.chat.GeneratedVideo>, vm: ChatViewModel) {
+    val c = MikaTheme.colors
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        videos.forEach { v ->
+            val poster by produceState<Bitmap?>(null, v.path) { value = vm.loadVideoPoster(v.path) }
+            Row(
+                Modifier.fillMaxWidth().cardSurface(c, MikaShapes.Card).clip(MikaShapes.Card)
+                    .clickable(role = Role.Button) { vm.playVideo(v.path) }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    Modifier.size(64.dp, 40.dp).background(c.neutralSoft, FileTileShape).clip(FileTileShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val frame = poster
+                    if (frame != null) Image(frame.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    else Icon(MikaIcons.Camera, null, Modifier.size(20.dp), tint = c.ink)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        v.prompt?.lineSequence()?.firstOrNull()?.take(80)?.takeIf { it.isNotBlank() }
+                            ?: stringResource(R.string.chat_video),
+                        style = FileName, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        listOfNotNull(
+                            v.durationMs?.let { secondsLabel(it) },
+                            v.width.takeIf { it > 0 }?.let { w -> "$w×${v.height}" },
+                            stringResource(R.string.chat_video_play),
+                        ).joinToString(" · "),
+                        style = FileMeta, color = c.ink3, maxLines = 1,
                     )
                 }
             }

@@ -263,4 +263,18 @@
     <string name="tool_video_info">Video info</string>
     <string name="tool_video_save">Save video</string>
     <string name="tool_share_video">Share video to app</string>
+    <string name="role_video">影片模型</string>
+    <string name="role_video_what">讓 Mika 產生短影片</string>
+    <string name="video_hint">Mika 可以按你的描述、用你自己設定的影片模型產生短影片。描述會發給你選的服務商，每段影片由該服務商計費。</string>
+    <string name="video_enable">允許 Mika 產生影片</string>
+    <string name="video_enable_note">預設關閉。每次產生都會由服務商計費</string>
+    <string name="video_provider">服務商</string>
+    <string name="video_no_providers">先新增一個模型服務商（影片用同一家和同一個 Key）。</string>
+    <string name="video_model_name">模型</string>
+    <string name="video_duration">時長（秒）</string>
+    <string name="video_max_per_task">每個任務最多幾個影片</string>
+    <string name="video_aspect">畫面比例</string>
+    <string name="video_resolution">清晰度</string>
+    <string name="video_footer">產生在背景進行，可能要幾分鐘。做好的影片儲存在工作區的 out/video 下。</string>
+    <string name="tool_video_generate">產生影片</string>
 </resources>

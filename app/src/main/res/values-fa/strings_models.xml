@@ -268,4 +268,18 @@
     <string name="tool_video_info">Video info</string>
     <string name="tool_video_save">Save video</string>
     <string name="tool_share_video">Share video to app</string>
+    <string name="role_video">مدل ویدیو</string>
+    <string name="role_video_what">به Mika اجازه می‌دهد ویدیوهای کوتاه بسازد</string>
+    <string name="video_hint">Mika می‌تواند با مدل ویدیویی که خودتان تنظیم می‌کنید از یک توضیح، ویدیوی کوتاه بسازد. توضیح‌ها به سرویسی که انتخاب می‌کنید فرستاده می‌شود و هزینه هر ویدیو توسط همان سرویس محاسبه می‌شود.</string>
+    <string name="video_enable">اجازه دادن به Mika برای ساخت ویدیو</string>
+    <string name="video_enable_note">به‌طور پیش‌فرض خاموش است. هزینه هر ساخت توسط سرویس محاسبه می‌شود</string>
+    <string name="video_provider">سرویس</string>
+    <string name="video_no_providers">ابتدا یک سرویس مدل اضافه کنید (ویدیو از همان سرویس و کلید استفاده می‌کند).</string>
+    <string name="video_model_name">مدل</string>
+    <string name="video_duration">مدت (ثانیه)</string>
+    <string name="video_max_per_task">تعداد ویدیو در هر وظیفه</string>
+    <string name="video_aspect">نسبت تصویر</string>
+    <string name="video_resolution">وضوح</string>
+    <string name="video_footer">ساخت در پس‌زمینه اجرا می‌شود و ممکن است چند دقیقه طول بکشد. ویدیوی آماده در فضای کاری زیر out/video ذخیره می‌شود.</string>
+    <string name="tool_video_generate">ساخت ویدیو</string>
 </resources>

@@ -261,4 +261,18 @@
     <string name="tool_video_info">Video info</string>
     <string name="tool_video_save">Save video</string>
     <string name="tool_share_video">Share video to app</string>
+    <string name="role_video">동영상 모델</string>
+    <string name="role_video_what">Mika가 짧은 동영상을 생성하도록 허용</string>
+    <string name="video_hint">Mika는 직접 설정한 동영상 모델로 프롬프트에서 짧은 동영상을 생성할 수 있습니다. 프롬프트는 선택한 서비스로 전송되며, 동영상마다 해당 서비스에서 과금됩니다.</string>
+    <string name="video_enable">Mika의 동영상 생성 허용</string>
+    <string name="video_enable_note">기본적으로 꺼져 있습니다. 생성할 때마다 서비스에서 과금됩니다</string>
+    <string name="video_provider">서비스</string>
+    <string name="video_no_providers">먼저 모델 서비스를 추가하세요(동영상도 같은 서비스와 키를 사용합니다).</string>
+    <string name="video_model_name">모델</string>
+    <string name="video_duration">길이(초)</string>
+    <string name="video_max_per_task">작업당 동영상 수</string>
+    <string name="video_aspect">화면 비율</string>
+    <string name="video_resolution">해상도</string>
+    <string name="video_footer">생성은 백그라운드에서 실행되며 몇 분 걸릴 수 있습니다. 완성된 동영상은 작업 공간의 out/video에 저장됩니다.</string>
+    <string name="tool_video_generate">동영상 생성</string>
 </resources>

@@ -278,4 +278,18 @@
     <string name="tool_video_info">Video info</string>
     <string name="tool_video_save">Save video</string>
     <string name="tool_share_video">Share video to app</string>
+    <string name="role_video">Видеомодель</string>
+    <string name="role_video_what">Разрешает Mika создавать короткие видео</string>
+    <string name="video_hint">Mika может создавать короткие видео по описанию с помощью вашей видеомодели. Описания отправляются в выбранный вами сервис, и каждый ролик тарифицируется этим сервисом.</string>
+    <string name="video_enable">Разрешить Mika создавать видео</string>
+    <string name="video_enable_note">По умолчанию выключено. Каждая генерация тарифицируется сервисом</string>
+    <string name="video_provider">Сервис</string>
+    <string name="video_no_providers">Сначала добавьте сервис моделей (видео использует тот же сервис и ключ).</string>
+    <string name="video_model_name">Модель</string>
+    <string name="video_duration">Длительность (секунды)</string>
+    <string name="video_max_per_task">Видео на задачу</string>
+    <string name="video_aspect">Соотношение сторон</string>
+    <string name="video_resolution">Разрешение</string>
+    <string name="video_footer">Генерация идёт в фоне и может занять несколько минут. Готовое видео сохраняется в рабочей области в out/video.</string>
+    <string name="tool_video_generate">Создать видео</string>
 </resources>

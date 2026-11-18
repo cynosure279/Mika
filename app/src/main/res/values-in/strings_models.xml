@@ -261,4 +261,18 @@
     <string name="tool_video_info">Video info</string>
     <string name="tool_video_save">Save video</string>
     <string name="tool_share_video">Share video to app</string>
+    <string name="role_video">Model video</string>
+    <string name="role_video_what">Mengizinkan Mika membuat video pendek</string>
+    <string name="video_hint">Mika dapat membuat video pendek dari prompt dengan model video Anda sendiri. Prompt dikirim ke layanan yang Anda pilih, dan setiap video ditagih oleh layanan tersebut.</string>
+    <string name="video_enable">Izinkan Mika membuat video</string>
+    <string name="video_enable_note">Nonaktif secara default. Setiap pembuatan ditagih oleh layanan</string>
+    <string name="video_provider">Layanan</string>
+    <string name="video_no_providers">Tambahkan layanan model dulu (video memakai layanan dan kunci yang sama).</string>
+    <string name="video_model_name">Model</string>
+    <string name="video_duration">Durasi (detik)</string>
+    <string name="video_max_per_task">Video per tugas</string>
+    <string name="video_aspect">Rasio aspek</string>
+    <string name="video_resolution">Resolusi</string>
+    <string name="video_footer">Pembuatan berjalan di latar belakang dan bisa memakan beberapa menit. Video yang selesai disimpan di ruang kerja pada out/video.</string>
+    <string name="tool_video_generate">Buat video</string>
 </resources>

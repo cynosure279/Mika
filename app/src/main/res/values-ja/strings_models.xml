@@ -263,4 +263,18 @@
     <string name="tool_video_info">Video info</string>
     <string name="tool_video_save">Save video</string>
     <string name="tool_share_video">Share video to app</string>
+    <string name="role_video">動画モデル</string>
+    <string name="role_video_what">Mika が短い動画を生成できるようにする</string>
+    <string name="video_hint">Mika は、あなたが設定した動画モデルでプロンプトから短い動画を生成できます。プロンプトは選んだサービスに送信され、動画ごとにそのサービスで課金されます。</string>
+    <string name="video_enable">Mika に動画生成を許可する</string>
+    <string name="video_enable_note">既定ではオフです。生成のたびにサービスで課金されます</string>
+    <string name="video_provider">サービス</string>
+    <string name="video_no_providers">先にモデルサービスを追加してください（動画も同じサービスとキーを使います）。</string>
+    <string name="video_model_name">モデル</string>
+    <string name="video_duration">長さ（秒）</string>
+    <string name="video_max_per_task">タスクごとの動画数</string>
+    <string name="video_aspect">アスペクト比</string>
+    <string name="video_resolution">解像度</string>
+    <string name="video_footer">生成はバックグラウンドで実行され、数分かかることがあります。完成した動画はワークスペースの out/video に保存されます。</string>
+    <string name="tool_video_generate">動画を生成</string>
 </resources>
