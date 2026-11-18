@@ -285,9 +285,6 @@ data class RoleChoices(
     /** 兼容旧调用方:这个用途实际用的配置 id。 */
     fun resolve(role: ModelRole): String? = resolveConfig(role)
 
-    /** 有用途在用的配置 id(含主模型备援);其余的配置没人用,会被删掉。 */
-    val referenced: Set<String> get() = ModelRole.entries.mapNotNull(::resolveConfig).toSet() + mainFallbacks
-
     /** 改一个用途;这个用途不接受的选择(主模型只能是具体模型或组,轻量不能不用)返回 null。 */
     fun with(role: ModelRole, choice: RoleChoice): RoleChoices? = (when (role) {
         ModelRole.Main -> when (choice) {
@@ -324,9 +321,9 @@ data class RoleChoices(
             mainGroup = if (mainModel == null) mainGroupId else null,
             vision = if (vision.gone()) RoleChoice.Off else vision,
             light = if (light.gone()) RoleChoice.SameAsMain else light,
-            mainFallbacks = mainFallbacks.filter { it in valid },
-            visionFallbacks = visionFallbacks.filter { it in valid },
-            lightFallbacks = lightFallbacks.filter { it in valid },
+            mainFallbacks = mainFallbacks.filter { it in validConfigs },
+            visionFallbacks = visionFallbacks.filter { it in validConfigs },
+            lightFallbacks = lightFallbacks.filter { it in validConfigs },
             reasoningEfforts = reasoningEfforts.filterKeys { role ->
                 when (val c = get(role)) {
                     is RoleChoice.Model -> c.configId in validConfigs

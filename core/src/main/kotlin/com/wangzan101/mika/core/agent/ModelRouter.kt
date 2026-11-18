@@ -81,9 +81,15 @@ class ModelRouter(
     /** 这个模型是不是轻量侧(含备援)的成员(不是按对象相等:组里换过成员也要认得出);轻量池本身也算。 */
     fun isLight(m: ChatModel): Boolean = lightChain.any { it === m } || lightPools.any { it.owns(m) }
 
-    /** 这个成员属于哪个模型组;单模型为 null。 */
-    fun groupOf(m: ChatModel): String? =
-        (if (isLight(m)) lightPools.firstOrNull { it.owns(m) } else mainPool)?.groupName
+    /** 这个成员属于哪个模型组;单模型为 null。组本身作为成员传进来时也算。 */
+    fun groupOf(m: ChatModel): String? {
+        val pool = if (isLight(m)) {
+            lightChain.firstOrNull { it === m }?.asPool() ?: lightPools.firstOrNull { it.owns(m) }
+        } else {
+            mainPool.takeIf { it === m || it.owns(m) }
+        }
+        return pool?.groupName
+    }
 
     companion object {
         const val TROUBLE_STEPS = 2
