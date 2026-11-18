@@ -90,8 +90,7 @@ internal class TaskRunState(
     val steers: StateFlow<List<SteerNote>> = _steers.flow
 
     /** 带对话编号的那份先写:收不带编号的状态时读到的编号就已经是这个任务的。 */
-    private val mirrored = listOf(_runId, _sharedFiles, _audios, _photos, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _pipSoundOn, _appShown, _webOpen, _activities, _steers)
-    private val mirrored = listOf(_runId, _sharedFiles, _audios, _videos, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _pipSoundOn, _appShown, _webOpen, _activities, _steers)
+    private val mirrored = listOf(_runId, _sharedFiles, _audios, _photos, _videos, _tagged, _state, _takeoverStage, _frames, _displayId, _pipInput, _pipSoundOn, _appShown, _webOpen, _activities, _steers)
 
     /** 发布与收尾互斥;[ended] 之后不再写状态,迟到的发布不能盖掉终态或重新拿锁。 */
     internal val publishLock = Any()

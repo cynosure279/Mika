@@ -428,18 +428,18 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     private suspend fun playWorkspaceVideo(conversationId: String, path: String) {
         val dirs = com.wangzan101.mika.cap.sandbox.SandboxDirs(this)
         val staging = com.wangzan101.mika.cap.web.UploadStaging(
-            java.io.File(cacheDir, com.wangzan101.mika.cap.web.UploadStaging.DIR),
+            java.io.File(cacheDir, "videoplay"),
             dirs.gate,
             maxFileBytes = 1024L * 1024 * 1024,
             maxTotalBytes = 1024L * 1024 * 1024,
         )
         val staged = dirs.tree.shared {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                staging.stage(dirs.workspace(conversationId), listOf(path))
+                staging.stage(dirs.workspace(workspaceResolver.resolve(conversationId)), listOf(path))
             }
         }
         val file = (staged as? com.wangzan101.mika.cap.web.UploadStaging.Result.Ok)?.staged?.files?.firstOrNull() ?: return
-        val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.webfiles", file)
+        val uri = androidx.core.content.FileProvider.getUriForFile(this, "$packageName.videoplay", file)
         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW)
             .setDataAndType(uri, "video/*")
             .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -637,6 +637,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         scope.launch { runCatching { com.wangzan101.mika.media.VideoShareExporter(this@MikaApp).cleanPending() } }
         // 上次进程留下的网页上传副本
         scope.launch { runCatching { WebFiles.clearStale(this@MikaApp, SandboxDirs(this@MikaApp).gate) } }
+        // 上次进程留下的视频播放副本
+        scope.launch(Dispatchers.IO) { runCatching { java.io.File(cacheDir, "videoplay").deleteRecursively() } }
         // 更新已经装上后,关于页下好的安装包
         scope.launch(Dispatchers.IO) { runCatching { apkUpdater.dropInstalled() } }
         // 运行环境没准备好(首次启动、Mika 升级后)就在后台准备,不联网、对用户不可见

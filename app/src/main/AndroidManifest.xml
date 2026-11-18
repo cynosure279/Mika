@@ -332,6 +332,17 @@
                 android:resource="@xml/web_files" />
         </provider>
 
+        <!-- 聊天视频卡片:点开时把工作区视频复制到缓存 videoplay/,只把这份副本临时授权给系统播放器 -->
+        <provider
+            android:name=".media.VideoPlaybackFilesProvider"
+            android:authorities="${applicationId}.videoplay"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/video_playback_files" />
+        </provider>
+
         <!-- 对话页附件:相机把照片写进缓存里的 camera/,点开已发附件时复制出的一份在 viewing/;不对外导出,用到时临时授权 -->
         <provider
             android:name=".chat.AttachFilesProvider"

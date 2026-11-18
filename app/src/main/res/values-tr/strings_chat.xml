@@ -298,4 +298,6 @@
     <string name="chat_audio">Ses</string>
     <string name="chat_audio_play">Oynat</string>
     <string name="chat_audio_stop">Durdur</string>
+    <string name="chat_video">Video</string>
+    <string name="chat_video_play">Play</string>
 </resources>

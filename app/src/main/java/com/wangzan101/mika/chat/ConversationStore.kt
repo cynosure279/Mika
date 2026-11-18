@@ -663,6 +663,8 @@ class ConversationStore(
     private fun photoOf(o: JsonObject): GeneratedPhoto? {
         val path = str(o, "path") ?: return null
         return GeneratedPhoto(path, str(o, "width")?.toIntOrNull() ?: 0, str(o, "height")?.toIntOrNull() ?: 0, str(o, "prompt"), str(o, "atMs")?.toLongOrNull())
+    }
+
     private fun videoOf(o: JsonObject): com.wangzan101.mika.core.chat.GeneratedVideo? {
         val path = str(o, "path") ?: return null
         return com.wangzan101.mika.core.chat.GeneratedVideo(
@@ -750,6 +752,8 @@ class ConversationStore(
                         put("path", p.path); put("width", p.width); put("height", p.height)
                         p.prompt?.let { text -> put("prompt", text) }
                         p.atMs?.let { t -> put("atMs", t) }
+                    }
+                }))
                 if (it.videos.isNotEmpty()) put("videos", JsonArray(it.videos.map { v ->
                     buildJsonObject {
                         put("path", v.path); v.durationMs?.let { d -> put("durationMs", d) }

@@ -411,7 +411,7 @@ class TaskRun(
         if (rel.isEmpty() || rel.split('/').any { it.isEmpty() || it == "." || it == ".." }) return@withContext null
         val dirs = com.wangzan101.mika.cap.sandbox.SandboxDirs(service)
         val bytes = dirs.tree.shared {
-            dirs.gate.openRead(dirs.workspace(conversationId), rel).use { g ->
+            dirs.gate.openRead(dirs.workspace(com.wangzan101.mika.chat.WorkspaceResolver.resolveFor(service, conversationId)), rel).use { g ->
                 if (g.size > 500L * 1024 * 1024) null else g.read(0, g.size.toInt())
             }
         } ?: return@withContext null

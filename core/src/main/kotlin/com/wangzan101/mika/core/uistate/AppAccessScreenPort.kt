@@ -153,6 +153,9 @@ class AppAccessScreenPort(
     override suspend fun shareImage(packageName: String, path: String, text: String?): ActionResult {
         target(packageName)
         return inner.shareImage(packageName, path, text)
+    }
+
+    /** 视频分享和图片一样:只看实现,不碰界面。 */
     override val canShareVideo: Boolean get() = inner.canShareVideo
 
     override suspend fun shareVideo(packageName: String, path: String, text: String?): ActionResult {

@@ -40,7 +40,7 @@ class AndroidVideoGenerationPort(
 ) : VideoGenerationPort {
     override val modelName: String get() = model.name
     private val dirs by lazy { SandboxDirs(context) }
-    private val workspace: File by lazy { dirs.workspace(conversationId) }
+    private val workspace: File by lazy { dirs.workspace(com.wangzan101.mika.chat.WorkspaceResolver.resolveFor(context, conversationId)) }
 
     override suspend fun generate(request: VideoGenerationRequest, onProgress: suspend (String) -> Unit): VideoTake {
         val first = request.firstFramePath?.let { path ->

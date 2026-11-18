@@ -2305,9 +2305,8 @@ class ChatViewModel(
                 val files = if (ownTask()) sharedFiles.value else emptyList()
                 val audios = if (ownTask()) generatedAudios.value else emptyList()
                 val photos = if (ownTask()) generatedPhotos.value else emptyList()
-                val ex = Exchange(goal, emptyList(), ExchangeStatus.Working, live = true, files = files, audios = audios, photos = photos, startedAt = clock())
                 val videos = if (ownTask()) generatedVideos.value else emptyList()
-                val ex = Exchange(goal, emptyList(), ExchangeStatus.Working, live = true, files = files, audios = audios, videos = videos, startedAt = clock())
+                val ex = Exchange(goal, emptyList(), ExchangeStatus.Working, live = true, files = files, audios = audios, photos = photos, videos = videos, startedAt = clock())
                 it.copy(exchanges = it.exchanges + ex,
                     followUpMode = when {
                         it.attachments.isNotEmpty() -> FollowUpMode.Queue

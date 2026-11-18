@@ -778,6 +778,11 @@ private fun ImageModelSection(ui: ModelSetupUi, onImage: (() -> Unit)?) {
     GroupCard {
         ListRow(ModelsCopy.IMAGE_ICON, stringResource(R.string.role_image), subtitle = stringResource(R.string.role_image_what), first = true, onClick = onImage) {
             RowValue(ModelsCopy.imageLine(ui).title)
+            RowChevron()
+        }
+    }
+}
+
 /** 视频模型:生成短视频,和语音一样单独一行。 */
 @Composable
 private fun VideoModelSection(ui: ModelSetupUi, onVideo: (() -> Unit)?) {

@@ -27,7 +27,7 @@ class AndroidVideoPort(
     private val conversationId: String,
 ) : VideoPort {
     private val dirs by lazy { SandboxDirs(context) }
-    private val workspace: File by lazy { dirs.workspace(conversationId) }
+    private val workspace: File by lazy { dirs.workspace(com.wangzan101.mika.chat.WorkspaceResolver.resolveFor(context, conversationId)) }
 
     override suspend fun info(path: String): VideoInfo {
         val rel = relative(path) ?: throw VideoError.Unsupported("the path must be under ${SandboxPaths.WORKSPACE}")

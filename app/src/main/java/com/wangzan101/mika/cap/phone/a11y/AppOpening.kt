@@ -142,6 +142,28 @@ internal class AppOpening(private val screen: AndroidScreen) {
     /** 和 [shareAudio] 相同,只是把图片交给目标 App。 */
     suspend fun shareImage(packageName: String, path: String, text: String?): ActionResult = withContext(Dispatchers.IO) {
         val share = screen.shareImageFile?.invoke(path) ?: return@withContext ActionResult.Failed("unsupported")
+        if (screen.checkOtherTasks) {
+            val other = runCatching { screen.shell.displayOfPackage(packageName) }.getOrDefault(-1)
+            if (other >= 0 && other != screen.display.current?.displayId) return@withContext AndroidScreen.IN_USE_BY_OTHER
+            if (!screen.reserve(packageName)) return@withContext AndroidScreen.IN_USE_BY_OTHER
+        }
+        val before = if (screen.hasDisplay) screen.topWindowPackage().takeIf { it != screen.chooserPackage } else null
+        val id = screen.display.get().displayId
+        val startedAt = System.nanoTime()
+        screen.beforeOpen(packageName, null)
+        val code = runCatching { screen.shell.startShareFile(id, packageName, share.uri.toString(), share.mime, text.orEmpty()) }
+            .getOrDefault(ShellService.START_ERROR)
+        if (code != ShellService.START_OK) screen.notOpened(packageName, null)
+        when (code) {
+            ShellService.START_OK -> Unit
+            ShellService.START_IN_USE_ON_MAIN -> return@withContext ActionResult.Failed("app_in_use_by_user")
+            ShellService.START_IN_USE_BY_OTHER -> return@withContext AndroidScreen.IN_USE_BY_OTHER
+            ShellService.START_UNRESOLVED -> return@withContext ActionResult.Failed("cannot_share")
+            else -> return@withContext ActionResult.Failed("launch_failed")
+        }
+        awaitOpened(packageName, before, hint = null, sharing = true, launchedAt = startedAt)
+    }
+
     /** 和 [shareAudio] 相同,只是把视频交给目标 App。 */
     suspend fun shareVideo(packageName: String, path: String, text: String?): ActionResult = withContext(Dispatchers.IO) {
         val share = screen.shareVideoFile?.invoke(path) ?: return@withContext ActionResult.Failed("unsupported")

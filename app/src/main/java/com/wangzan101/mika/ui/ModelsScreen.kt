@@ -104,13 +104,10 @@ fun ModelsScreen(
     onOpenSpeech: (() -> Unit)? = null,
     onOpenVoice: (() -> Unit)? = null,
     onOpenImage: (() -> Unit)? = null,
-    onOpenUsage: (() -> Unit)? = null,
-) {
-    ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech, onOpenVoice = onOpenVoice, onOpenImage = onOpenImage, onOpenUsage = onOpenUsage)
     onOpenVideo: (() -> Unit)? = null,
     onOpenUsage: (() -> Unit)? = null,
 ) {
-    ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech, onOpenVoice = onOpenVoice, onOpenVideo = onOpenVideo, onOpenUsage = onOpenUsage)
+    ModelSetupScreen(store, onboarding = false, onBack = onBack, onDone = onBack, onOpenSpeech = onOpenSpeech, onOpenVoice = onOpenVoice, onOpenImage = onOpenImage, onOpenVideo = onOpenVideo, onOpenUsage = onOpenUsage)
 }
 
 /** 子页面共用的骨架:顶栏 + 可滚动内容。 */
