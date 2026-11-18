@@ -1,6 +1,6 @@
 system: 14909 bytes, 2 files
 capabilities: 42706 bytes, 15 files
-tools: 65082 bytes, 121 files
+tools: 65609 bytes, 122 files
 entries: 2838 bytes, 14 files
 feedback: 53053 bytes, 2 files
 roles: 44027 bytes, 24 files

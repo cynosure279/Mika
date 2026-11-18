@@ -262,4 +262,5 @@
     <string name="tool_video_frames">Look at video</string>
     <string name="tool_video_info">Video info</string>
     <string name="tool_video_save">Save video</string>
+    <string name="tool_share_video">Share video to app</string>
 </resources>

@@ -112,6 +112,7 @@ internal class AppOpening(private val screen: AndroidScreen) {
 
     val canShareAudio: Boolean get() = screen.shareAudioFile != null
     val canShareImage: Boolean get() = screen.shareImageFile != null
+    val canShareVideo: Boolean get() = screen.shareVideoFile != null
 
     /** 和 [shareText] 相同的打开/占用/等待流程;音频先由 [screen.shareAudioFile] 变成 content URI。只打开分享页,不发出。 */
     suspend fun shareAudio(packageName: String, path: String, text: String?): ActionResult = withContext(Dispatchers.IO) {
@@ -141,6 +142,9 @@ internal class AppOpening(private val screen: AndroidScreen) {
     /** 和 [shareAudio] 相同,只是把图片交给目标 App。 */
     suspend fun shareImage(packageName: String, path: String, text: String?): ActionResult = withContext(Dispatchers.IO) {
         val share = screen.shareImageFile?.invoke(path) ?: return@withContext ActionResult.Failed("unsupported")
+    /** 和 [shareAudio] 相同,只是把视频交给目标 App。 */
+    suspend fun shareVideo(packageName: String, path: String, text: String?): ActionResult = withContext(Dispatchers.IO) {
+        val share = screen.shareVideoFile?.invoke(path) ?: return@withContext ActionResult.Failed("unsupported")
         if (screen.checkOtherTasks) {
             val other = runCatching { screen.shell.displayOfPackage(packageName) }.getOrDefault(-1)
             if (other >= 0 && other != screen.display.current?.displayId) return@withContext AndroidScreen.IN_USE_BY_OTHER

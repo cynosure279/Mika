@@ -2598,6 +2598,7 @@ class ToolLabels(private val tools: ToolIndex, private val legacy: LegacyNames =
             "保存音频" to R.string.tool_audio_save,
             "转写音频" to R.string.tool_audio_transcribe,
             "说话" to R.string.tool_speak,
+            "分享视频到 App" to R.string.tool_share_video,
             "看视频" to R.string.tool_video_frames,
             "查看视频信息" to R.string.tool_video_info,
             "保存视频" to R.string.tool_video_save,

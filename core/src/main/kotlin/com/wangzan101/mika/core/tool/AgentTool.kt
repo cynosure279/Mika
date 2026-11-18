@@ -27,6 +27,7 @@ enum class Verb {
     Observe, ListElements, Query, Collect, PhoneRun, PhoneFind, PhoneExtract, PhoneDialog, PhoneEvent, PhoneGesture, PhoneCommand, Screenshot, ViewPastScreens, ViewUserScreen, Describe, FindVisually, Diagnose,
     Tap, TypeText, ClearText, Scroll, Swipe, Back, PressKey,
     ListApps, LaunchApp, OpenLink, ShareText, ShareAudio, ShareImage, AppAfterTask, SmsLogin,
+    ListApps, LaunchApp, OpenLink, ShareText, ShareAudio, ShareVideo, AppAfterTask, SmsLogin,
     SetAlarm, SetTimer, ShowAlarms, AddCalendarEvent, BulkAddCalendarEvents, SetWheel,
     Navigate, ReadPage, EvaluateJs, SiteCommand, Tabs, Downloads, Upload, SiteMode, Script, Interact, Capture, WaitFor, KeepOpen,
     RunCommand, RunBundledScript, PluginScript, ReadFile, WriteFile, SearchFiles, ShareFile, ViewImage, ListFolderFiles,

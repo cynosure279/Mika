@@ -263,4 +263,5 @@
     <string name="tool_video_frames">看视频</string>
     <string name="tool_video_info">查看视频信息</string>
     <string name="tool_video_save">保存视频</string>
+    <string name="tool_share_video">分享视频到 App</string>
 </resources>
