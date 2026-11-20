@@ -12,6 +12,7 @@ import com.wangzan101.mika.core.chat.GeneratedPhoto
 import com.wangzan101.mika.core.memory.MemoryNote
 import com.wangzan101.mika.core.memory.NoteKind
 import com.wangzan101.mika.core.skills.SkillNote
+import com.wangzan101.mika.settings.ModelChoice
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -169,7 +170,7 @@ class ConversationStore(
         val unsaved = pending.asSequence()
             .filter { firstMessage(file(it.id)) == null }
             .filter { includeArchived || archivedAt(it.id) == null }
-        val saved = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }.orEmpty()
+        val saved = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") && !f.name.endsWith(SETTINGS_SUFFIX) }.orEmpty()
             .map { it to it.lastModified() }
             .sortedWith(compareByDescending<Pair<File, Long>> { it.second }.thenBy { it.first.name })
             .asSequence().mapNotNull { (f, updatedAt) ->
@@ -231,7 +232,8 @@ class ConversationStore(
         val metadata = setOf(titleFile(conversationId).name, pinFile(conversationId).name,
             pageFile(conversationId).name, branchFile(conversationId).name, archiveFile(conversationId).name,
             restoreFile(conversationId).name, personaFile(conversationId).name, personaFile(conversationId).name + ".tmp",
-            projectFile(conversationId).name, projectFile(conversationId).name + ".tmp")
+            projectFile(conversationId).name, projectFile(conversationId).name + ".tmp",
+            settingsFile(conversationId).name, settingsFile(conversationId).name + ".tmp")
         val files = dir.listFiles { f -> f.name == main || f.name.startsWith("$main.") || f.name in metadata }
             ?: if (Files.notExists(dir.toPath())) emptyArray() else throw IOException("Cannot list conversation files")
         // Leave the history in place if any of its companion files cannot be removed.
@@ -496,6 +498,62 @@ class ConversationStore(
     }
 
     /**
+     * 这个对话自己的运行设置(主模型覆盖等);没有、读不懂时返回默认(全部跟随设置)。
+     * 放在对话文件旁边的 `.settings.json` 里,不动对话文件的格式;旧对话没有这个文件。
+     */
+    @Synchronized
+    fun settings(conversationId: String): ConversationSettings = runCatching {
+        val f = settingsFile(conversationId).takeIf { it.isFile } ?: return@runCatching ConversationSettings()
+        val o = Json.parseToJsonElement(f.readText()) as? JsonObject ?: return@runCatching ConversationSettings()
+        val main = (o["main"] as? JsonObject)?.let { m ->
+            val id = str(m, "id")?.takeIf(String::isNotEmpty) ?: return@let null
+            when (str(m, "kind")) {
+                "model" -> ModelChoice.Model(id)
+                "group" -> ModelChoice.Group(id)
+                else -> null
+            }
+        }
+        ConversationSettings(main)
+    }.getOrDefault(ConversationSettings())
+
+    /**
+     * 改这个对话自己的运行设置;空的(全部跟随设置)删掉旁文件,不留默认值。删掉的对话不动。
+     * 写进去了返回 true,并发一次 [changes](对话页据此重读)。先写临时文件再改名,写到一半被杀不会留下半个文件。
+     */
+    @Synchronized
+    fun setSettings(conversationId: String, settings: ConversationSettings): Boolean {
+        if (safe(conversationId) in deleted) return false
+        val f = settingsFile(conversationId)
+        val ok = runCatching {
+            if (settings == ConversationSettings()) {
+                !f.exists() || f.delete()
+            } else {
+                dir.mkdirs()
+                val json = buildJsonObject {
+                    settings.main?.let { choice ->
+                        put("main", buildJsonObject {
+                            put("kind", if (choice is ModelChoice.Model) "model" else "group")
+                            put("id", when (choice) {
+                                is ModelChoice.Model -> choice.configId
+                                is ModelChoice.Group -> choice.groupId
+                            })
+                        })
+                    }
+                }
+                val tmp = File(dir, "${f.name}.tmp")
+                tmp.writeText(json.toString())
+                if (!tmp.renameTo(f)) {
+                    f.writeText(json.toString())
+                    tmp.delete()
+                }
+                true
+            }
+        }.getOrDefault(false)
+        if (ok) _changes.tryEmit(conversationId)
+        return ok
+    }
+
+    /**
      * 把 [sourceId] 的轮次复制成新对话 [targetId],复制到 [throughTurn](0 起,含在内)为止。
      * 源不存在、源文件损坏、[throughTurn] 越界、目标已有对话文件时返回 false,什么都不写。
      * [title] 非空白时写成新对话标题;[origin] 非空时写 `<targetId>.branch`。
@@ -539,6 +597,8 @@ class ConversationStore(
         persona(sourceId)?.let { setPersona(targetId, it.personaId) }
         projectId(sourceId)?.let { setProject(targetId, it) }
         origin?.let { writeBranchOrigin(targetId, it) }
+        // 分支是这个对话的延续:主模型覆盖也带过去(没有覆盖时目标保持默认)
+        settings(sourceId).main?.let { setSettings(targetId, ConversationSettings(it)) }
         return true
     }
 
@@ -694,7 +754,7 @@ class ConversationStore(
     /** 记忆删了或全部清除时:去掉指向这些条目的提示和「用到」记录;[ids] 为 null 时去掉全部。 */
     @Synchronized
     fun stripMemory(ids: Set<String>?) {
-        dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }.orEmpty().forEach { f ->
+        dir.listFiles { f -> f.isFile && f.name.endsWith(".json") && !f.name.endsWith(SETTINGS_SUFFIX) }.orEmpty().forEach { f ->
             val records = read(f) ?: return@forEach
             fun keep(id: String) = ids != null && id !in ids
             val stripped = records.map { (t, fs) -> t.copy(memoryNotes = t.memoryNotes.filter { keep(it.memoryId) }, usedMemory = t.usedMemory.filter(::keep)) to fs }
@@ -775,6 +835,8 @@ class ConversationStore(
 
         /** 人格切换记录最多留这么多条。 */
         private const val MAX_PERSONA_HISTORY = 50
+        /** 对话自己的运行设置(见 [settings]);不是一轮对话,不进 [list]。 */
+        private const val SETTINGS_SUFFIX = ".settings.json"
     }
 
     // id 来自 newConversation 或外部传入,只留安全字符,免得拼出目录外的路径
@@ -787,6 +849,7 @@ class ConversationStore(
     private fun restoreFile(id: String) = File(dir, "${safe(id)}.restored")
     private fun personaFile(id: String) = File(dir, "${safe(id)}.persona")
     private fun projectFile(id: String) = File(dir, "${safe(id)}.project")
+    private fun settingsFile(id: String) = File(dir, "${safe(id)}$SETTINGS_SUFFIX")
 
     /** 用户此刻在哪个对话,见 [CurrentChat];不是 `.json`,不进 [list]。 */
     private fun currentFile() = File(dir, "current")

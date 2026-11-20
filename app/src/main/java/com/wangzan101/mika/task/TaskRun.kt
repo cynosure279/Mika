@@ -60,6 +60,8 @@ import com.wangzan101.mika.core.model.ModelSession
 import com.wangzan101.mika.core.skills.SkillDrafter
 import com.wangzan101.mika.chat.ConversationStore
 import com.wangzan101.mika.memory.MemoryRuntime
+import com.wangzan101.mika.settings.MemorySwitches
+import com.wangzan101.mika.settings.ModelChoice
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.record.RunEvent
@@ -218,6 +220,8 @@ class TaskRun(
     private val env = TaskEnvironment.of(service)
     /** 这段对话对外的会话号:这次运行建的模型(主、轻量、看图,及核查、意图判断、停止交代等旁路)都用它。 */
     private val session = ModelSession.of(conversationId)
+    /** 这次任务开始时用的对话主模型覆盖;模型失败时据此提示是哪一家没测试通过。 */
+    @Volatile private var conversationMainChoice: ModelChoice? = null
     /** App 给的手机服务(共用的 shell 连接、「去设置」提示)、记忆、经验路线、异常退出后的恢复。 */
     private val phoneServices = PhoneServices.of(service)
     private val memoryRuntime = MemoryRuntime.of(service)
@@ -478,7 +482,7 @@ class TaskRun(
     /** 因模型失败、主模型在它那家还没测试通过时,提示去那家「重新测试」(见 [RetestHint])。测试换了主模型时不看设置里的配置。 */
     private fun withRetestHint(end: TaskState): TaskState {
         if (end !is TaskState.Failed || env.modelFactory !== TaskEnvironment.defaultModelFactory) return end
-        return RetestHint.apply(end, ProviderStore.get(service).untestedMainProvider()) { tr(R.string.fail_model_untested, it) }
+        return RetestHint.apply(end, ProviderStore.get(service).untestedMainProvider(conversationMainChoice)) { tr(R.string.fail_model_untested, it) }
     }
 
     /** execute 收尾用的本地状态;把 finally 拆成独立函数以缩小 execute 的 suspend 状态机(超大 suspend 函数会被 ART 校验器拒绝)。 */
@@ -608,17 +612,22 @@ class TaskRun(
             // 前一个任务替这个拿着的那份,自己的拿上了就放开
             wakeHandoff?.release()
             wakeHandoff = null
-            val model = env.modelFactory(service, session) ?: return TaskState.Failed(tr(R.string.fail_no_main_model), FailKind.Environment)
+            // 这个对话的主模型覆盖:只在任务开始时读一次,运行中改了也不影响这一件事(见 CHAT-MODEL-WORKSPACE-PLAN)
+            val mainChoice = withContext(Dispatchers.IO) {
+                runCatching { ConversationStore.shared(service).settings(conversationId).main }.getOrNull()
+            }.also { conversationMainChoice = it }
+            val model = env.mainModel(service, session, mainChoice)
+                ?: return TaskState.Failed(tr(R.string.fail_no_main_model), FailKind.Environment)
             // 用户在浏览器页上对着一页问的:那一页借给这个任务当当前网页标签(见 PageLoans);开跑时页面还开着才借得到
             val pageLoan = if (provenance.origin == RunOrigin.Ui) withContext(Dispatchers.Main) { UserBrowser.existing()?.claim(conversationId, key) } else null
-            val light = env.lightModelFactory(service, session)
+            val light = env.lightModel(service, session, mainChoice)
             val decision = env.decisionModel(service)
             // 同一模型分成两个实例并不会更便宜或更快;禁止它给批量/收尾工具反而只会增加改派和逐步操作。
             // 这只跳过逐步分工,轻量角色仍可用于意图判断、标题和收尾等辅助调用。
             val routedLight = light?.takeIf {
                 !ProviderStore.get(service).roles.value.sameModel(ModelRole.Main, ModelRole.Light)
             }
-            val vision = env.visionModelFactory(service, session)
+            val vision = env.visionModel(service, session, mainChoice)
             val visionFallbacks = env.visionFallbackFactory(service, session)
             val lightFallbacks = env.lightFallbackFactory(service, session)
 

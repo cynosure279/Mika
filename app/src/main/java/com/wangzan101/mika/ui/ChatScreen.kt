@@ -222,6 +222,8 @@ fun ChatScreen(
     openPlayback: (String) -> Unit = {},
     /** 人格选择器里的「管理人格」:打开设置里的人格页。 */
     onOpenPersonas: () -> Unit = {},
+    /** 模型面板里的「更多模型」:到设置里的模型页。 */
+    openModels: () -> Unit = {},
 ) {
     val checklistStore = checklists ?: (LocalContext.current.applicationContext as? MikaApp)?.savedChecklists
     val workflowRuntime = workflows ?: (LocalContext.current.applicationContext as? MikaApp)?.workflows
@@ -292,6 +294,7 @@ fun ChatScreen(
     var retryFailures by remember { mutableStateOf<Pair<String, String>?>(null) }
     var voiceHolding by remember { mutableStateOf(false) }
     var editRequest by remember { mutableIntStateOf(0) }
+    var modelSheet by rememberSaveable { mutableStateOf(false) }
     var composerHeight by rememberSaveable { mutableIntStateOf(0) }
     var topHeight by rememberSaveable { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -586,6 +589,8 @@ fun ChatScreen(
             steerTarget = null,
             onVoiceHolding = { voiceHolding = it },
             editRequest = editRequest,
+            mainModel = ui.mainModel,
+            onMainModelClick = { modelSheet = true },
             personaBar = if (personas.isNotEmpty() || ui.personaId != null) {
                 {
                     PersonaChip(
@@ -758,6 +763,15 @@ fun ChatScreen(
                     vm.editSteer(pending.id)?.let { editRequest++ }
                 } }) else null,
                 onWithdraw = pending?.let { n -> ({ closeMenu { vm.withdrawSteer(n.id) } }) },
+            )
+        }
+
+        if (modelSheet) {
+            MainModelSheet(
+                ui.mainModel,
+                onPick = vm::chooseMainModel,
+                onMore = openModels,
+                onDismiss = { modelSheet = false },
             )
         }
     }
@@ -1785,6 +1799,9 @@ internal fun Composer(
     draftKey: String? = null,
     /** 输入栏上方的人格 chip;为 null 时不显示。 */
     personaBar: (@Composable () -> Unit)? = null,
+    /** 这个对话的主模型入口;available 为 false 时不显示。 */
+    mainModel: MainModelUi? = null,
+    onMainModelClick: () -> Unit = {},
 ) {
     val c = MikaTheme.colors
     var fieldFocused by remember { mutableStateOf(false) }
@@ -1864,6 +1881,7 @@ internal fun Composer(
             .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
     ) {
         Column(Modifier.fillMaxWidth()) {
+            mainModel?.takeIf { it.available }?.let { MainModelChip(it, busy = mode != ComposerMode.Idle, onClick = onMainModelClick) }
             personaBar?.let { it() }
             FollowUpTray(
                 queued, active = mode != ComposerMode.Idle, canGuide = mode == ComposerMode.Busy, onGuide = onGuideQueued,

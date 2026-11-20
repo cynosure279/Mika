@@ -54,6 +54,7 @@ import com.wangzan101.mika.task.TaskService
 import com.wangzan101.mika.task.TaskCenterState
 import com.wangzan101.mika.teach.TeachRuntime
 import com.wangzan101.mika.ui.ChatViewModel
+import com.wangzan101.mika.ui.ProviderMainModelCatalog
 import com.wangzan101.mika.ui.TaskActions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -537,6 +538,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                 projectDeleter.delete(pid)
             },
             workspaceResolver = workspaceResolver,
+            // 对话页输入框上方的主模型 chip:选项和显示名都来自设置里的模型/组
+            mainModels = ProviderMainModelCatalog(com.wangzan101.mika.settings.ProviderStore.get(app)),
         )
     }
 

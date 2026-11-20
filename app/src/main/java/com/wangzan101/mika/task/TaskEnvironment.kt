@@ -4,6 +4,7 @@ import android.content.Context
 import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.model.ModelSession
+import com.wangzan101.mika.settings.ModelChoice
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.settings.DecisionSettings
 import com.wangzan101.mika.core.decision.DecisionModel
@@ -44,6 +45,24 @@ class TaskEnvironment {
     fun decisionModel(context: Context): DecisionModel? =
         if (modelFactory !== defaultModelFactory && decisionModelFactory === defaultDecisionModelFactory) null
         else decisionModelFactory(context)
+
+    /**
+     * 这个对话这一段要用的主模型:有对话覆盖时按覆盖解析,覆盖不可用回退设置。
+     * 测试换过 [modelFactory] 时仍然用测试的工厂(不碰设置里的真模型)。
+     */
+    fun mainModel(context: Context, session: ModelSession, override: ModelChoice?): ChatModel? =
+        if (modelFactory !== defaultModelFactory) modelFactory(context, session)
+        else ProviderStore.get(context).modelFor(ModelRole.Main, session, override)
+
+    /** 轻量模型;对话覆盖主模型时「用主模型」跟着覆盖走。测试工厂的处理同 [mainModel]。 */
+    fun lightModel(context: Context, session: ModelSession, override: ModelChoice?): ChatModel? =
+        if (lightModelFactory !== defaultLightModelFactory) lightModelFactory(context, session)
+        else ProviderStore.get(context).modelFor(ModelRole.Light, session, override)
+
+    /** 视觉模型;对话覆盖主模型时「用主模型」跟着覆盖走。测试工厂的处理同 [mainModel]。 */
+    fun visionModel(context: Context, session: ModelSession, override: ModelChoice?): ChatModel? =
+        if (visionModelFactory !== defaultVisionModelFactory) visionModelFactory(context, session)
+        else ProviderStore.get(context).modelFor(ModelRole.Vision, session, override)
 
     /** 评测跑器用的钩子;产品里全是默认值。 */
     val evalHooks = EvalHooks()
