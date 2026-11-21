@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="language_title">语言</string>
+    <string name="language_prompt_title">语言偏好</string>
+    <string name="language_prompt_hint">选择 Mika 进行思考、执行步骤旁白与回复的语言。</string>
+    <string name="language_search_hint">搜索语言</string>
+    <string name="language_prompt_confirm">确定</string>
+    <string name="language_prompt_dismiss">暂不设置</string>
     <string name="language_system">跟随系统</string>
     <string name="language_system_detail">系统语言 Mika 有译文时用它,没有时用英文</string>
     <string name="settings_language_appearance">语言与外观</string>
@@ -233,6 +238,12 @@
     <string name="settings_trigger_run_limit">定时任务最长运行时间</string>
     <string name="settings_trigger_run_limit_sub">定时任务跑的时候没人看着。关着表示不限制；到时间任务会停下，并说明是超时。</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="other">%1$d 分钟</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">每个任务的沙箱时间上限</string>
+    <string name="settings_sandbox_budget_sub">一个任务里沙箱命令累计最多能跑多久（装依赖、编译这类活）。默认 30 分钟；改了之后下一个任务起生效。</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="other">%1$d 分钟</item>
     </plurals>
 </resources>

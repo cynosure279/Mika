@@ -3,6 +3,11 @@
     <string name="settings_personal_start">啟動時開啟個人助理</string>
     <string name="settings_personal_start_sub">將個人助理設為 Mika 的起始畫面</string>
     <string name="language_title">語言</string>
+    <string name="language_prompt_title">語言偏好</string>
+    <string name="language_prompt_hint">選擇 Mika 進行思考、執行步驟旁白與回覆的語言。</string>
+    <string name="language_search_hint">搜尋語言</string>
+    <string name="language_prompt_confirm">確定</string>
+    <string name="language_prompt_dismiss">暫不設定</string>
     <string name="language_system">跟隨系統</string>
     <string name="language_system_detail">系統語言 Mika 有譯文時用它,沒有時用英文</string>
     <string name="settings_language_appearance">語言與外觀</string>
@@ -233,6 +238,12 @@
     <string name="settings_trigger_run_limit">定時任務最長執行時間</string>
     <string name="settings_trigger_run_limit_sub">定時任務執行時沒人看著。關著表示不限制；到時間任務會停下，並說明是逾時。</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="other">%1$d 分鐘</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">每個任務的沙箱時間上限</string>
+    <string name="settings_sandbox_budget_sub">一個任務裡沙箱命令累計最多能跑多久（裝依賴、編譯這類活）。預設 30 分鐘；改了之後下一個任務起生效。</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="other">%1$d 分鐘</item>
     </plurals>
 </resources>

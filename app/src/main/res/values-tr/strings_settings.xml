@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="language_title">Dil</string>
+    <string name="language_prompt_title">Dil</string>
+    <string name="language_prompt_hint">Mika\'nın düşünmek, adımları açıklamak ve yanıt vermek için kullanacağı dili seçin.</string>
+    <string name="language_search_hint">Dil ara</string>
+    <string name="language_prompt_confirm">Onayla</string>
+    <string name="language_prompt_dismiss">Şimdi değil</string>
     <string name="language_system">Sistemi takip et</string>
     <string name="language_system_detail">Mika\'da varsa sistem dilinizi kullanır, yoksa İngilizce</string>
     <string name="settings_language_appearance">Dil ve görünüm</string>
@@ -233,6 +238,12 @@
     <string name="settings_trigger_run_limit">Zamanlanmış görevler için süre sınırı</string>
     <string name="settings_trigger_run_limit_sub">Zamanlanmış görevler siz uzaktayken çalışır. Kapalı, sınırsız demektir; süre dolduğunda görev durur ve süresinin bittiğini söyler.</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="other">%1$d dakika</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">Görev başına bilgi işlem ortamı süre sınırı</string>
+    <string name="settings_sandbox_budget_sub">Bir görevde ortam komutlarının toplam çalışma süresi (bağımlılık kurma, derleme gibi). Varsayılan 30 dakika; değişiklik sonraki görevden itibaren geçerli olur.</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="other">%1$d dakika</item>
     </plurals>
 </resources>

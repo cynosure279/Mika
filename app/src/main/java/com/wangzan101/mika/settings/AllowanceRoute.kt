@@ -32,6 +32,7 @@ internal data class AllowanceRoute(
                 "Kimi" -> AllowanceRoute(AllowanceSource.Kimi, "https://platform.kimi.com/console/account")
                 "硅基流动" -> AllowanceRoute(AllowanceSource.SiliconFlow, "https://cloud.siliconflow.cn/expensebill")
                 "OpenRouter" -> AllowanceRoute(AllowanceSource.OpenRouter, "https://openrouter.ai/settings/credits")
+                "OpenDesign Go" -> AllowanceRoute(dashboard = "https://open-design.ai/cloud/dashboard")
                 "通义千问" -> AllowanceRoute(dashboard = "https://bailian.console.aliyun.com/")
                 "智谱" -> AllowanceRoute(dashboard = "https://bigmodel.cn/finance/overview")
                 "智谱 Coding Plan" -> AllowanceRoute(dashboard = "https://www.bigmodel.cn/usercenter/glm-coding/usage")
@@ -47,6 +48,7 @@ internal data class AllowanceRoute(
                 "xAI" -> AllowanceRoute(dashboard = "https://console.x.ai/")
                 "Mistral" -> AllowanceRoute(dashboard = "https://admin.mistral.ai/organization/usage")
                 "Groq" -> AllowanceRoute(dashboard = "https://console.groq.com/settings/billing")
+                "Cloudflare Workers AI" -> AllowanceRoute(dashboard = "https://dash.cloudflare.com/")
                 else -> AllowanceRoute()
             }
         }

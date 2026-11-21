@@ -3,6 +3,11 @@
     <string name="settings_personal_start">Buka asisten pribadi saat aplikasi dimulai</string>
     <string name="settings_personal_start_sub">Jadikan asisten pribadi sebagai layar awal Mika</string>
     <string name="language_title">Bahasa</string>
+    <string name="language_prompt_title">Bahasa</string>
+    <string name="language_prompt_hint">Pilih bahasa yang digunakan Mika untuk berpikir, narasi langkah, dan menjawab.</string>
+    <string name="language_search_hint">Cari bahasa</string>
+    <string name="language_prompt_confirm">Konfirmasi</string>
+    <string name="language_prompt_dismiss">Nanti saja</string>
     <string name="language_system">Ikuti sistem</string>
     <string name="language_system_detail">Memakai bahasa sistem Anda jika Mika mendukungnya, jika tidak memakai bahasa Inggris</string>
     <string name="settings_language_appearance">Bahasa &amp; tampilan</string>
@@ -233,6 +238,12 @@
     <string name="settings_trigger_run_limit">Batas waktu tugas terjadwal</string>
     <string name="settings_trigger_run_limit_sub">Tugas terjadwal berjalan saat Anda tidak memantau. Mati berarti tanpa batas; saat waktunya habis, tugas berhenti dan menjelaskan bahwa waktunya habis.</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="other">%1$d menit</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">Batas waktu lingkungan komputasi per tugas</string>
+    <string name="settings_sandbox_budget_sub">Total waktu menjalankan perintah lingkungan dalam satu tugas (memasang dependensi, build, dan sejenisnya). Default 30 menit; perubahan berlaku mulai tugas berikutnya.</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="other">%1$d menit</item>
     </plurals>
 </resources>

@@ -54,7 +54,8 @@ internal class ModelCaller(
     private val compressors = java.util.IdentityHashMap<ChatModel, ContextCompressor>()
     private fun compressorFor(m: ChatModel) =
         compressors.getOrPut(m) { ContextCompressor(tools.index, structured = flags.structuredCompaction,
-            diffScreens = tools.inlineScreen, triggerOverride = m.capabilities.compactionTriggerTokens) }
+            diffScreens = tools.inlineScreen, triggerOverride = m.capabilities.compactionTriggerTokens,
+            foldEvery = m.capabilities.compactionEveryRounds) }
     private val compactions = java.util.IdentityHashMap<ChatModel, CompactionState>()
     /** 本任务里已为重试等过的时间(对着 [RetryPolicy.taskWaitBudgetMs])。 */
     private var taskRetryWaitMs = 0L
@@ -77,7 +78,7 @@ internal class ModelCaller(
     /** 插件提示词钩子:拼好的系统提示词发模型前过它;为 null 时原样发。 */
     var promptTransform: (suspend (String) -> String)? = null
 
-    /** 最近一次调用在成功那次请求之前花掉的时间(失败的请求、退避、换成员)。 */
+    /** 最近一次调用在成功那次请求之前花掉的时间(失败的请求、退避、换成员);从第一次真正发出请求起算。 */
     var lastRetryWaitMs = 0L
         private set
 
@@ -248,6 +249,9 @@ internal class ModelCaller(
     private fun belongsTo(to: ChatModel, from: ChatModel): Boolean =
         (to as? ModelPool)?.owns(from) ?: (to === from)
 
+    /** 一次调用里第一次真正发出请求的时刻;换成员后也保留,等待时长从它起算。 */
+    private class AttemptClock { var firstAttemptAt: Long? = null }
+
     /**
      * 一次调用:按策略排好成员,逐个尝试;成功返回回复和实际用的模型。
      * 组里有多个候选时,同一成员最多只重试一次,把机会留给下一个;单模型保持原来的重试次数。
@@ -256,18 +260,18 @@ internal class ModelCaller(
         history: List<Message>, specs: List<ToolSpec>, pool: ModelPool, policy: RetryPolicy, step: Int,
         onText: ((String) -> Unit)? = null,
     ): Pair<ModelReply, ChatModel> {
-        val began = now()
         lastRetryWaitMs = 0
         // 单模型池不看选择条件:不必为它整份估算历史(长对话下这一步很贵)
         val candidates = if (pool is SingleMemberPool) pool.members else pool.ordered(needOf(history, specs))
         if (candidates.isEmpty()) throw ModelError.GroupUnavailable(pool.groupName ?: "", "没有可用成员")
+        val clock = AttemptClock()
         var last: Throwable? = null
         for ((index, member) in candidates.withIndex()) {
             val using = member.model
             val memberBegan = now()
             try {
                 val reply = attemptMember(
-                    viewFor(history, using), specs, using, policy, step, onText, began,
+                    viewFor(history, using), specs, using, policy, step, onText, clock,
                     maxRetries = if (candidates.size > 1) minOf(policy.maxRetries, 1) else policy.maxRetries,
                 )
                 pool.noteResult(member, now() - memberBegan, null)
@@ -297,7 +301,7 @@ internal class ModelCaller(
     /** 对 [using] 的一次完整尝试:压缩、发请求、同成员重试、超长再压。 */
     private suspend fun attemptMember(
         history: List<Message>, specs: List<ToolSpec>, using: ChatModel, policy: RetryPolicy, step: Int,
-        onText: ((String) -> Unit)?, began: Long, maxRetries: Int,
+        onText: ((String) -> Unit)?, clock: AttemptClock, maxRetries: Int,
     ): ModelReply {
         var retries = 0
         val overhead = TokenEstimate.of(systemPrompt) + specs.sumOf { TokenEstimate.of(it.name + it.description + it.parametersJsonSchema) }
@@ -322,8 +326,10 @@ internal class ModelCaller(
                 if (tools.inlineScreen) tools.setVisibleObservations(visibleReads(sent.messages))
                 // 撞过 429 的话等全局冷却窗口过去再发(不在冷却立即返回,零开销)
                 RateLimitGovernor.awaitClear(using.name)
-                // 这一次之前花掉的(失败的请求、退避、换成员)都算重试等待
-                lastRetryWaitMs = now() - began
+                // 从第一次发出请求起算:失败的请求、退避和换成员都算重试等待,第一次发出之前的准备不算
+                val sentAt = now()
+                lastRetryWaitMs = clock.firstAttemptAt?.let { sentAt - it } ?: 0L
+                if (clock.firstAttemptAt == null) clock.firstAttemptAt = sentAt
                 suspend fun invokeModel(): ModelReply {
                     val prompt = promptTransform?.invoke(systemPrompt) ?: systemPrompt
                     return if (onText == null) using.complete(prompt, sent.messages, specs)

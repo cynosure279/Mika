@@ -3,6 +3,11 @@
     <string name="settings_personal_start">Abrir el asistente personal al iniciar</string>
     <string name="settings_personal_start_sub">Usar el asistente personal como pantalla inicial de Mika</string>
     <string name="language_title">Idioma</string>
+    <string name="language_prompt_title">Idioma</string>
+    <string name="language_prompt_hint">Elige el idioma que Mika utilizará para pensar, narrar pasos y responder.</string>
+    <string name="language_search_hint">Buscar idioma</string>
+    <string name="language_prompt_confirm">Confirmar</string>
+    <string name="language_prompt_dismiss">Ahora no</string>
     <string name="language_system">Seguir el sistema</string>
     <string name="language_system_detail">Usa el idioma del sistema si Mika lo tiene; si no, inglés</string>
     <string name="settings_language_appearance">Idioma y apariencia</string>
@@ -243,6 +248,14 @@
     <string name="settings_trigger_run_limit">Tiempo máximo de las tareas programadas</string>
     <string name="settings_trigger_run_limit_sub">Las tareas programadas se ejecutan sin que estés pendiente. Desactivado significa sin límite; al acabarse el tiempo, la tarea se detiene e indica que se agotó el tiempo.</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="one">%1$d minuto</item>
+        <item quantity="many">%1$d minutos</item>
+        <item quantity="other">%1$d minutos</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">Límite de tiempo del entorno de cómputo por tarea</string>
+    <string name="settings_sandbox_budget_sub">Tiempo total que los comandos del entorno pueden ejecutarse en una tarea (instalar dependencias, compilar y similares). El predeterminado es 30 minutos; el cambio se aplica a partir de la siguiente tarea.</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="one">%1$d minuto</item>
         <item quantity="many">%1$d minutos</item>
         <item quantity="other">%1$d minutos</item>

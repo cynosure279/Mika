@@ -84,13 +84,13 @@ class ToolRiskTest {
 
     @Test fun readCallsRefuseWhatTheOldListsRefused() = runTest {
         val refused = oldWriting + oldSandbox + WEB_SCRIPT_TOOL +
-            setOf("phone_find", "phone_collect", "phone_dialog", "phone_run", "phone_system_command", "phone_calendar_bulk_insert", "schedule_task", "spawn_agent", "settings_set", "root_run_command", "web_search",
+            setOf("phone_find", "phone_collect", "phone_dialog", "phone_run", "do_each", "phone_system_command", "phone_calendar_bulk_insert", "schedule_task", "spawn_agent", "settings_set", "root_run_command", "web_search",
                 "mika_open_screen", "mika_open_file", "mika_notify", "mika_copy",
                 "mika_open_in_browser", "mika_search_in_browser", "mika_login_site", "mika_confirm_login", "mika_favorites",
                 "phone_call_state", "phone_call_dial", "phone_call_answer", "phone_call_hangup", "phone_call_takeover",
                 "list_device_files", "copy_device_file", "search_device_files", "list_device_directory_hints", "update_device_directory_description",
                 "audio_generate", "audio_save", "audio_transcribe", "speak",
-                "image_generate", "image_edit", "image_save")
+                "image_generate", "image_edit", "image_save", "wechat_send_owner")
         assertEquals(refused, allTools().filter { !it.readOnly }.map { it.name }.toSet())
         // root 命令、通话工具都只在给了端口时登记:各给一个,所有工具都在
         val d = toolDispatcher(FakeScreen(), audio = NoAudioPort, audioSaveEnabled = true, audioSpeakTool = true, transcribe = NoTranscribePort,
@@ -106,6 +106,8 @@ class ToolRiskTest {
             override suspend fun answer(callId: String) = JsonObject(emptyMap())
             override suspend fun hangup(callId: String) = JsonObject(emptyMap())
             override suspend fun takeover() = JsonObject(emptyMap())
+        }, wechatOwner = com.wangzan101.mika.core.wechat.WechatOwnerPort {
+            com.wangzan101.mika.core.wechat.WechatOwnerResult(com.wangzan101.mika.core.wechat.WechatOwnerResult.Status.Unavailable)
         })
         for (name in names) {
             val r = d.executeRead(Part.ToolCall("c", name, "{}")).content

@@ -16,6 +16,7 @@ import com.wangzan101.mika.i18n.trPlural
 import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,6 +40,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import com.wangzan101.mika.ui.components.MikaDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,6 +55,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -59,6 +64,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wangzan101.mika.core.model.ApiKeyText
@@ -69,6 +75,7 @@ import com.wangzan101.mika.settings.DecisionSettings
 import com.wangzan101.mika.settings.ModelOption
 import com.wangzan101.mika.settings.ModelOptions
 import com.wangzan101.mika.settings.ProviderConfig
+import com.wangzan101.mika.settings.ProviderKeySites
 import com.wangzan101.mika.settings.ProviderPresets
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.settings.RoleChoice
@@ -160,33 +167,82 @@ fun ModelSetupScreen(
     val provider = openProvider?.let { id -> ui.providers.firstOrNull { it.id == id } }
     val role = picking
     val actions = ModelSetupActions(
-        selectPreset = vm::selectPreset, setKind = vm::setKind, setBaseUrl = vm::setBaseUrl, setApiKey = vm::setApiKey,
+        selectPreset = vm::selectPreset, setKind = vm::setKind, setBaseUrl = vm::setBaseUrl, setAccountId = vm::setAccountId, setApiKey = vm::setApiKey,
         setModel = vm::setModel, setManual = vm::setManual, setName = vm::setName,
         testAndSave = vm::testAndSave, saveUntested = vm::saveWithoutTest,
         openForm = vm::openForm, closeForm = vm::closeForm,
-        openProvider = { openProvider = it; allModels = false; showProviders = false }, pickRole = { picking = it },
+        // 从服务商页面进详情时留着 showProviders:返回落回服务商页面,不是模型页
+        openProvider = { openProvider = it; allModels = false }, pickRole = { picking = it },
         pickFallback = { pickingFallbackRole = ModelRole.Main; pickingFallbackSlot = it },
         pickRoleFallback = { r, s -> pickingFallbackRole = r; pickingFallbackSlot = s },
+        clearFallback = vm::clearFallback,
         openProviders = { showProviders = true },
         openGroups = { groupsOpen = true },
         next = onDone, openSpeech = onOpenSpeech, openVoice = onOpenVoice, openUsage = onOpenUsage,
         openDecision = { openDecision = true }, openSignIn = { signInSheet = it },
         setReasoningEffort = vm::setReasoningEffort, setModelContext = vm::setModelContext,
     )
-    when {
-        openDecision -> JevSettingsScreen(remember { DecisionSettings.get(context) }, onBack = { openDecision = false })
-        groupEditing != null -> {
-            BackHandler { groupEditing = null }
-            ModelGroupEditorScreen(
-                ui, groupEditing?.takeIf { it.isNotEmpty() },
-                onBack = { groupEditing = null },
-                onSave = { vm.saveGroup(it) },
-                onDelete = { vm.deleteGroup(it) },
-                ensureConfig = { p, m -> vm.ensureConfig(p, m) },
-                onSetContext = vm::setModelContext,
-            )
+    // 内部子页:标识稳定(换数据不重演动画)、带着层级(决定滑动方向)
+    val subPage: ModelSubPage = when {
+        openDecision -> ModelSubPage.Decision
+        groupEditing != null -> ModelSubPage.GroupEdit(groupEditing ?: "")
+        groupsOpen -> ModelSubPage.Groups
+        provider != null && allModels -> ModelSubPage.AllModels(provider.id, showProviders)
+        provider != null -> ModelSubPage.Detail(provider.id, showProviders)
+        showProviders -> ModelSubPage.Providers
+        pickingFallbackSlot != null -> ModelSubPage.FallbackPick(pickingFallbackRole ?: ModelRole.Main, pickingFallbackSlot!!)
+        role != null -> ModelSubPage.RolePick(role)
+        else -> ModelSubPage.Main
+    }
+    // 换页动画期间旧页还在渲染:服务商刚删掉时详情页也能从缓存里拿到数据画完退出
+    var heldProviders by remember { mutableStateOf(ui.providers) }
+    if (ui.providers.isNotEmpty()) heldProviders = ui.providers
+    NavSlide(subPage, depth = { it.depth }) { page ->
+    when (page) {
+        is ModelSubPage.Decision -> JevSettingsScreen(remember { DecisionSettings.get(context) }, onBack = { openDecision = false })
+        is ModelSubPage.Detail, is ModelSubPage.AllModels -> {
+            val pid = if (page is ModelSubPage.Detail) page.id else (page as ModelSubPage.AllModels).id
+            val p = ui.providers.firstOrNull { it.id == pid } ?: heldProviders.firstOrNull { it.id == pid }
+            if (p != null) {
+                LaunchedEffect(p.id) { vm.ensureListed() }
+                val accountKind = when {
+                    p.kind == ProviderConfig.Kind.Xai -> SignInKind.Xai
+                    p.signIn == ProviderStore.OPENROUTER_SIGN_IN -> SignInKind.OpenRouter
+                    else -> null
+                }
+                val detailActions = ProviderDetailActions(
+                    refresh = { vm.refresh(p.id) }, changeKey = { vm.changeKey(p.id, it) },
+                    addKey = { vm.addProviderKey(p.id, it) },
+                    removeKey = { vm.removeProviderKey(p.id, it) },
+                    remove = { vm.removeProvider(p.id); openProvider = null; allModels = false },
+                    use = { r, model -> vm.pick(r, p.id, model) },
+                    setVision = { model, sees -> vm.setModelVision(p.id, model, sees) },
+                    setServiceTier = { model, tier -> vm.setModelServiceTier(p.id, model, tier) },
+                    showAll = { allModels = true },
+                    retest = { vm.retest(p.id) },
+                    // ChatGPT 照旧直接去浏览器登录;xAI、OpenRouter 先打开说明面板
+                    signIn = { if (accountKind != null) signInSheet = accountKind else vm.signInWithChatGpt() },
+                    signOut = { if (accountKind != null) vm.signOutAccount(p.id) else vm.signOutChatGpt(p.id) },
+                    manageUsage = {
+                        openInBrowser(context, when (accountKind) {
+                            SignInKind.Xai -> ModelsCopy.ACCOUNT_MANAGE_URL
+                            SignInKind.OpenRouter -> OpenRouterAuth.KEYS_PAGE
+                            else -> ChatGptAuth.USAGE_URL
+                        })
+                    },
+                    useAsMain = { vm.useAsMain(p.id) },
+                    setDailyBudget = { vm.setDailyTokenBudget(p.id, it) },
+                )
+                if (page is ModelSubPage.AllModels) {
+                    BackHandler { allModels = false }
+                    AllModelsContent(ui, p, detailActions, onBack = { allModels = false })
+                } else {
+                    BackHandler { openProvider = null }
+                    ProviderDetailContent(ui, p, detailActions, onBack = { openProvider = null })
+                }
+            }
         }
-        groupsOpen -> {
+        is ModelSubPage.Groups -> {
             BackHandler { groupsOpen = false }
             ModelGroupsScreen(
                 ui, onBack = { groupsOpen = false },
@@ -194,50 +250,28 @@ fun ModelSetupScreen(
                 onEdit = { groupEditing = it },
             )
         }
-        provider != null -> {
-            LaunchedEffect(provider.id) { vm.ensureListed() }
-            val accountKind = when {
-                provider.kind == ProviderConfig.Kind.Xai -> SignInKind.Xai
-                provider.signIn == ProviderStore.OPENROUTER_SIGN_IN -> SignInKind.OpenRouter
-                else -> null
-            }
-            val actions = ProviderDetailActions(
-                refresh = { vm.refresh(provider.id) }, changeKey = { vm.changeKey(provider.id, it) },
-                addKey = { vm.addProviderKey(provider.id, it) },
-                removeKey = { vm.removeProviderKey(provider.id, it) },
-                remove = { vm.removeProvider(provider.id); openProvider = null; allModels = false },
-                use = { r, model -> vm.pick(r, provider.id, model) },
-                setVision = { model, sees -> vm.setModelVision(provider.id, model, sees) },
-                showAll = { allModels = true },
-                retest = { vm.retest(provider.id) },
-                // ChatGPT 照旧直接去浏览器登录;xAI、OpenRouter 先打开说明面板
-                signIn = { if (accountKind != null) signInSheet = accountKind else vm.signInWithChatGpt() },
-                signOut = { if (accountKind != null) vm.signOutAccount(provider.id) else vm.signOutChatGpt(provider.id) },
-                manageUsage = {
-                    openInBrowser(context, when (accountKind) {
-                        SignInKind.Xai -> ModelsCopy.ACCOUNT_MANAGE_URL
-                        SignInKind.OpenRouter -> OpenRouterAuth.KEYS_PAGE
-                        else -> ChatGptAuth.USAGE_URL
-                    })
-                },
-                useAsMain = { vm.useAsMain(provider.id) },
-                setDailyBudget = { vm.setDailyTokenBudget(provider.id, it) },
+        is ModelSubPage.GroupEdit -> {
+            BackHandler { groupEditing = null }
+            ModelGroupEditorScreen(
+                ui, page.id.takeIf { it.isNotEmpty() },
+                onBack = { groupEditing = null },
+                onSave = { vm.saveGroup(it) },
+                onDelete = { vm.deleteGroup(it) },
+                ensureConfig = { p, m -> vm.ensureConfig(p, m) },
+                onSetContext = vm::setModelContext,
             )
-            if (allModels) {
-                BackHandler { allModels = false }
-                AllModelsContent(ui, provider, actions, onBack = { allModels = false })
-            } else {
-                BackHandler { openProvider = null }
-                ProviderDetailContent(ui, provider, actions, onBack = { openProvider = null })
+        }
+        is ModelSubPage.Providers -> {
+            BackHandler { showProviders = false }
+            Page(ModelsCopy.PROVIDERS, onBack = { showProviders = false }) {
+                ProvidersSection(ui, actions)
+                // 各服务商的当前额度跟着服务商走,不放在 Token 用量页
+                UsageAllowanceCard(ui.providers, store, onOpenUrl = { openInBrowser(context, it) })
             }
         }
-        showProviders -> {
-            BackHandler { showProviders = false }
-            Page(ModelsCopy.PROVIDERS, onBack = { showProviders = false }) { ProvidersSection(ui, actions) }
-        }
-        pickingFallbackSlot != null -> {
-            val role = pickingFallbackRole ?: ModelRole.Main
-            val slot = pickingFallbackSlot!!
+        is ModelSubPage.FallbackPick -> {
+            val role = page.role
+            val slot = page.slot
             BackHandler { pickingFallbackSlot = null; pickingFallbackRole = null }
             LaunchedEffect(role, slot) { vm.ensureListed(); vm.clearManualPick() }
             RolePickerContent(
@@ -265,7 +299,8 @@ fun ModelSetupScreen(
                 clearSelected = ui.roles.fallbacks(role).getOrNull(slot) == null,
             )
         }
-        role != null -> {
+        is ModelSubPage.RolePick -> {
+            val role = page.role
             BackHandler { picking = null }
             LaunchedEffect(role) { vm.ensureListed(); vm.clearManualPick() }
             RolePickerContent(
@@ -285,11 +320,12 @@ fun ModelSetupScreen(
                 onBack = { picking = null },
             )
         }
-        else -> {
+        is ModelSubPage.Main -> {
             if (ui.chatGptWelcome) ChatGptWelcome(vm::dismissChatGptWelcome)
             BackHandler(onBack = onBack)
             ModelSetupContent(ui, onboarding, actions, onBack)
         }
+    }
     }
 
     signInSheet?.let { kind ->
@@ -315,11 +351,29 @@ fun ModelSetupScreen(
     }
 }
 
+/**
+ * 模型页内部的子页:标识用稳定值(服务商 id、用途、槽位),数据变了不重演换页动画;
+ * [depth] 决定滑动方向——主页 0,服务商列表和各选择页 1,详情 1(主页直进)或 2(从服务商列表进),全部模型再深一层。
+ */
+private sealed class ModelSubPage(val depth: Int) {
+    data object Main : ModelSubPage(0)
+    data object Decision : ModelSubPage(1)
+    data object Providers : ModelSubPage(1)
+    data object Groups : ModelSubPage(1)
+    /** id 为空串表示新建组。 */
+    data class GroupEdit(val id: String) : ModelSubPage(2)
+    data class Detail(val id: String, val fromProviders: Boolean) : ModelSubPage(if (fromProviders) 2 else 1)
+    data class AllModels(val id: String, val fromProviders: Boolean) : ModelSubPage(if (fromProviders) 3 else 2)
+    data class FallbackPick(val role: ModelRole, val slot: Int) : ModelSubPage(1)
+    data class RolePick(val role: ModelRole) : ModelSubPage(1)
+}
+
 /** 主页面上的全部动作。 */
 class ModelSetupActions(
     val selectPreset: (String) -> Unit = {},
     val setKind: (ProviderConfig.Kind) -> Unit = {},
     val setBaseUrl: (String) -> Unit = {},
+    val setAccountId: (String) -> Unit = {},
     val setApiKey: (String) -> Unit = {},
     val setModel: (String) -> Unit = {},
     /** 「手动填写模型名」的开和收。 */
@@ -334,6 +388,7 @@ class ModelSetupActions(
     val pickRole: (ModelRole) -> Unit = {},
     val pickFallback: (Int) -> Unit = {},
     val pickRoleFallback: (ModelRole, Int) -> Unit = { _, _ -> },
+    val clearFallback: (ModelRole, Int) -> Unit = { _, _ -> },
     /** 打开「服务商」页(已连接的服务商 + 添加表单)。 */
     val openProviders: () -> Unit = {},
     /** 打开「语音转文字」的选择页;为 null 时不显示这张卡(上手流程)。 */
@@ -416,9 +471,9 @@ fun ModelSetupContent(ui: ModelSetupUi, onboarding: Boolean, actions: ModelSetup
                                 first = true, onClick = openDecision) { RowChevron() }
                         }
                     }
-                    FallbackSection(ui, ModelRole.Main, actions.pickRoleFallback)
-                    FallbackSection(ui, ModelRole.Vision, actions.pickRoleFallback)
-                    FallbackSection(ui, ModelRole.Light, actions.pickRoleFallback)
+                    FallbackSection(ui, ModelRole.Main, actions.pickRoleFallback, actions.clearFallback)
+                    FallbackSection(ui, ModelRole.Vision, actions.pickRoleFallback, actions.clearFallback)
+                    FallbackSection(ui, ModelRole.Light, actions.pickRoleFallback, actions.clearFallback)
                 }
                 Spacer(Modifier.height(16.dp))
             }
@@ -516,7 +571,48 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
                 }
             }
         }
-        if (f.urlEditable) {
+        if (f.isCloudflare) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 10.dp, bottom = 4.dp)
+            ) {
+                Text(
+                    stringResource(R.string.model_setup_account_id),
+                    style = MikaType.Body, color = c.ink,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(c.fill, MikaShapes.Button)
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    if (f.accountId.isEmpty()) {
+                        Text(
+                            stringResource(R.string.model_setup_account_id_placeholder),
+                            style = MikaType.Body, color = c.ink3,
+                        )
+                    }
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = f.accountId,
+                        onValueChange = actions.setAccountId,
+                        modifier = Modifier.fillMaxWidth().testTag("setup-account-id"),
+                        singleLine = true,
+                        textStyle = MikaType.Body.copy(
+                            color = c.ink,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        ),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(c.accent),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = KeyboardType.Ascii,
+                            autoCorrectEnabled = false,
+                        ),
+                    )
+                }
+            }
+        } else if (f.urlEditable) {
             InputRow(
                 ModelSetupCopy.BASE_URL, f.baseUrl, actions.setBaseUrl, "https://…", first = !f.isCustom,
                 keyboard = KeyboardType.Uri, modifier = Modifier.testTag("setup-base-url"),
@@ -608,6 +704,15 @@ private fun AddProviderForm(ui: ModelSetupUi, actions: ModelSetupActions) {
                     "1 key ready",
                     Modifier.padding(top = 6.dp),
                     style = MikaType.Caption, color = c.ok,
+                )
+            }
+            // 按地址认得出服务商时,给官方 Key 申请页的直达链接;认不出不显示
+            ProviderKeySites.forBaseUrl(f.baseUrl)?.let { url ->
+                val context = LocalContext.current
+                Text(
+                    ModelSetupCopy.KEY_WEBSITE,
+                    Modifier.padding(top = 6.dp).clickable { openInBrowser(context, url) }.testTag("setup-key-website"),
+                    style = MikaType.Caption, color = c.accent,
                 )
             }
             Spacer(Modifier.height(10.dp))
@@ -810,36 +915,295 @@ private fun ImageModelSection(ui: ModelSetupUi, onImage: (() -> Unit)?) {
 
 /** Backup models for a role: seamless failover if the primary model hits limits or goes down. */
 @Composable
-private fun FallbackSection(ui: ModelSetupUi, role: ModelRole = ModelRole.Main, onPickFallback: (ModelRole, Int) -> Unit) {
-    val fallbacks = ui.roles.fallbacks(role)
-    val slots = minOf(fallbacks.size + 1, com.wangzan101.mika.settings.MAX_FALLBACKS)
-    val roleLabel = when (role) {
-        ModelRole.Main   -> "Main"
-        ModelRole.Vision -> "Vision"
-        ModelRole.Light  -> "Light"
+private fun FallbackSection(
+    ui: ModelSetupUi,
+    role: ModelRole = ModelRole.Main,
+    onPickFallback: (ModelRole, Int) -> Unit,
+    onClearFallback: (ModelRole, Int) -> Unit,
+) {
+    val shouldShow = when (role) {
+        ModelRole.Main -> ui.roles.main != null
+        ModelRole.Vision -> ui.roles.vision is RoleChoice.Model
+        ModelRole.Light -> ui.roles.light is RoleChoice.Model
     }
+    if (!shouldShow) return
+
+    val fallbacks = ui.roles.fallbacks(role)
+    val maxBackups = com.wangzan101.mika.settings.MAX_FALLBACKS
+    val roleLabel = ModelsCopy.roleLabel(role)
     val hasAny = fallbacks.isNotEmpty()
-    GroupLabel(
-        if (hasAny) "$roleLabel Model Backups  ·  ${fallbacks.size} active"
-        else "$roleLabel Model Backups"
-    )
+    var expanded by rememberSaveable(role.name) { mutableStateOf(false) }
+    var removingSlot by rememberSaveable(role.name) { mutableStateOf<Int?>(null) }
+    val c = MikaTheme.colors
+
     GroupCard {
-        for (slot in 0 until slots) {
-            val isFilled = slot < fallbacks.size
-            val label = if (isFilled) "Backup Model ${slot + 1}" else "+ Add Backup Model"
-            RoleCard(
-                ModelsCopy.FALLBACK_ICON,
-                label,
-                ModelsCopy.fallbackLine(ui, role, slot),
-                first = slot == 0,
-                tag = "role-fallback-${role.name.lowercase()}-$slot",
+        // Collapsible Header Row - sleek and compact
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                Modifier
+                    .size(36.dp)
+                    .background(if (hasAny) c.accent.copy(alpha = 0.12f) else c.neutralSoft, MikaShapes.Tile),
+                contentAlignment = Alignment.Center,
             ) {
-                onPickFallback(role, slot)
+                Icon(
+                    ModelsCopy.FALLBACK_ICON,
+                    contentDescription = null,
+                    tint = if (hasAny) c.accent else c.ink3,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Column(Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.model_fallback_chain_title, roleLabel),
+                        style = MikaType.BodyStrong,
+                        color = c.ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (hasAny) {
+                        Box(
+                            Modifier
+                                .background(c.accent.copy(alpha = 0.12f), MikaShapes.Pill)
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                stringResource(R.string.model_fallback_active_count, fallbacks.size),
+                                style = MikaType.Micro.copy(fontWeight = FontWeight.SemiBold),
+                                color = c.accent,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+                val previewText = if (expanded) {
+                    stringResource(R.string.model_fallback_collapse_hint)
+                } else if (hasAny) {
+                    val primarySnippet = ui.configFor(role)?.model?.substringAfterLast('/') ?: "Primary"
+                    val fallbackSnippets = fallbacks.mapNotNull { id ->
+                        ui.configs.firstOrNull { it.id == id }?.model?.substringAfterLast('/')
+                    }
+                    (listOf(primarySnippet) + fallbackSnippets).joinToString(" ➔ ")
+                } else {
+                    stringResource(R.string.model_fallback_empty_preview)
+                }
+                Text(
+                    previewText,
+                    Modifier.padding(top = 2.dp),
+                    style = MikaType.Caption,
+                    color = c.ink3,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Icon(
+                MikaIcons.Chevron,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = c.ink3,
+                modifier = Modifier
+                    .size(16.dp)
+                    .rotate(if (expanded) 90f else 0f),
+            )
+        }
+
+        // Expanded Interactive Chain - nested inside an indented tray card
+        if (expanded) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp)
+                    .background(c.fill, MikaShapes.Card)
+                    .border(0.5.dp, c.edge, MikaShapes.Card)
+                    .clip(MikaShapes.Card),
+            ) {
+                val primaryCfg = ui.configFor(role)
+                if (primaryCfg != null) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .size(28.dp)
+                                .background(c.accent.copy(alpha = 0.14f), MikaShapes.Tile),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("1", style = MikaType.Caption.copy(fontWeight = FontWeight.Bold), color = c.accent)
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.model_fallback_primary_badge),
+                                style = MikaType.Hint,
+                                color = c.accent,
+                                maxLines = 1,
+                            )
+                            Text(
+                                primaryCfg.model,
+                                Modifier.padding(top = 1.dp),
+                                style = MikaType.BodyStrong,
+                                fontFamily = FontFamily.Monospace,
+                                color = c.ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            val providerName = ui.providerOf(primaryCfg)?.let(ModelsCopy::providerName) ?: primaryCfg.name
+                            if (providerName.isNotEmpty()) {
+                                Text(
+                                    providerName,
+                                    Modifier.padding(top = 1.dp),
+                                    style = MikaType.Caption,
+                                    color = c.ink2,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                fallbacks.forEachIndexed { slot, configId ->
+                    Hairline(start = 14.dp)
+                    val cfg = ui.configs.firstOrNull { it.id == configId }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onPickFallback(role, slot) }
+                            .testTag("role-fallback-${role.name.lowercase()}-$slot")
+                            .padding(horizontal = 14.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .size(28.dp)
+                                .background(c.surface, MikaShapes.Tile),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("${slot + 2}", style = MikaType.Caption.copy(fontWeight = FontWeight.Bold), color = c.ink2)
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.model_fallback_backup_badge, slot + 1),
+                                style = MikaType.Hint,
+                                color = c.ink3,
+                                maxLines = 1,
+                            )
+                            Text(
+                                cfg?.model ?: ModelsCopy.UNSET,
+                                Modifier.padding(top = 1.dp),
+                                style = MikaType.BodyStrong,
+                                fontFamily = FontFamily.Monospace,
+                                color = if (cfg == null) c.ink3 else c.ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            val providerName = cfg?.let { ui.providerOf(it)?.let(ModelsCopy::providerName) ?: it.name } ?: ""
+                            if (providerName.isNotEmpty()) {
+                                Text(
+                                    providerName,
+                                    Modifier.padding(top = 1.dp),
+                                    style = MikaType.Caption,
+                                    color = c.ink2,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                        Box(
+                            Modifier
+                                .size(32.dp)
+                                .clip(MikaShapes.Pill)
+                                .clickable { removingSlot = slot },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                MikaIcons.Close,
+                                contentDescription = "Remove backup",
+                                tint = c.ink3,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
+                }
+
+                if (fallbacks.size < maxBackups) {
+                    Hairline(start = 14.dp)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onPickFallback(role, fallbacks.size) }
+                            .testTag("role-fallback-${role.name.lowercase()}-${fallbacks.size}")
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            Modifier
+                                .size(28.dp)
+                                .background(c.accent.copy(alpha = 0.08f), MikaShapes.Tile),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(MikaIcons.Plus, contentDescription = null, tint = c.accent, modifier = Modifier.size(15.dp))
+                        }
+                        Text(
+                            if (fallbacks.isEmpty()) stringResource(R.string.model_fallback_add_first)
+                            else stringResource(R.string.model_fallback_add_another, fallbacks.size + 1, maxBackups),
+                            style = MikaType.BodyStrong,
+                            color = c.accent,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
         }
     }
-    if (hasAny) {
-        FooterNote("If your primary $roleLabel model hits rate limits or is unavailable, Mika switches to your backup models automatically so tasks never get interrupted.")
+
+    val pendingRemoveSlot = removingSlot
+    if (pendingRemoveSlot != null && pendingRemoveSlot in fallbacks.indices) {
+        val targetCfgId = fallbacks[pendingRemoveSlot]
+        val targetCfg = ui.configs.firstOrNull { it.id == targetCfgId }
+        val modelName = targetCfg?.model ?: ModelsCopy.UNSET
+        MikaDialog(
+            onDismissRequest = { removingSlot = null },
+            title = { Text(stringResource(R.string.model_fallback_remove_title)) },
+            text = {
+                Text(stringResource(R.string.model_fallback_remove_body, modelName, roleLabel))
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val s = removingSlot
+                    removingSlot = null
+                    if (s != null) onClearFallback(role, s)
+                }) {
+                    Text(stringResource(R.string.model_fallback_remove_confirm), color = c.bad)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { removingSlot = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
+    }
+
+    if (hasAny && expanded) {
+        FooterNote(stringResource(R.string.model_fallback_footer_note, roleLabel))
     }
 }
 
@@ -951,6 +1315,7 @@ object ModelSetupCopy {
     val KEY_OPTIONAL: String get() = tr(R.string.model_key_optional)
     val KEY_INVISIBLE_REMOVED: String get() = tr(R.string.model_key_invisible_removed)
     val KEY_ILLEGAL: String get() = tr(R.string.model_key_illegal_chars)
+    val KEY_WEBSITE: String get() = tr(R.string.model_key_website)
     val TEST_AND_SAVE: String get() = tr(R.string.model_test_save)
     val TESTING: String get() = tr(R.string.model_testing)
     val PICK_MAIN: String get() = tr(R.string.model_pick_main)

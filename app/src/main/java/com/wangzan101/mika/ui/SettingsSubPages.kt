@@ -7,9 +7,21 @@ import androidx.compose.ui.semantics.semantics
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.i18n.trPlural
 import com.wangzan101.mika.R
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import com.wangzan101.mika.settings.DeviceAccessSettings
 import com.wangzan101.mika.settings.FeatureFlags
 import com.wangzan101.mika.settings.ThemeAccent
 import com.wangzan101.mika.settings.ThemeMode
@@ -67,6 +79,15 @@ import com.wangzan101.mika.settings.ScheduledQuietHours
 import com.wangzan101.mika.settings.SystemStatus
 import com.wangzan101.mika.settings.notificationOverview
 import com.wangzan101.mika.task.ParallelLimit
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.material3.Icon
+import com.wangzan101.mika.ui.theme.MikaShapes
 import com.wangzan101.mika.ui.components.FooterNote
 import com.wangzan101.mika.ui.components.DetailNote
 import com.wangzan101.mika.ui.components.GroupCard
@@ -373,6 +394,7 @@ data class ParallelSetting(val max: Int, val limit: ParallelLimit)
 /**
  * 设置 › 任务运行:自主模式默认关;屏幕常亮、被操作的 App 静音默认开,可以关;[parallel] 不为空(实验开关打开了)时多一行同时进行的任务数。
  * 下面一组是操作节奏:快 / 标准(默认) / 像人,选了下一个任务起生效。
+ * [deviceAccess] 非空时挂「锁屏时运行本机任务」一组:与「连接电脑」的远程开关互不影响,凭据编辑区共用。
  */
 @Composable
 fun DuringWorkScreen(
@@ -390,12 +412,15 @@ fun DuringWorkScreen(
     externalSchedule: Boolean = false, onExternalSchedule: (Boolean) -> Unit = {},
     stepLimit: Int? = null, onStepLimit: (Int?) -> Unit = {},
     triggerRunMinutes: Int? = null, onTriggerRunMinutes: (Int?) -> Unit = {},
+    sandboxBudgetMinutes: Int = 30, onSandboxBudgetMinutes: (Int) -> Unit = {},
     tokenBudget: Long? = null, onTokenBudget: (Long?) -> Unit = {},
     showTaskCost: Boolean = false, onShowTaskCost: (Boolean) -> Unit = {},
+    deviceAccess: DeviceAccessSettings? = null,
 ) {
     val context = LocalContext.current
     var editingLimit by remember { mutableStateOf(false) }
     var editingTriggerLimit by remember { mutableStateOf(false) }
+    var editingSandboxBudget by remember { mutableStateOf(false) }
     var customLimit by remember { mutableStateOf("") }
     var editingTokenBudget by remember { mutableStateOf(false) }
     var customTokenBudget by remember { mutableStateOf("") }
@@ -434,6 +459,11 @@ fun DuringWorkScreen(
                 onClick = { editingTriggerLimit = true },
             )
             ListRow(
+                MikaIcons.Clock, stringResource(R.string.settings_sandbox_budget),
+                trPlural(R.plurals.settings_sandbox_budget_minutes_n, sandboxBudgetMinutes),
+                onClick = { editingSandboxBudget = true },
+            )
+            ListRow(
                 MikaIcons.Clock, stringResource(R.string.settings_task_token_budget),
                 tokenBudget?.let(::tokenBudgetNumber) ?: stringResource(R.string.settings_token_budget_unlimited),
                 onClick = {
@@ -449,6 +479,8 @@ fun DuringWorkScreen(
             }
             parallel?.let { ParallelRow(it, onParallelMax) }
         }
+        // 锁屏时运行本机任务:独立开关 + 共用的锁屏凭据编辑区(组名/脚注说清与远程开关互不影响)
+        deviceAccess?.let { DeviceAccessSection(it, localTasks = true) }
         if (editingLimit) StepLimitDialog(
             current = stepLimit,
             custom = customLimit,
@@ -460,6 +492,11 @@ fun DuringWorkScreen(
             current = triggerRunMinutes,
             onPick = { onTriggerRunMinutes(it); editingTriggerLimit = false },
             onDismiss = { editingTriggerLimit = false },
+        )
+        if (editingSandboxBudget) SandboxBudgetDialog(
+            current = sandboxBudgetMinutes,
+            onPick = { onSandboxBudgetMinutes(it); editingSandboxBudget = false },
+            onDismiss = { editingSandboxBudget = false },
         )
         if (editingTokenBudget) TokenBudgetDialog(
             title = stringResource(R.string.settings_task_token_budget),
@@ -544,6 +581,25 @@ private fun TriggerRunLimitDialog(current: Int?, onPick: (Int?) -> Unit, onDismi
                 RadioRow(stringResource(R.string.settings_step_limit_off), selected = current == null, onClick = { onPick(null) }, first = true)
                 FeatureFlags.TRIGGER_RUN_MINUTES.forEach { m ->
                     RadioRow(trPlural(R.plurals.settings_trigger_run_minutes_n, m), selected = current == m, onClick = { onPick(m) })
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+/** 每任务沙箱命令累计时长:只认几档,默认 30 分钟,没有「不限制」。 */
+@Composable
+private fun SandboxBudgetDialog(current: Int, onPick: (Int) -> Unit, onDismiss: () -> Unit) {
+    MikaDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_sandbox_budget)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.settings_sandbox_budget_sub), Modifier.padding(bottom = 8.dp))
+                FeatureFlags.SANDBOX_BUDGET_MINUTES.forEachIndexed { i, m ->
+                    RadioRow(trPlural(R.plurals.settings_sandbox_budget_minutes_n, m), selected = current == m, onClick = { onPick(m) }, first = i == 0)
                 }
             }
         },
@@ -757,6 +813,7 @@ fun CapsuleScreen(
 }
 
 /** 设置 › 语言:跟随系统、简体中文、繁體中文、English;选了马上换,界面跟着重建。 */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
@@ -771,7 +828,9 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
             if (!SkinImage.import(context, uri)) Toast.makeText(context, R.string.skin_failed, Toast.LENGTH_SHORT).show()
         }
     }
-    PageScaffold(stringResource(R.string.appearance_title), onBack) {
+    val focusManager = LocalFocusManager.current
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    PageScaffold(stringResource(R.string.appearance_title), onBack, modifier = Modifier.imePadding()) {
         // 语言和外观放在同一页:都是「界面长什么样」
         GroupLabel(stringResource(R.string.appearance_group))
         GroupCard {
@@ -811,12 +870,80 @@ fun LanguageScreen(language: AppLanguage, onLanguage: (AppLanguage) -> Unit, onB
             if (skin.active) SkinControls(skin, flags::setSkin, onClear = { SkinImage.clear(context) })
         }
         GroupLabel(stringResource(R.string.language_title))
-        GroupCard {
-            AppLanguage.entries.forEachIndexed { i, l ->
-                RadioRow(
-                    languageLabel(l), selected = l == language, onClick = { if (l != language) onLanguage(l) },
-                    subtitle = if (l == AppLanguage.System) stringResource(R.string.language_system_detail) else null, first = i == 0,
+        var langQuery by remember { mutableStateOf("") }
+        var langSearchFocused by remember { mutableStateOf(false) }
+        val c = MikaTheme.colors
+        val filteredLanguages = remember(langQuery) { filterLanguages(langQuery) }
+
+        LaunchedEffect(langSearchFocused, langQuery) {
+            if (langSearchFocused || langQuery.isNotEmpty()) {
+                bringIntoViewRequester.bringIntoView()
+            }
+        }
+
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+                .height(36.dp)
+                .clip(MikaShapes.Pill)
+                .background(c.fill)
+                .then(if (langSearchFocused) Modifier.border(1.dp, c.accent, MikaShapes.Pill) else Modifier)
+                .padding(horizontal = 10.dp)
+                .bringIntoViewRequester(bringIntoViewRequester),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(MikaIcons.Search, null, Modifier.size(16.dp), tint = c.ink3)
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (langQuery.isEmpty()) {
+                    Text(stringResource(R.string.language_search_hint), style = MikaType.Caption, color = c.ink3, maxLines = 1)
+                }
+                BasicTextField(
+                    value = langQuery,
+                    onValueChange = { langQuery = it },
+                    modifier = Modifier.fillMaxWidth().onFocusChanged { langSearchFocused = it.isFocused },
+                    singleLine = true,
+                    textStyle = MikaType.Caption.copy(color = c.ink),
+                    cursorBrush = SolidColor(c.accent),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
                 )
+            }
+            if (langQuery.isNotEmpty()) {
+                Box(
+                    Modifier.size(22.dp).clip(CircleShape).clickable {
+                        langQuery = ""
+                        focusManager.clearFocus()
+                    },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(MikaIcons.Close, null, Modifier.size(12.dp), tint = c.ink3)
+                }
+            }
+        }
+        GroupCard(Modifier.animateContentSize()) {
+            if (filteredLanguages.isEmpty()) {
+                Box(
+                    Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        stringResource(R.string.file_library_empty),
+                        style = MikaType.Caption,
+                        color = c.ink3,
+                    )
+                }
+            } else {
+                filteredLanguages.forEachIndexed { i, l ->
+                    RadioRow(
+                        languageLabel(l), selected = l == language, onClick = {
+                            if (l != language) onLanguage(l)
+                            focusManager.clearFocus()
+                        },
+                        first = i == 0,
+                    )
+                }
             }
         }
     }

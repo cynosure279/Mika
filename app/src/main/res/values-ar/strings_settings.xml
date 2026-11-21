@@ -3,6 +3,11 @@
     <string name="settings_personal_start">فتح المساعد الشخصي عند التشغيل</string>
     <string name="settings_personal_start_sub">استخدام المساعد الشخصي كشاشة Mika الأولى</string>
     <string name="language_title">اللغة</string>
+    <string name="language_prompt_title">اللغة</string>
+    <string name="language_prompt_hint">اختر اللغة التي يستخدمها Mika للتفكير وشرح الخطوات والردود.</string>
+    <string name="language_search_hint">البحث عن لغة</string>
+    <string name="language_prompt_confirm">تأكيد</string>
+    <string name="language_prompt_dismiss">ليس الآن</string>
     <string name="language_system">اتباع لغة النظام</string>
     <string name="language_system_detail">يستخدم لغة النظام إذا كانت Mika تدعمها، وإلا يستخدم الإنجليزية</string>
     <string name="settings_language_appearance">اللغة والمظهر</string>
@@ -258,6 +263,17 @@
     <string name="settings_trigger_run_limit">الحد الزمني للمهام المجدولة</string>
     <string name="settings_trigger_run_limit_sub">تعمل المهام المجدولة في غيابك. الإيقاف يعني بلا حد؛ وعند انتهاء الوقت تتوقف المهمة وتوضح أن الوقت نفد.</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="zero">%1$d دقيقة</item>
+        <item quantity="one">دقيقة واحدة (%1$d)</item>
+        <item quantity="two">دقيقتان (%1$d)</item>
+        <item quantity="few">%1$d دقائق</item>
+        <item quantity="many">%1$d دقيقة</item>
+        <item quantity="other">%1$d دقيقة</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">الحد الزمني لبيئة الحوسبة لكل مهمة</string>
+    <string name="settings_sandbox_budget_sub">إجمالي الوقت الذي قد تعمل فيه أوامر البيئة خلال مهمة واحدة (تثبيت الاعتماديات، البناء وما شابه). الافتراضي 30 دقيقة؛ ويسري التغيير من المهمة التالية.</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="zero">%1$d دقيقة</item>
         <item quantity="one">دقيقة واحدة (%1$d)</item>
         <item quantity="two">دقيقتان (%1$d)</item>

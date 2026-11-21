@@ -3,6 +3,11 @@
     <string name="settings_personal_start">Открывать личного помощника при запуске</string>
     <string name="settings_personal_start_sub">Сделать личного помощника стартовым экраном Mika</string>
     <string name="language_title">Язык</string>
+    <string name="language_prompt_title">Язык</string>
+    <string name="language_prompt_hint">Выберите язык, который Mika будет использовать для размышлений, пояснений и ответов.</string>
+    <string name="language_search_hint">Поиск языка</string>
+    <string name="language_prompt_confirm">Подтвердить</string>
+    <string name="language_prompt_dismiss">Не сейчас</string>
     <string name="language_system">Как в системе</string>
     <string name="language_system_detail">Используется язык системы, если Mika его знает, иначе английский</string>
     <string name="settings_language_appearance">Язык и оформление</string>
@@ -248,6 +253,15 @@
     <string name="settings_trigger_run_limit">Время работы задач по расписанию</string>
     <string name="settings_trigger_run_limit_sub">Задачи по расписанию выполняются без вашего присмотра. Выключено — без ограничения; когда время выйдет, задача остановится и сообщит, что время истекло.</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="one">%1$d минута</item>
+        <item quantity="few">%1$d минуты</item>
+        <item quantity="many">%1$d минут</item>
+        <item quantity="other">%1$d минуты</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">Лимит времени среды вычислений на задачу</string>
+    <string name="settings_sandbox_budget_sub">Суммарное время выполнения команд среды в одной задаче (установка зависимостей, сборка и т. п.). По умолчанию 30 минут; изменение действует со следующей задачи.</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="one">%1$d минута</item>
         <item quantity="few">%1$d минуты</item>
         <item quantity="many">%1$d минут</item>

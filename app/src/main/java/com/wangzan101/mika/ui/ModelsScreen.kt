@@ -60,6 +60,7 @@ import com.wangzan101.mika.core.chatgpt.SignInFailure
 import com.wangzan101.mika.core.model.ApiKeyText
 import com.wangzan101.mika.core.model.GroupStrategy
 import com.wangzan101.mika.core.model.ModelRole
+import com.wangzan101.mika.core.model.OpenAiServiceTier
 import com.wangzan101.mika.settings.ModelOption
 import com.wangzan101.mika.settings.ModelOptions
 import com.wangzan101.mika.settings.Provider
@@ -339,6 +340,7 @@ class ProviderDetailActions(
     val use: (ModelRole, String) -> Unit = { _, _ -> },
     /** 用户说这家的一个模型能不能看图(「用作」面板里的开关)。 */
     val setVision: (String, Boolean) -> Unit = { _, _ -> },
+    val setServiceTier: (String, OpenAiServiceTier?) -> Boolean = { _, _ -> false },
     val showAll: () -> Unit = {},
     /** 在用、没核实过的手填模型再试调用一次(见 [ModelSetupUi.unverified])。 */
     val retest: () -> Unit = {},
@@ -527,7 +529,7 @@ fun ProviderDetailContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetail
         onDismiss = { editingBudget = false },
         saveError = if (budgetSaveFailed) stringResource(R.string.models_daily_token_budget_save_failed) else null,
     )
-    using?.let { o -> UseAsSheet(ui, p, o.id, onUse = { role -> actions.use(role, o.id) }, onVision = { actions.setVision(o.id, it) }, onDismiss = { using = null }) }
+    using?.let { UseAsSheet(ui, p, it.id, actions, onDismiss = { using = null }) }
     if (changingKey) {
         var key by remember { mutableStateOf("") }
         var notice by remember { mutableStateOf(ApiKeyText.Notice.None) }
@@ -819,7 +821,7 @@ fun AllModelsContent(ui: ModelSetupUi, p: Provider, actions: ProviderDetailActio
             }
         }
     }
-    using?.let { o -> UseAsSheet(ui, p, o.id, onUse = { role -> actions.use(role, o.id) }, onVision = { actions.setVision(o.id, it) }, onDismiss = { using = null }) }
+    using?.let { UseAsSheet(ui, p, it.id, actions, onDismiss = { using = null }) }
 }
 
 /** 一张卡拆成懒加载的行时,每行的圆角:首行上圆、末行下圆。 */
@@ -854,10 +856,10 @@ private fun ModelRow(o: ModelOption, roles: List<ModelRole>, first: Boolean, onC
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UseAsSheet(ui: ModelSetupUi, p: Provider, model: String, onUse: (ModelRole) -> Unit, onVision: (Boolean) -> Unit, onDismiss: () -> Unit) {
+private fun UseAsSheet(ui: ModelSetupUi, p: Provider, model: String, actions: ProviderDetailActions, onDismiss: () -> Unit) {
     val c = MikaTheme.colors
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = c.surface, shape = MikaShapes.SheetTop) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 8.dp).testTag("use-as")) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().verticalScroll(rememberScrollState()).padding(bottom = 8.dp).testTag("use-as")) {
             Text(model, Modifier.padding(horizontal = 16.dp), style = ModelIdStyle, color = c.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(ModelsCopy.useAsSubtitle(ModelsCopy.providerName(p)), Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 6.dp), style = MikaType.Caption, color = c.ink3)
             ModelRole.entries.forEachIndexed { i, role ->
@@ -865,19 +867,59 @@ private fun UseAsSheet(ui: ModelSetupUi, p: Provider, model: String, onUse: (Mod
                 RadioRow(
                     ModelsCopy.roleName(role), selected = on, first = i == 0,
                     subtitle = if (on) ModelsCopy.IN_USE else ModelsCopy.roleWhat(role),
-                    onClick = { onUse(role); onDismiss() },
+                    onClick = { actions.use(role, model); onDismiss() },
                 )
             }
             ui.options(p).firstOrNull { it.id == model }?.let { o ->
                 val usedForVision = ModelRole.Vision in ui.rolesOf(p.id, model)
                 val sees = ModelOptions.seesImages(o.capabilities.vision, o.visionByUser, usedForVision)
                 ListRow(null, ModelsCopy.SEES_IMAGES, ModelsCopy.seesNote(o, usedForVision)) {
-                    MikaSwitch(sees, onVision, Modifier.testTag("model-sees-images"))
+                    MikaSwitch(sees, { actions.setVision(model, it) }, Modifier.testTag("model-sees-images"))
                 }
+            }
+            if (p.supportsServiceTier(model)) {
+                ModelSpeedControl(p.serviceTiers[model]) { actions.setServiceTier(model, it) }
             }
             ListRow(null, ModelSetupCopy.CANCEL, titleColor = c.ink2, onClick = onDismiss)
         }
     }
+}
+
+@Composable
+private fun ModelSpeedControl(selected: OpenAiServiceTier?, onSelect: (OpenAiServiceTier?) -> Boolean) {
+    var open by remember { mutableStateOf(false) }
+    var saveFailed by remember { mutableStateOf(false) }
+    val title = stringResource(R.string.models_response_speed)
+    ListRow(
+        null, title, onClick = { saveFailed = false; open = true },
+        modifier = Modifier.testTag("model-response-speed"),
+    ) {
+        RowValue(serviceTierLabel(selected))
+        RowChevron()
+    }
+    if (open) MikaDialog(
+        onDismissRequest = { open = false },
+        title = { Text(title) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                FooterNote(stringResource(R.string.models_response_speed_note))
+                (listOf(null) + OpenAiServiceTier.entries).forEachIndexed { index, tier ->
+                    RadioRow(serviceTierLabel(tier), selected = selected == tier, first = index == 0, onClick = {
+                        if (onSelect(tier)) open = false else saveFailed = true
+                    })
+                }
+                if (saveFailed) FooterNote(stringResource(R.string.model_context_save_failed), color = MikaTheme.colors.bad)
+            }
+        },
+        confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } },
+    )
+}
+
+@Composable
+private fun serviceTierLabel(tier: OpenAiServiceTier?): String = when (tier) {
+    null -> stringResource(R.string.model_reasoning_default)
+    OpenAiServiceTier.Fast -> "Fast"
+    OpenAiServiceTier.Ultrafast -> "Ultrafast"
 }
 
 /** 模型页(用途、选择页、服务商详情、全部模型)的文字(纯函数,便于测试)。三个用途的说法全 App 只在这里。 */
@@ -1035,8 +1077,17 @@ object ModelsCopy {
     val SIGN_IN_BUSY: String get() = tr(R.string.signin_busy)
 
     /** 界面上服务商的名字:授权来的 OpenRouter 加一句来历,和用户自己填 Key 的那一家分得开。 */
-    fun providerName(p: Provider): String =
-        if (p.signIn == ProviderStore.OPENROUTER_SIGN_IN) tr(R.string.signin_openrouter_name, p.name) else p.name
+    fun providerName(p: Provider): String {
+        if (p.signIn == ProviderStore.OPENROUTER_SIGN_IN) return tr(R.string.signin_openrouter_name, p.name)
+        if (p.name == "Cloudflare Workers AI" && p.baseUrl.contains("/accounts/")) {
+            val acc = p.baseUrl.substringAfter("/accounts/").substringBefore("/").trim()
+            if (acc.isNotEmpty() && !acc.contains("{")) {
+                val shortId = if (acc.length >= 8) "${acc.take(4)}…${acc.takeLast(4)}" else acc
+                return "${p.name} ($shortId)"
+            }
+        }
+        return p.name
+    }
     val XAI_CODE_TITLE: String get() = tr(R.string.signin_xai_code_title)
     val XAI_CODE_BODY: String get() = tr(R.string.signin_xai_code_body)
     val XAI_CODE_COPY_REOPEN: String get() = tr(R.string.signin_xai_code_copy_reopen)

@@ -521,13 +521,19 @@ private fun MikaRoot(
             Onboarding.start(onboardingInputs())?.let(::goOnboarding)
         }
     }
-    val phoneSetupNeeded by phoneSetup.needed.collectAsState()
+    val phoneSetupNeed by phoneSetup.needed.collectAsState()
     // 页面有自己的返回处理时(设置页里的子页、侧栏)由它们先接;这里只管退回上一页
     BackHandler(enabled = nav.canGoBack) { nav.back() }
     val back: () -> Unit = { nav.back() }
     // 聊天页离开组合树时保留列表位置和输入内容，返回设置页等子页面后原样恢复。
     val screenStates = rememberSaveableStateHolder()
-    when (nav.current) {
+    val sidebarPage = nav.current in setOf(Route.Chat, Route.Personal, Route.Plans, Route.Memory, Route.Browser)
+    AdaptiveWindow(navigation = sidebarPage) {
+        val page: @Composable (() -> Unit) -> Unit = { openDrawer ->
+    // 全局换页套滑动推入过渡;页内一律用 route 不用 nav.current:过渡动画期间旧页还在渲染,读实时状态会瞬间变脸
+    NavSlide(nav.stack, depth = { it.size }) { stack ->
+    val route = stack.last()
+    when (route) {
         Route.PhoneSetup -> PhoneSetupScreen(status, setupRepair, onFix, onboarding = onboarding == OnboardingStep.Phone) {
             phoneSetup.markGuideSeen()
             if (onboarding == OnboardingStep.Phone) goOnboarding(null) else nav.back()
@@ -546,34 +552,17 @@ private fun MikaRoot(
                 },
             )
         }
-        Route.Chat, Route.Personal -> screenStates.SaveableStateProvider(nav.current.name) {
+        Route.Chat, Route.Personal -> screenStates.SaveableStateProvider(route.name) {
             // 对话页重新看得见(回到前台、从别的页面回来):补上别处存进来的轮次,接上别处开始的任务
             LifecycleStartEffect(Unit) {
                 app.chat.refresh()
                 onStopOrDispose {}
             }
-            ChatWithDrawer(
-                vm = app.chat,
-                check = check,
-                reduceMotion = MikaTheme.reduceMotion,
-                conversations = { ConversationStore.shared(context).list(includeArchived = true) },
-                conversationChanges = ConversationStore.shared(context).changes,
-                conversationTitle = { ConversationStore.shared(context).title(it) },
-                search = ConversationStore.shared(context).search,
-                onSettings = { nav.pushFromDrawer(Route.Settings) },
-                onScreens = { nav.pushFromDrawer(Route.Screens) },
-                onAbout = { nav.pushFromDrawer(Route.About) },
-                updateAvailable = AboutCopy.drawerDot(updateState),
-                reopen = nav.reopenDrawer,
-                onReopened = nav::drawerReopened,
-                onRegularChat = nav::reset,
-                resetKey = nav.resetSerial,
-            ) { openDrawer ->
-                Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize()) {
                     val readyRelease = readyUpdate?.takeIf { autoUpdate && it.apkUrl == updateState.update?.apkUrl }
                     val updateBackdrop = if (readyRelease != null) rememberGlassBackdrop() else null
                     Box(Modifier.fillMaxSize().glassSource(updateBackdrop)) {
-                        if (nav.current == Route.Personal) PersonalAgentScreen(
+                        if (route == Route.Personal) PersonalAgentScreen(
                             runtime = app.personal,
                             voice = app.voice,
                             onOpenDrawer = openDrawer,
@@ -595,7 +584,7 @@ private fun MikaRoot(
                             openRun = { runId = it; nav.push(Route.Run) },
                             openReport = { reportRunId = it; nav.push(Route.Report) },
                             openPlayback = { reportRunId = it; playbackScreenshotId = null; nav.push(Route.Playback) },
-                            phoneSetupNeeded = phoneSetupNeeded && status.builtinShell != BuiltinShellStatus.Running,
+                            phoneSetupNeed = (if (status.builtinShell != BuiltinShellStatus.Running) phoneSetupNeed else null),
                             openPhoneSetup = { onFix(Fix.OpenPhoneSetup) },
                             loadSource = { id ->
                                 withContext(Dispatchers.IO) { evidenceSource(RunStore(context).events(id)) { ConfirmationNotifier.appLabel(context, it) } }
@@ -607,7 +596,6 @@ private fun MikaRoot(
                             },
                             voice = app.voice,
                             openSpeechModel = { nav.push(Route.SpeechModel) },
-                            onOpenPersonas = if (personasOn) ({ nav.push(Route.Persona) }) else ({}),
                             onOpenTeach = { hint ->
                                 app.teach.prefill(hint)
                                 nav.push(Route.Teach)
@@ -633,7 +621,6 @@ private fun MikaRoot(
                             onOpenUrl = { openInBrowser(context, it) }, onDismiss = { installUpdate = null })
                     }
                 }
-            }
         }
         Route.Settings -> {
             val autonomous by app.approvals.autonomous.collectAsState()
@@ -653,7 +640,7 @@ private fun MikaRoot(
         Route.VoiceModel -> VoiceModelScreen(store, onBack = back)
         Route.ImageModel -> ImageModelScreen(store, onBack = back)
         Route.Persona -> if (personasOn) PersonaScreen(app.personas, onBack = back) else LaunchedEffect(Unit) { nav.back() }
-        Route.Usage -> UsageScreen(app.usage, store, onBack = back, onOpenUrl = { openInBrowser(context, it) })
+        Route.Usage -> UsageScreen(app.usage, store, onBack = back)
         Route.SpeechModel -> SpeechModelScreen(store, onBack = back)
         Route.About -> AboutScreen(
             versionName = BuildConfig.VERSION_NAME, build = BuildConfig.GIT_HASH, beta = BuildConfig.BETA,
@@ -756,7 +743,7 @@ private fun MikaRoot(
             val id = reportRunId
             val vm = remember(id) { id?.let { TaskReportViewModel(RunStore(context), it) } }
             if (vm == null) LaunchedEffect(Unit) { nav.back() }
-            else if (nav.current == Route.Report) TaskReportScreen(vm, back,
+            else if (route == Route.Report) TaskReportScreen(vm, back,
                 onReplay = { playbackScreenshotId = it; nav.push(Route.Playback) },
                 onTimeline = { runId = id; nav.push(Route.Run) })
             else TaskPlaybackScreen(vm, playbackScreenshotId, back)
@@ -784,6 +771,57 @@ private fun MikaRoot(
             nav.reset()
         })
         Route.Calls -> CallSettingsScreen(app.calls, onBack = back, standalone = true, initialHistoryCallId = focusedCallHistoryId)
+    }
+    }
+        }
+        val permanent = LocalAdaptiveLayout.current.hasNavigation
+        if (nav.current == Route.Chat || nav.current == Route.Personal || (permanent && sidebarPage)) {
+            fun openFromSidebar(route: Route) {
+                if (permanent && nav.current != Route.Chat && nav.current != Route.Personal) nav.reset()
+                nav.pushFromDrawer(route)
+            }
+            ChatWithDrawer(
+                vm = app.chat,
+                check = check,
+                reduceMotion = MikaTheme.reduceMotion,
+                conversations = { ConversationStore.shared(context).list(includeArchived = true) },
+                conversationChanges = ConversationStore.shared(context).changes,
+                conversationTitle = { ConversationStore.shared(context).title(it) },
+                search = ConversationStore.shared(context).search,
+                onSettings = { openFromSidebar(Route.Settings) },
+                onScreens = { openFromSidebar(Route.Screens) },
+                onAbout = { openFromSidebar(Route.About) },
+                updateAvailable = AboutCopy.drawerDot(updateState),
+                reopen = nav.reopenDrawer,
+                onReopened = nav::drawerReopened,
+                onRegularChat = nav::reset,
+                resetKey = nav.resetSerial,
+                onPersonal = { nav.show(Route.Personal) },
+                onPlans = { openFromSidebar(Route.Plans) },
+                onMemory = { openFromSidebar(Route.Memory) },
+                onBrowser = { openFromSidebar(Route.Browser) },
+                frames = if (nav.current == Route.Chat) app.taskState.frames else null,
+                operationRun = app.taskState::run,
+                chatActive = nav.current == Route.Chat || nav.current == Route.Personal,
+                content = page,
+            )
+        } else page({})
+    }
+
+    var showLanguagePrompt by rememberSaveable { mutableStateOf(!AppLanguage.hasPrompted(context)) }
+    if (showLanguagePrompt && onboarding == null) {
+        LanguagePromptDialog(
+            initial = AppLanguage.current(context),
+            onConfirm = { lang ->
+                showLanguagePrompt = false
+                AppLanguage.markPrompted(context)
+                AppLanguage.set(context, lang)
+            },
+            onDismiss = {
+                showLanguagePrompt = false
+                AppLanguage.markPrompted(context)
+            },
+        )
     }
 }
 

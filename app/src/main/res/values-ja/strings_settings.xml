@@ -3,6 +3,11 @@
     <string name="settings_personal_start">起動時にパーソナルアシスタントを開く</string>
     <string name="settings_personal_start_sub">Mika の最初の画面をパーソナルアシスタントにする</string>
     <string name="language_title">言語</string>
+    <string name="language_prompt_title">言語設定</string>
+    <string name="language_prompt_hint">Mika が思考、手順の解説、回答に使用する言語を選択してください。</string>
+    <string name="language_search_hint">言語を検索</string>
+    <string name="language_prompt_confirm">設定</string>
+    <string name="language_prompt_dismiss">後で</string>
     <string name="language_system">システムに合わせる</string>
     <string name="language_system_detail">Mika が対応していればシステムの言語を使い、対応していなければ英語を使います</string>
     <string name="settings_language_appearance">言語と外観</string>
@@ -233,6 +238,12 @@
     <string name="settings_trigger_run_limit">スケジュールタスクの最長実行時間</string>
     <string name="settings_trigger_run_limit_sub">スケジュールタスクは見ていない間に動きます。オフは無制限です。時間になるとタスクは止まり、時間切れだったことを伝えます。</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="other">%1$d 分</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">タスクごとのサンドボックス時間上限</string>
+    <string name="settings_sandbox_budget_sub">1 つのタスクでサンドボックスコマンドを合計して実行できる時間（依存パッケージのインストールやビルドなど）。デフォルトは 30 分。変更は次のタスクから適用されます。</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="other">%1$d 分</item>
     </plurals>
 </resources>

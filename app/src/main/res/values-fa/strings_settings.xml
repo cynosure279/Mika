@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="language_title">زبان</string>
+    <string name="language_prompt_title">زبان</string>
+    <string name="language_prompt_hint">زبانی را که Mika برای فکر کردن، توضیح مراحل و پاسخ‌ها استفاده می‌کند انتخاب کنید.</string>
+    <string name="language_search_hint">جستجوی زبان</string>
+    <string name="language_prompt_confirm">تأیید</string>
+    <string name="language_prompt_dismiss">فعلاً نه</string>
     <string name="language_system">پیروی از زبان سیستم</string>
     <string name="language_system_detail">اگر میکا از زبان سیستم پشتیبانی کند از آن استفاده می‌کند؛ در غیر این صورت انگلیسی نمایش داده می‌شود</string>
 
@@ -249,6 +254,13 @@
     <string name="settings_trigger_run_limit">حداکثر زمان اجرای کارهای زمان‌بندی‌شده</string>
     <string name="settings_trigger_run_limit_sub">کارهای زمان‌بندی‌شده بدون حضور شما اجرا می‌شوند. خاموش یعنی بدون محدودیت؛ با تمام شدن زمان، کار متوقف می‌شود و می‌گوید زمانش تمام شده است.</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="one">%1$d دقیقه</item>
+        <item quantity="other">%1$d دقیقه</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">محدودیت زمان محیط پردازش برای هر کار</string>
+    <string name="settings_sandbox_budget_sub">مجموع زمان اجرای فرمان‌های محیط در یک کار (نصب وابستگی‌ها، ساخت و مانند آن). پیش‌فرض ۳۰ دقیقه است؛ تغییر از کار بعدی اعمال می‌شود.</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
         <item quantity="one">%1$d دقیقه</item>
         <item quantity="other">%1$d دقیقه</item>
     </plurals>

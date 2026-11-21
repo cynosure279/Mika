@@ -48,6 +48,7 @@ import com.wangzan101.mika.core.model.ModelProtocol
 import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.model.ModelSession
 import com.wangzan101.mika.core.model.OpenAiCompatModel
+import com.wangzan101.mika.core.model.OpenAiServiceTier
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.PromptCaching
 import com.wangzan101.mika.core.model.ResponsesModel
@@ -77,6 +78,7 @@ import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
@@ -179,8 +181,20 @@ data class Provider(
     val visionOverrides: Map<String, Boolean> = emptyMap(),
     /** 这家每天所有模型、用途合计的已报告 Token 预算；null 不限制。 */
     val dailyTokenBudget: Long? = null,
+    /** OpenAI 直连和 ChatGPT 登录的速度档位，按模型名保存。 */
+    val serviceTiers: Map<String, OpenAiServiceTier> = emptyMap(),
 ) {
     val key: String get() = ProviderConnection.keyOf(kind, baseUrl, name)
+
+    fun supportsServiceTier(model: String, endpoint: ModelEndpoint? = models?.firstOrNull { it.id == model }?.endpoint): Boolean {
+        if (kind != ProviderConfig.Kind.OpenAiResponses && kind != ProviderConfig.Kind.ChatGpt) return false
+        if (endpoint != null && endpoint.protocol != ModelProtocol.Responses) return false
+        val url = (endpoint?.adapterBaseUrl ?: baseUrl).toHttpUrlOrNull()
+        return url?.isHttps == true && url.host == "api.openai.com"
+    }
+
+    internal fun requestedServiceTier(model: String, endpoint: ModelEndpoint?): OpenAiServiceTier? =
+        serviceTiers[model]?.takeIf { supportsServiceTier(model, endpoint) }
 
     /**
      * [model] 在这家还没测试通过:这家没有可用的列表(不提供,或跳过测试存下时没列过),模型名是手填的,又没在
@@ -193,9 +207,15 @@ data class Provider(
 /** OkHttp 把超时换算为 Int 毫秒，秒数必须在换算后仍能存下。 */
 internal val MODEL_READ_TIMEOUT_SECONDS = 1..(Int.MAX_VALUE / 1_000)
 
-/** 各用途备援链最长几位。主模型 2、看图/轻量各最多 2，保持界面简洁。 */
-internal const val MAX_MAIN_FALLBACKS = 2
-internal const val MAX_FALLBACKS = 2
+/** 各用途备援链最长几位。支持多达 8 层瀑布级联（Waterfall Cascade）。 */
+internal const val MAX_MAIN_FALLBACKS = 8
+internal const val MAX_FALLBACKS = 8
+
+/**
+ * 临时:真机验证「折叠后任务还能干完」之前,给所有模型每 16 轮折一次历史(超出 keepRecent 后);
+ * 验证通过后改为设置项或按模型调,再删掉这个常量。
+ */
+internal const val TEMP_COMPACTION_EVERY_ROUNDS = 16
 
 /** 留空的窗口沿用所选模型配置，留空的触发点交给核心自动计算，留空的读超时用全局默认(120 秒)。 */
 data class ModelContextSettings(val windowTokens: Int? = null, val triggerTokens: Int? = null, val readTimeoutSeconds: Int? = null) {
@@ -347,6 +367,7 @@ data class ClientSetup(
     val reasoningEffort: String? = null,
     val thinkingTypes: List<String>? = null,
     val readTimeoutSeconds: Int? = null,
+    val serviceTier: OpenAiServiceTier? = null,
 )
 
 /** 「测试并保存」试调用(见 [ProviderStore.probe])的结果。 */
@@ -825,14 +846,15 @@ class ProviderStore(
         if (!settings.validFor(cfg.capabilities.contextTokens)) return false
         val saved = if (settings == ModelContextSettings()) p.contextSettings - cfg.model
             else p.contextSettings + (cfg.model to settings)
-        val updated = _providers.value.map { if (it.id == p.id) p.copy(contextSettings = saved) else it }
-        try {
-            writeAtomically(configFile, configJson(updated))
-        } catch (_: Exception) {
-            return false
-        }
-        _providers.value = updated
-        return true
+        return saveProviderSettings(p.copy(contextSettings = saved))
+    }
+
+    @Synchronized
+    fun setModelServiceTier(providerId: String, model: String, tier: OpenAiServiceTier?): Boolean {
+        val p = provider(providerId) ?: return false
+        if (model.isBlank() || !p.supportsServiceTier(model)) return false
+        val tiers = if (tier == null) p.serviceTiers - model else p.serviceTiers + (model to tier)
+        return saveProviderSettings(p.copy(serviceTiers = tiers))
     }
 
     /** 修改这家每日 Token 预算；写盘失败时保留内存和盘上原值。 */
@@ -840,7 +862,11 @@ class ProviderStore(
     fun setDailyTokenBudget(providerId: String, limit: Long?): Boolean {
         if (limit != null && !TokenBudgetLimits.valid(limit)) return false
         val p = provider(providerId) ?: return false
-        val updated = _providers.value.map { if (it.id == p.id) p.copy(dailyTokenBudget = limit) else it }
+        return saveProviderSettings(p.copy(dailyTokenBudget = limit))
+    }
+
+    private fun saveProviderSettings(p: Provider): Boolean {
+        val updated = _providers.value.map { if (it.id == p.id) p else it }
         try {
             writeAtomically(configFile, configJson(updated))
         } catch (_: Exception) {
@@ -975,9 +1001,12 @@ class ProviderStore(
         val source = UsageSource(cfg.providerId, p?.name ?: cfg.name, cfg.model, purpose,
             deepSeekDirect = DeepSeekPriceTable.isOfficialEndpoint(adapterFor(cfg, listed?.endpoint).second))
         val settings = p?.contextSettings?.get(cfg.model)
-        val configured = if (settings == null) cfg else cfg.copy(capabilities = cfg.capabilities.copy(
+        val configured = if (settings == null) cfg.copy(capabilities = cfg.capabilities.copy(
+            compactionEveryRounds = TEMP_COMPACTION_EVERY_ROUNDS,
+        )) else cfg.copy(capabilities = cfg.capabilities.copy(
             contextTokens = settings.windowTokens ?: cfg.capabilities.contextTokens,
             compactionTriggerTokens = settings.triggerTokens,
+            compactionEveryRounds = TEMP_COMPACTION_EVERY_ROUNDS,
         ))
         val roleEffort = effortOverride ?: _roles.value.reasoningEffort(role)
         // 主动能力:思考取服务商写明的最低档;回复短的那两种请求另设上限(见 ProactiveModelSetup)
@@ -987,6 +1016,7 @@ class ProviderStore(
         return modelFactory(configured, apiKey(cfg.id), listed?.endpoint, ClientSetup(
             headers(p?.sessionHeader, session), maxOutputTokens = cap, reasoningEffort = effort,
             thinkingTypes = listed?.thinkingTypes, readTimeoutSeconds = settings?.readTimeoutSeconds,
+            serviceTier = p?.requestedServiceTier(cfg.model, listed?.endpoint),
         )).metered(source, usage, beforeRetry = beforeRetry, beforeCall = beforeCall)
     }
 
@@ -1028,15 +1058,19 @@ class ProviderStore(
         val listed = listedOf(raw)
         val settings = p?.contextSettings?.get(raw.model)
         val adjusted = asRole(raw, role)
-        val configured = if (settings == null) adjusted else adjusted.copy(capabilities = adjusted.capabilities.copy(
+        val configured = if (settings == null) adjusted.copy(capabilities = adjusted.capabilities.copy(
+            compactionEveryRounds = TEMP_COMPACTION_EVERY_ROUNDS,
+        )) else adjusted.copy(capabilities = adjusted.capabilities.copy(
             contextTokens = settings.windowTokens ?: adjusted.capabilities.contextTokens,
             compactionTriggerTokens = settings.triggerTokens,
+            compactionEveryRounds = TEMP_COMPACTION_EVERY_ROUNDS,
         ))
         val roleEffort = _roles.value.reasoningEffort(role)
         val effort = roleEffort?.takeIf { ReasoningOptions.of(configured, listed)?.levels?.contains(it) == true }
         return modelFactory(configured, apiKey(raw.id), listed?.endpoint, ClientSetup(
             headers(p?.sessionHeader, session), reasoningEffort = effort, thinkingTypes = listed?.thinkingTypes,
             readTimeoutSeconds = settings?.readTimeoutSeconds,
+            serviceTier = p?.requestedServiceTier(raw.model, listed?.endpoint),
         )).metered(source, usage, beforeCall = ::checkDailyBudget)
     }
 
@@ -1444,10 +1478,10 @@ class ProviderStore(
                 )
             ProviderConfig.Kind.OpenAiResponses ->
                 ResponsesModel(baseUrl, BearerToken.fixed(apiKey), cfg.model, cfg.capabilities, http, headers = setup.headers,
-                    reasoningEffort = setup.reasoningEffort)
+                    reasoningEffort = setup.reasoningEffort, serviceTier = setup.serviceTier)
             ProviderConfig.Kind.ChatGpt ->
                 ResponsesModel(baseUrl, tokensFor(cfg.providerId), cfg.model, cfg.capabilities, http, chatGptPlan = true, headers = setup.headers,
-                    reasoningEffort = setup.reasoningEffort)
+                    reasoningEffort = setup.reasoningEffort, serviceTier = setup.serviceTier)
             ProviderConfig.Kind.Xai ->
                 ResponsesModel(baseUrl, accountTokensFor(cfg.providerId), cfg.model, cfg.capabilities, http, headers = setup.headers,
                     reasoningEffort = setup.reasoningEffort, accountLogin = XAI_ACCOUNT)
@@ -1603,6 +1637,10 @@ class ProviderStore(
         sessionHeader = o["sessionHeader"]?.jsonPrimitive?.content ?: ProviderPresets.forBaseUrl(o.str("baseUrl"))?.sessionHeader,
         signIn = o["signIn"]?.jsonPrimitive?.content,
         dailyTokenBudget = o.positiveLong("dailyTokenBudget")?.takeIf(TokenBudgetLimits::valid),
+        serviceTiers = (o["serviceTiers"] as? JsonObject).orEmpty().mapNotNull { (model, raw) ->
+            val value = (raw as? JsonPrimitive)?.contentOrNull
+            OpenAiServiceTier.entries.firstOrNull { it.requestValue == value }?.let { model to it }
+        }.toMap(),
         verifiedModels = o["verifiedModels"]?.jsonArray?.map { it.jsonPrimitive.content }?.toSet().orEmpty(),
         contextSettings = (o["contextSettings"] as? JsonObject).orEmpty().mapNotNull { (model, raw) ->
             val entry = raw as? JsonObject ?: return@mapNotNull null
@@ -1732,6 +1770,9 @@ class ProviderStore(
                         p.sessionHeader?.let { put("sessionHeader", it) }
                         p.signIn?.let { put("signIn", it) }
                         p.dailyTokenBudget?.let { put("dailyTokenBudget", it) }
+                        if (p.serviceTiers.isNotEmpty()) putJsonObject("serviceTiers") {
+                            for ((model, tier) in p.serviceTiers) put(model, tier.requestValue)
+                        }
                         if (p.savedUntested) put("untested", true)
                         if (p.verifiedModels.isNotEmpty()) putJsonArray("verifiedModels") { p.verifiedModels.forEach { add(it) } }
                         if (p.contextSettings.isNotEmpty()) putJsonObject("contextSettings") {
