@@ -124,7 +124,10 @@ jobs:
           java-version: "17"
       - uses: android-actions/setup-android@v4
         with:
-          packages: "platform-tools"
+          packages: "platform-tools platforms;android-36 build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
       # 原生库提交在 app/src/main/jniLibs/arm64-v8a;这里用固定 NDK 与 Rust 工具链重建并比较 SHA-256。
       - name: Install NDK 28.2.13676358
         run: |
