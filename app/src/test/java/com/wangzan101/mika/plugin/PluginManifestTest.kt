@@ -72,7 +72,7 @@ class PluginManifestTest {
 
     @Test fun scriptMustBeSh() {
         assertTrue("script_not_sh" in problems(json(extra = ",\"tools\":[{\"name\":\"t\",\"script\":\"scripts/foo.py\"}]")))
-        assertTrue("script_not_sh" in problems(json(extra = ",\"tools\":[{\"name\":\"t\"}]")))
+        assertTrue("invalid_tool_body" in problems(json(extra = ",\"tools\":[{\"name\":\"t\"}]")))
     }
 
     @Test fun scriptPathMustStayInPackage() {
@@ -82,7 +82,6 @@ class PluginManifestTest {
 
     @Test fun unknownPermissionRejected() {
         assertTrue("invalid_permission" in problems(json(extra = ",\"permissions\":[\"do-anything\"]")))
-        assertTrue("invalid_permission" in problems(json(extra = ",\"permissions\":[\"network\"]")))
     }
 
     @Test fun promptTransformPathValidated() {
@@ -159,5 +158,37 @@ class PluginManifestTest {
              "skills":[{"name":"feishu","path":"skills/feishu"},{"name":"feishu","path":"skills/feishu"}]}
         """.trimIndent()
         assertTrue(PluginManifest.ERR_SKILL in problems(dup))
+    }
+
+    private fun wasmTool(perms: String = "\"run-wasm\"", path: String = "tools/echo.wasm", extra: String = "") = """
+        {"schema":1,"id":"com.example.echo","name":"x","version":"1.0.0","kind":"capability",
+         "permissions":[$perms],
+         "tools":[{"name":"echo","description":"d","wasm":"$path","timeoutSec":30,"risk":"read"$extra}],
+         "skills":[]}
+    """.trimIndent()
+
+    @Test fun wasmToolAcceptedWithRunWasmPermission() {
+        val m = PluginManifest.parse(wasmTool())
+        assertEquals(emptyList<String>(), m.validate("0.1.45"))
+        assertEquals("tools/echo.wasm", m.tools.single().wasm)
+    }
+
+    @Test fun wasmToolRequiresRunWasmPermission() {
+        assertTrue("wasm_permission_missing" in problems(wasmTool(perms = "\"run-scripts\"")))
+    }
+
+    @Test fun wasmPathMustStayInTools() {
+        for (path in listOf("../evil.wasm", "/abs/evil.wasm", "scripts/echo.wasm", "tools/../evil.wasm", "tools/echo.py")) {
+            assertTrue(path, "invalid_tool_wasm" in problems(wasmTool(path = path)))
+        }
+    }
+
+    @Test fun toolCannotHaveBothScriptAndWasm() {
+        assertTrue("invalid_tool_body" in problems(wasmTool(extra = ",\"script\":\"scripts/echo.sh\"")))
+    }
+
+    @Test fun networkPermissionIsAllowedForWasmTools() {
+        val m = PluginManifest.parse(wasmTool(perms = "\"run-wasm\",\"network\""))
+        assertEquals(emptyList<String>(), m.validate("0.1.45"))
     }
 }

@@ -41,8 +41,16 @@ data class PluginManifest(
         if (pages.isNotEmpty() || settings.isNotEmpty()) add(ERR_ONLY_SKILLS)
         val toolNames = mutableSetOf<String>()
         for (t in tools) {
-            if (!validScriptPath(t.script)) add(ERR_SCRIPT_NOT_SH)
             if (!toolNames.add(t.name)) add(ERR_TOOL)
+            val script = t.script
+            val wasm = t.wasm
+            when {
+                script == null && wasm == null -> add(ERR_TOOL_BODY)
+                script != null && wasm != null -> add(ERR_TOOL_BODY)
+                script != null && !validScriptPath(script) -> add(ERR_SCRIPT_NOT_SH)
+                wasm != null && !validWasmPath(wasm) -> add(ERR_TOOL_WASM)
+            }
+            if (wasm != null && "run-wasm" !in permissions) add(ERR_WASM_PERMISSION)
         }
         if (promptTransform != null && !validScriptPath(promptTransform)) add(ERR_INVALID_PROMPT_TRANSFORM)
         val seen = mutableSetOf<String>()
@@ -61,6 +69,9 @@ data class PluginManifest(
         val ID = Regex("^[a-z0-9]+(\\.[a-z0-9_-]+)+$")
         val SKILL_NAME = Regex("^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
+        /** 包内 Wasm 模块路径;只允许 `tools/` 下的 `.wasm`。 */
+        val WASM = Regex("""^tools/[A-Za-z0-9._/-]+\.wasm$""")
+
         const val ERR_SCHEMA = "schema_unsupported"
         const val ERR_ID = "invalid_id"
         const val ERR_NAME = "missing_name"
@@ -71,6 +82,9 @@ data class PluginManifest(
         const val ERR_PERMISSIONS = "permissions_unsupported"
         const val ERR_ONLY_SKILLS = "only_skills_supported"
         const val ERR_SCRIPT_NOT_SH = "script_not_sh"
+        const val ERR_TOOL_WASM = "invalid_tool_wasm"
+        const val ERR_TOOL_BODY = "invalid_tool_body"
+        const val ERR_WASM_PERMISSION = "wasm_permission_missing"
         const val ERR_INVALID_PERMISSION = "invalid_permission"
         const val ERR_INVALID_PROMPT_TRANSFORM = "invalid_prompt_transform"
         const val ERR_TOOL = "invalid_tool"
@@ -89,6 +103,8 @@ data class PluginToolDecl(
     val name: String = "",
     val description: String = "",
     val script: String? = null,
+    /** 包内 Wasm 模块路径(`tools/…wasm`);和 [script] 二选一。 */
+    val wasm: String? = null,
     val timeoutSec: Int = 60,
     val risk: String? = null,
     val annotations: Map<String, Boolean> = emptyMap(),
@@ -164,7 +180,12 @@ internal object SemVer {
 }
 
 /** 插件脚本目前能声明的权限白名单;不在这里的一律拒装。 */
-private val ALLOWED_PLUGIN_PERMISSIONS = setOf("run-scripts", "rewrite-prompt")
+private val ALLOWED_PLUGIN_PERMISSIONS = setOf("run-scripts", "run-wasm", "rewrite-prompt", "network")
+
+/** Wasm 模块路径必须落在插件包的 `tools/` 下且是 `.wasm`:非绝对路径、无反斜杠、不含 `..` 或空段。 */
+private fun validWasmPath(p: String?): Boolean =
+    p != null && p.startsWith("tools/") && p.endsWith(".wasm") && !p.contains('\\') &&
+        p.split('/').none { it == ".." || it.isEmpty() }
 
 /** 脚本路径必须落在插件包内且是 `.sh`:非空、以 `.sh` 结尾、非绝对路径、无反斜杠、不含 `..` 或空段。 */
 private fun validScriptPath(p: String?): Boolean =
