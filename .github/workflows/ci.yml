@@ -135,6 +135,17 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
       - name: Install Rust 1.99.1 with Android target
         run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt --target aarch64-linux-android
+      - name: Build native library
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
+        run: bash tools/wasm/build-native.sh
+      - name: Upload built library
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: libmika_wasm-linux
+          path: tools/wasm/target/aarch64-linux-android/release/libmika_wasm.so
+          retention-days: 7
       - name: Verify libmika_wasm.so is reproducible
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
