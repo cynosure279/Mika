@@ -84,6 +84,7 @@ internal suspend fun TaskRun.assembleTools(a: RunAssembly, m: RunModels, ph: Run
     val pluginRunner = com.wangzan101.mika.plugin.PluginScriptRunner(
         envProvider = { com.wangzan101.mika.settings.EnvVarStore.get(service).all() })
     val pluginTools = (service.application as MikaApp).plugins.toolSpecs()
+    val pluginWasmRunner = com.wangzan101.mika.plugin.WasmSupport.runner(service)
     val promptHook = com.wangzan101.mika.plugin.PluginPromptHook(
         (service.application as MikaApp).plugins, pluginRunner, { model.name },
         { com.wangzan101.mika.settings.EnvVarStore.get(service).all() })
@@ -208,7 +209,7 @@ internal suspend fun TaskRun.assembleTools(a: RunAssembly, m: RunModels, ph: Run
         // 看/操作 Mika 自己;开关关着时只给只读状态
         self = selfPort,
         selfOperate = selfPort?.takeIf { FeatureFlags.get(service).selfOperate() },
-        pluginTools = pluginTools, pluginScriptRunner = pluginRunner,
+        pluginTools = pluginTools, pluginScriptRunner = pluginRunner, pluginWasmRunner = pluginWasmRunner,
         pluginArgsDir = java.io.File(service.cacheDir, "plugin-args"))
     dispatcher = tools
     tools.manualControl = manualControl

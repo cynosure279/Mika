@@ -248,7 +248,12 @@
                 android:value="ongoing" />
         </service>
 
-        <service
+                <service
+            android:name=".plugin.WasmService"
+            android:exported="false"
+            android:process=":wasm" />
+
+<service
             android:name=".task.TaskService"
             android:exported="false"
             android:foregroundServiceType="specialUse">

@@ -76,6 +76,9 @@ class PluginInstaller(
                 } catch (e: Exception) {
                     throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "manifest.json is not valid", e)
                 }
+                if (!BuildConfig.WASM_PLUGINS && parsed.tools.any { it.wasm != null }) {
+                    throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "this build does not accept Wasm plugins")
+                }
                 val problems = parsed.validate(appVersion)
                 if (problems.isNotEmpty()) {
                     throw PluginInstallException(problems.first(), "manifest rejected: ${problems.joinToString()}")
@@ -103,6 +106,16 @@ class PluginInstaller(
             }
 
             val m = manifest!!
+            for (t in m.tools) {
+                val wasm = t.wasm ?: continue
+                val module = File(staging, wasm)
+                if (!module.isFile) {
+                    throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "Wasm module missing: $wasm")
+                }
+            }
+            // 安装时记下每个模块的 SHA-256,运行前复核;模块被换过就拒绝执行。
+            val wasmHashes = PluginWasmModules.collect(staging)
+            if (wasmHashes.isNotEmpty()) PluginWasmModules.writeHashes(staging, wasmHashes)
             for (s in m.skills) {
                 if (!File(staging, "${s.path}/SKILL.md").isFile) {
                     throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "skill ${s.name} has no SKILL.md")

@@ -574,6 +574,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
 
     override fun onCreate() {
         super.onCreate()
+        com.wangzan101.mika.plugin.WasmSupport.init(this)
         // One-time legacy voice migration before any migrated consumer is initialized; a failure retains legacy behavior.
         runCatching { migrateLegacyVoice() }
         // 上次进程在复制或绑定分享草稿途中退出时留下的临时文件;目录至多保留一份有效草稿。

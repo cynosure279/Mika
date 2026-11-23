@@ -1,0 +1,15 @@
+[package]
+name = "mika_test_guest"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+name = "mika_test_guest"
+crate-type = ["cdylib"]
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

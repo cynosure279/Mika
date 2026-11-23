@@ -98,4 +98,57 @@ class PluginScriptToolTest {
         val d = toolDispatcher(FakeScreen(), pluginTools = listOf(spec()), pluginScriptRunner = runner)
         assertTrue(d.definitions().any { it.name == "plugin_mika_translate_translate" })
     }
+
+    private class FakeWasm(var result: WasmCallResult) : WasmRunner {
+        var invocation: WasmInvocation? = null
+        var args: String? = null
+        override suspend fun call(invocation: WasmInvocation, argsJson: String): WasmCallResult {
+            this.invocation = invocation
+            this.args = argsJson
+            return result
+        }
+    }
+
+    private fun wasmSpec(name: String = "plugin_mika_echo_echo") = PluginToolSpec(
+        name = name,
+        description = "echo",
+        scriptDir = tmp.root,
+        inputSchema = buildJsonObject { put("type", "object"); put("properties", buildJsonObject {}) },
+        timeoutSec = 30,
+        risk = Risk.Read,
+        wasmPath = "tools/echo.wasm",
+        permissions = listOf("run-wasm"),
+        pluginId = "com.example.echo",
+    )
+
+    @Test fun executesWasmAndParsesJsonResult() = runTest {
+        val runner = FakeWasm(WasmCallResult(output = """{"ok":true,"echo":"hi"}"""))
+        val d = toolDispatcher(FakeScreen(), pluginTools = listOf(wasmSpec()), pluginWasmRunner = runner)
+        val r = d.execute(call("plugin_mika_echo_echo", "{}"), ActionPass()).content
+        assertEquals("hi", (r["echo"] as JsonPrimitive).content)
+        assertEquals("com.example.echo", runner.invocation!!.pluginId)
+        assertEquals("tools/echo.wasm", runner.invocation!!.modulePath)
+        assertEquals("{}", runner.args)
+    }
+
+    @Test fun wasmWithoutEngineIsCleanFailure() = runTest {
+        val d = toolDispatcher(FakeScreen(), pluginTools = listOf(wasmSpec()), pluginScriptRunner = FakeRunner(ScriptResult(0, "{}", "", false)))
+        val r = d.execute(call("plugin_mika_echo_echo", "{}"), ActionPass()).content
+        assertEquals("wasm_unavailable", (r["error"] as JsonPrimitive).content)
+    }
+
+    @Test fun wasmEngineErrorIsReported() = runTest {
+        val runner = FakeWasm(WasmCallResult(error = "module is missing or changed"))
+        val d = toolDispatcher(FakeScreen(), pluginTools = listOf(wasmSpec()), pluginWasmRunner = runner)
+        val r = d.execute(call("plugin_mika_echo_echo", "{}"), ActionPass()).content
+        assertEquals("wasm_error", (r["error"] as JsonPrimitive).content)
+        assertTrue((r["message"] as JsonPrimitive).content.contains("missing"))
+    }
+
+    @Test fun wasmTimeoutHonoursManifestSeconds() = runTest {
+        val runner = FakeWasm(WasmCallResult(output = """{"ok":true}"""))
+        val d = toolDispatcher(FakeScreen(), pluginTools = listOf(wasmSpec()), pluginWasmRunner = runner)
+        d.execute(call("plugin_mika_echo_echo", "{}"), ActionPass())
+        assertEquals(30_000L, runner.invocation!!.timeoutMs)
+    }
 }

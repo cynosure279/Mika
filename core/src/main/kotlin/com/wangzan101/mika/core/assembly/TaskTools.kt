@@ -27,9 +27,10 @@ import com.wangzan101.mika.core.cap.web.PagePacing
 import com.wangzan101.mika.core.uistate.PlacePace
 import com.wangzan101.mika.core.cap.mcp.McpConnection
 import com.wangzan101.mika.core.plugin.PluginCapability
-import com.wangzan101.mika.core.plugin.PluginScriptTool
+import com.wangzan101.mika.core.plugin.PluginTool
 import com.wangzan101.mika.core.plugin.PluginToolSpec
 import com.wangzan101.mika.core.plugin.ScriptRunner
+import com.wangzan101.mika.core.plugin.WasmRunner
 import com.wangzan101.mika.core.general.GeneralGroup
 import com.wangzan101.mika.core.knowledge.GuideCatalog
 import com.wangzan101.mika.core.memory.MemoryStore
@@ -177,8 +178,10 @@ fun toolDispatcher(
     wechatOwner: com.wangzan101.mika.core.wechat.WechatOwnerPort? = null,
     /** 启用的插件工具(名字已拼成 plugin_<id>_<name>);给了 [pluginScriptRunner] 才放进任务。 */
     pluginTools: List<PluginToolSpec> = emptyList(),
-    /** 在 App 进程内跑插件脚本的入口;为空时插件工具不登记。 */
+    /** 在 App 进程内跑插件脚本的入口;为空时脚本工具调用会干净失败。 */
     pluginScriptRunner: ScriptRunner? = null,
+    /** Wasm 插件引擎入口(App 的 :wasm 独立进程);为空时 Wasm 工具调用会干净失败。 */
+    pluginWasmRunner: WasmRunner? = null,
     /** 插件脚本参数临时文件放哪;App 用 cacheDir,JVM 测试用 java.io.tmpdir。 */
     pluginArgsDir: File = File(System.getProperty("java.io.tmpdir"), "mika-plugin-args"),
     /** Streams a document from a system-granted folder to this task's workspace. */
@@ -251,10 +254,12 @@ fun toolDispatcher(
             override val id = DEVICE_FILES
             override fun open(spec: RunSpec) = DeviceFilesCapability(port, workspace, helperFileTools)
         }
-    }, pluginScriptRunner?.takeIf { pluginTools.isNotEmpty() }?.let { runner ->
+    }, (pluginScriptRunner ?: pluginWasmRunner)?.takeIf { pluginTools.isNotEmpty() }?.let {
         object : CapabilityProvider {
             override val id = "plugin"
-            override fun open(spec: RunSpec) = PluginCapability(pluginTools.map { PluginScriptTool(it, runner, pluginArgsDir) })
+            override fun open(spec: RunSpec) = PluginCapability(pluginTools.map { tool ->
+                PluginTool(tool, pluginScriptRunner, pluginWasmRunner, pluginArgsDir)
+            })
         }
     }) + mcpServers.map(::McpClientProvider)
     return RunAssembler(providers).assemble(runSpec, config, stableRefs, FORMER_PREFIX, RENAMED, RETIRED, MOVED)

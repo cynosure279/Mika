@@ -112,6 +112,33 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  wasm-native:
+    name: wasm native (reproducible)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools"
+      # 原生库提交在 app/src/main/jniLibs/arm64-v8a;这里用固定 NDK 与 Rust 工具链重建并比较 SHA-256。
+      - name: Install NDK 28.2.13676358
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
+      - name: Install Rust 1.99.1 with Android target
+        run: rustup toolchain install 1.99.1 --profile minimal --target aarch64-linux-android
+      - name: Verify libmika_wasm.so is reproducible
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
+        run: tools/wasm/build-native.sh --check
+      - name: Wasm plugin JVM tests
+        run: ./gradlew :core:test --tests '*PluginScriptToolTest' :app:testDebugUnitTest --tests '*plugin.WasmHostHandlerTest' --tests '*plugin.PluginWasmRuntimeTest' --tests '*plugin.PluginHttpTest' --stacktrace
+
   relay:
     name: relay (Go)
     runs-on: ubuntu-latest

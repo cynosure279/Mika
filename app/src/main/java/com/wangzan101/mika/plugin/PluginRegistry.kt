@@ -72,6 +72,9 @@ class PluginRegistry(
                 inputSchema = tool.inputSchema ?: JsonObject(emptyMap()),
                 timeoutSec = tool.timeoutSec,
                 risk = tool.risk.toRisk(),
+                wasmPath = tool.wasm,
+                permissions = m.permissions,
+                pluginId = record.id,
             )
         }.distinctBy { it.name }
     }

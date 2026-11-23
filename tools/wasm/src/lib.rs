@@ -1,0 +1,539 @@
+//! Mika 的 Wasm 插件引擎：Wasmtime JNI 桥（ABI v2）。
+//!
+//! 工具 ABI（v1 兼容）：
+//! - 模块导出 `memory`、`mika_buffer() -> i32`、`mika_buffer_size() -> i32`、
+//!   `mika_tool_call(ptr, len) -> i64`；返回值打包为 `(ptr << 32) | len`。
+//!
+//! 宿主能力（import module `mika`）：
+//! - `abi_version() -> i32`（当前为 2）
+//! - `log(level, ptr, len)`
+//! - `settings_get(key_ptr, key_len, out_ptr, out_cap) -> i32`
+//! - `fs_read(path_ptr, path_len, out_ptr, out_cap) -> i32`
+//! - `http_request(req_ptr, req_len, out_ptr, out_cap) -> i32`：经宿主回调(`IWasmHost`)
+//!   在 App 进程执行网络请求，策略、代理与限额都在宿主进程。
+//! - `settings_set(key_ptr, key_len, value_ptr, value_len) -> i32`：写插件设置/secret
+//!   (value_len 为 0 表示删除)；只认 manifest 声明过的键与类型，同样经宿主回调落盘。
+//! 权限、设置快照与 workspace 由宿主每次调用经 contextJson 传入，默认拒绝；
+//! 回调由宿主决定给不给，未给时对应能力返回 -2。
+
+use std::collections::{HashMap, HashSet};
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
+use jni::objects::{GlobalRef, JByteArray, JObject, JString, JValue};
+use jni::sys::{jlong, jstring, jint};
+use jni::{JNIEnv, JavaVM};
+use sha2::{Digest, Sha256};
+use wasmtime::{Caller, Config, Engine, Linker, Module, OptLevel, Store, StoreLimits, StoreLimitsBuilder};
+
+struct State {
+    permissions: HashSet<String>,
+    settings: HashMap<String, String>,
+    secrets: HashMap<String, String>,
+    /// manifest 声明的设置键与类型(只有这些键写得进去)。
+    setting_types: HashMap<String, String>,
+    workspace: Option<PathBuf>,
+    logs: Vec<String>,
+    limits: StoreLimits,
+    /// 宿主进程回调(联网与设置写入);未授权时为空。
+    vm: Option<JavaVM>,
+    host: Option<GlobalRef>,
+    /// 本次调用的截止时间(和 epoch 超时同一个预算)。
+    deadline: Option<Instant>,
+}
+
+static ENGINE: OnceLock<Engine> = OnceLock::new();
+static LINKER: OnceLock<Linker<State>> = OnceLock::new();
+static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
+static TICKER: OnceLock<()> = OnceLock::new();
+
+const CACHE_MODULES: usize = 32;
+const LOG_LIMIT: usize = 100;
+const LOG_BYTES: usize = 4000;
+const FS_LIMIT: usize = 1024 * 1024;
+const HTTP_REQUEST_LIMIT: usize = 1024 * 1024;
+const HTTP_TIMEOUT_MAX_MS: u64 = 30_000;
+const SETTING_LIMIT: usize = 64 * 1024;
+
+struct Cache {
+    map: HashMap<[u8; 32], Module>,
+    order: Vec<[u8; 32]>,
+}
+
+impl Cache {
+    fn new() -> Self {
+        Self { map: HashMap::new(), order: Vec::new() }
+    }
+
+    fn get(&mut self, key: &[u8; 32]) -> Option<Module> {
+        let module = self.map.get(key)?.clone();
+        self.order.retain(|k| k != key);
+        self.order.push(*key);
+        Some(module)
+    }
+
+    fn insert(&mut self, key: [u8; 32], module: Module) {
+        if !self.map.contains_key(&key) {
+            while self.map.len() >= CACHE_MODULES {
+                let Some(oldest) = self.order.first().copied() else { break };
+                self.order.remove(0);
+                self.map.remove(&oldest);
+            }
+            self.order.push(key);
+        }
+        self.map.insert(key, module);
+    }
+}
+
+fn engine() -> &'static Engine {
+    ENGINE.get_or_init(|| {
+        let mut config = Config::new();
+        config.wasm_gc(true);
+        config.cranelift_opt_level(OptLevel::Speed);
+        config.epoch_interruption(true);
+        Engine::new(&config).expect("wasmtime engine")
+    })
+}
+
+fn ensure_ticker() {
+    TICKER.get_or_init(|| {
+        std::thread::spawn(|| loop {
+            std::thread::sleep(Duration::from_millis(10));
+            engine().increment_epoch();
+        });
+    });
+}
+
+fn read_str(caller: &mut Caller<'_, State>, ptr: i32, len: i32) -> Option<String> {
+    let memory = caller.get_export("memory")?.into_memory()?;
+    let data = memory.data(caller);
+    let start = usize::try_from(ptr).ok()?;
+    let len = usize::try_from(len).ok()?;
+    let end = start.checked_add(len)?;
+    let slice = data.get(start..end)?;
+    String::from_utf8(slice.to_vec()).ok()
+}
+
+fn read_bytes(caller: &mut Caller<'_, State>, ptr: i32, len: i32) -> Option<Vec<u8>> {
+    let memory = caller.get_export("memory")?.into_memory()?;
+    let data = memory.data(caller);
+    let start = usize::try_from(ptr).ok()?;
+    let len = usize::try_from(len).ok()?;
+    let end = start.checked_add(len)?;
+    data.get(start..end).map(|s| s.to_vec())
+}
+
+fn write_bytes(caller: &mut Caller<'_, State>, ptr: i32, cap: i32, bytes: &[u8]) -> i32 {
+    let Some(memory) = caller.get_export("memory").and_then(|e| e.into_memory()) else {
+        return -1;
+    };
+    let start = usize::try_from(ptr).unwrap_or(usize::MAX);
+    let cap = usize::try_from(cap).unwrap_or(0);
+    if bytes.len() > cap {
+        return -4;
+    }
+    let data = memory.data_mut(caller);
+    let Some(end) = start.checked_add(bytes.len()) else { return -1 };
+    if end > data.len() {
+        return -1;
+    }
+    data[start..end].copy_from_slice(bytes);
+    bytes.len() as i32
+}
+
+fn allowed(state: &State, permission: &str) -> bool {
+    state.permissions.contains(permission)
+}
+
+fn linker() -> &'static Linker<State> {
+    LINKER.get_or_init(|| {
+        let mut linker = Linker::new(engine());
+        linker
+            .func_wrap("mika", "abi_version", || 2i32)
+            .expect("mika.abi_version");
+        linker
+            .func_wrap("mika", "log", |mut caller: Caller<'_, State>, level: i32, ptr: i32, len: i32| {
+                if caller.data().logs.len() >= LOG_LIMIT {
+                    return;
+                }
+                let Some(mut text) = read_str(&mut caller, ptr, len) else { return };
+                if text.len() > LOG_BYTES {
+                    text.truncate(LOG_BYTES);
+                }
+                caller.data_mut().logs.push(format!("[{level}] {text}"));
+            })
+            .expect("mika.log");
+        linker
+            .func_wrap(
+                "mika",
+                "settings_get",
+                |mut caller: Caller<'_, State>, key_ptr: i32, key_len: i32, out_ptr: i32, out_cap: i32| -> i32 {
+                    if !allowed(caller.data(), "settings.plugin") {
+                        return -2;
+                    }
+                    let Some(key) = read_str(&mut caller, key_ptr, key_len) else { return -1 };
+                    let value = caller
+                        .data()
+                        .settings
+                        .get(&key)
+                        .or_else(|| caller.data().secrets.get(&key))
+                        .cloned();
+                    match value {
+                        Some(v) => write_bytes(&mut caller, out_ptr, out_cap, v.as_bytes()),
+                        None => -3,
+                    }
+                },
+            )
+            .expect("mika.settings_get");
+        linker
+            .func_wrap(
+                "mika",
+                "fs_write",
+                |mut caller: Caller<'_, State>, path_ptr: i32, path_len: i32, data_ptr: i32, data_len: i32| -> i32 {
+                    if !allowed(caller.data(), "workspace.own") {
+                        return -2;
+                    }
+                    let Some(path) = read_str(&mut caller, path_ptr, path_len) else { return -1 };
+                    if !safe_relative(&path) {
+                        return -1;
+                    }
+                    let Some(workspace) = caller.data().workspace.clone() else { return -2 };
+                    if std::fs::create_dir_all(&workspace).is_err() {
+                        return -5;
+                    }
+                    let Ok(root) = workspace.canonicalize() else { return -5 };
+                    let target = root.join(&path);
+                    let Some(parent) = target.parent() else { return -1 };
+                    if std::fs::create_dir_all(parent).is_err() {
+                        return -5;
+                    }
+                    let Ok(parent) = parent.canonicalize() else { return -1 };
+                    if !parent.starts_with(&root) {
+                        return -1;
+                    }
+                    let Some(data) = read_bytes(&mut caller, data_ptr, data_len) else { return -1 };
+                    if data.len() > FS_LIMIT {
+                        return -4;
+                    }
+                    match std::fs::write(&target, &data) {
+                        Ok(()) => data.len() as i32,
+                        Err(_) => -5,
+                    }
+                },
+            )
+            .expect("mika.fs_write");
+        linker
+            .func_wrap(
+                "mika",
+                "fs_read",
+                |mut caller: Caller<'_, State>, path_ptr: i32, path_len: i32, out_ptr: i32, out_cap: i32| -> i32 {
+                    if !allowed(caller.data(), "workspace.own") {
+                        return -2;
+                    }
+                    let Some(path) = read_str(&mut caller, path_ptr, path_len) else { return -1 };
+                    if !safe_relative(&path) {
+                        return -1;
+                    }
+                    let Some(workspace) = caller.data().workspace.clone() else { return -2 };
+                    let Ok(root) = workspace.canonicalize() else { return -5 };
+                    let candidate = root.join(&path);
+                    let Ok(file) = candidate.canonicalize() else { return -3 };
+                    if !file.starts_with(&root) || !file.is_file() {
+                        return -1;
+                    }
+                    let Ok(meta) = std::fs::metadata(&file) else { return -5 };
+                    if meta.len() > FS_LIMIT as u64 {
+                        return -4;
+                    }
+                    let Ok(bytes) = std::fs::read(&file) else { return -5 };
+                    write_bytes(&mut caller, out_ptr, out_cap, &bytes)
+                },
+            )
+            .expect("mika.fs_read");
+        linker
+            .func_wrap(
+                "mika",
+                "http_request",
+                |mut caller: Caller<'_, State>, req_ptr: i32, req_len: i32, out_ptr: i32, out_cap: i32| -> i32 {
+                    if !allowed(caller.data(), "network") {
+                        return -2;
+                    }
+                    let Some(request) = read_str(&mut caller, req_ptr, req_len) else { return -1 };
+                    if request.len() > HTTP_REQUEST_LIMIT {
+                        return -4;
+                    }
+                    let (vm, host, remaining) = {
+                        let state = caller.data();
+                        let (Some(vm), Some(host)) = (state.vm.as_ref(), state.host.as_ref()) else {
+                            return -2;
+                        };
+                        let remaining = state
+                            .deadline
+                            .map(|deadline| deadline.saturating_duration_since(Instant::now()))
+                            .unwrap_or(Duration::from_millis(HTTP_TIMEOUT_MAX_MS));
+                        (vm, host, remaining)
+                    };
+                    // 回调超时不超过本次调用剩下的预算;Agent 给的更长也在宿主侧截断
+                    let request = clamp_timeout(&request, remaining);
+                    let response = match call_host_method(vm, host, "http", &request) {
+                        Ok(response) => response,
+                        Err(_) => return -5,
+                    };
+                    write_bytes(&mut caller, out_ptr, out_cap, response.as_bytes())
+                },
+            )
+            .expect("mika.http_request");
+        linker
+            .func_wrap(
+                "mika",
+                "settings_set",
+                |mut caller: Caller<'_, State>, key_ptr: i32, key_len: i32, value_ptr: i32, value_len: i32| -> i32 {
+                    if !allowed(caller.data(), "settings.plugin") {
+                        return -2;
+                    }
+                    let Some(key) = read_str(&mut caller, key_ptr, key_len) else { return -1 };
+                    if !valid_setting_key(&key) {
+                        return -1;
+                    }
+                    let Some(kind) = caller.data().setting_types.get(&key).cloned() else { return -3 };
+                    // value_len 为 0 表示删除;其余按 manifest 声明的类型校验
+                    let value = if value_len == 0 {
+                        None
+                    } else {
+                        let Some(text) = read_str(&mut caller, value_ptr, value_len) else { return -1 };
+                        if text.len() > SETTING_LIMIT {
+                            return -4;
+                        }
+                        if !valid_setting_value(&kind, &text) {
+                            return -1;
+                        }
+                        Some(text)
+                    };
+                    let (vm, host) = {
+                        let state = caller.data();
+                        let (Some(vm), Some(host)) = (state.vm.as_ref(), state.host.as_ref()) else {
+                            return -2;
+                        };
+                        (vm, host)
+                    };
+                    let request = serde_json::json!({ "key": key, "value": value }).to_string();
+                    match call_host_method(vm, host, "settingsSet", &request) {
+                        Ok(_) => 0,
+                        Err(_) => -5,
+                    }
+                },
+            )
+            .expect("mika.settings_set");
+        linker
+    })
+}
+
+/// 把请求 JSON 里的 timeoutMs 截到本次调用剩余时间里(也截到 30 秒)。
+fn clamp_timeout(request: &str, remaining: Duration) -> String {
+    let budget = remaining.as_millis().clamp(1, HTTP_TIMEOUT_MAX_MS as u128) as u64;
+    let Ok(mut value) = serde_json::from_str::<serde_json::Value>(request) else {
+        return request.to_string();
+    };
+    let Some(obj) = value.as_object_mut() else { return request.to_string() };
+    let requested = obj.get("timeoutMs").and_then(|v| v.as_u64()).unwrap_or(budget);
+    obj.insert("timeoutMs".to_string(), serde_json::json!(requested.min(budget).max(1)));
+    value.to_string()
+}
+
+/// 在当前线程上回调宿主进程的 `IWasmHost.<method>(String): String`。
+fn call_host_method(vm: &JavaVM, host: &GlobalRef, method: &str, request: &str) -> Result<String, String> {
+    let mut env = vm.attach_current_thread().map_err(|e| format!("attach: {e}"))?;
+    let input = env.new_string(request).map_err(|e| format!("request string: {e}"))?;
+    let value = env.call_method(host, method, "(Ljava/lang/String;)Ljava/lang/String;", &[JValue::Object(&input)]);
+    let value = match value {
+        Ok(value) => value,
+        Err(e) => {
+            if env.exception_check().unwrap_or(false) {
+                let _ = env.exception_clear();
+            }
+            return Err(format!("host call: {e}"));
+        }
+    };
+    let obj = value.l().map_err(|e| format!("host returned a non-object: {e}"))?;
+    if obj.as_raw().is_null() {
+        return Err("host returned null".to_string());
+    }
+    let string = JString::from(obj);
+    env.get_string(&string).map(|s| s.into()).map_err(|e| format!("host string: {e}"))
+}
+
+/// manifest 设置键的格式(与 Kotlin 侧 `PluginManifest.SETTING_KEY` 一致)。
+fn valid_setting_key(key: &str) -> bool {
+    let mut chars = key.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => {}
+        _ => return false,
+    }
+    key.len() <= 64 && chars.all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+}
+
+/// 按 manifest 声明的类型校验设置值;secret 与 string 都是任意 UTF-8 文本。
+fn valid_setting_value(kind: &str, value: &str) -> bool {
+    match kind {
+        "string" | "secret" => true,
+        "bool" => value == "true" || value == "false",
+        "number" => value.parse::<f64>().map(f64::is_finite).unwrap_or(false),
+        _ => false,
+    }
+}
+
+fn safe_relative(path: &str) -> bool {
+    if path.is_empty() || path.starts_with('/') || path.contains('\\') {
+        return false;
+    }
+    !path.split('/').any(|part| part == ".." || part.is_empty() || part == ".")
+}
+
+fn module_for(bytes: &[u8]) -> Result<Module, String> {
+    let key: [u8; 32] = Sha256::digest(bytes).into();
+    let cache = CACHE.get_or_init(|| Mutex::new(Cache::new()));
+    let mut cache = cache.lock().map_err(|_| "module cache poisoned".to_string())?;
+    if let Some(module) = cache.get(&key) {
+        return Ok(module);
+    }
+    let module = Module::new(engine(), bytes).map_err(|e| format!("compile: {e}"))?;
+    cache.insert(key, module.clone());
+    Ok(module)
+}
+
+fn parse_context(bytes: &[u8], memory_limit: usize) -> State {
+    let value: serde_json::Value = serde_json::from_slice(bytes).unwrap_or(serde_json::Value::Null);
+    let permissions = value["permissions"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+        .unwrap_or_default();
+    let settings = value["settings"]
+        .as_object()
+        .map(|o| o.iter().filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string()))).collect())
+        .unwrap_or_default();
+    let secrets = value["secrets"]
+        .as_object()
+        .map(|o| o.iter().filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string()))).collect())
+        .unwrap_or_default();
+    let setting_types = value["settingTypes"]
+        .as_object()
+        .map(|o| o.iter().filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string()))).collect())
+        .unwrap_or_default();
+    let workspace = value["workspace"].as_str().map(PathBuf::from);
+    let limits = StoreLimitsBuilder::new().memory_size(memory_limit).build();
+    State {
+        permissions,
+        settings,
+        secrets,
+        setting_types,
+        workspace,
+        logs: Vec::new(),
+        limits,
+        vm: None,
+        host: None,
+        deadline: None,
+    }
+}
+
+fn run(
+    bytes: &[u8],
+    context: &[u8],
+    args: &str,
+    timeout_ms: u64,
+    memory_limit: usize,
+    vm: Option<JavaVM>,
+    host: Option<GlobalRef>,
+) -> Result<String, String> {
+    ensure_ticker();
+    let module = module_for(bytes)?;
+    let mut state = parse_context(context, memory_limit);
+    state.vm = vm;
+    state.host = host;
+    state.deadline = Some(Instant::now() + Duration::from_millis(timeout_ms));
+    let mut store = Store::new(engine(), state);
+    store.limiter(|state| &mut state.limits);
+    store.set_epoch_deadline(((timeout_ms + 9) / 10).max(1));
+
+    let instance = linker()
+        .instantiate(&mut store, &module)
+        .map_err(|e| format!("instantiate: {e}"))?;
+    let memory = instance
+        .get_memory(&mut store, "memory")
+        .ok_or_else(|| "module does not export memory".to_string())?;
+    let buffer = instance
+        .get_typed_func::<(), i32>(&mut store, "mika_buffer")
+        .map_err(|e| format!("missing mika_buffer: {e}"))?;
+    let buffer_size = instance
+        .get_typed_func::<(), i32>(&mut store, "mika_buffer_size")
+        .map_err(|e| format!("missing mika_buffer_size: {e}"))?;
+    let call = instance
+        .get_typed_func::<(i32, i32), i64>(&mut store, "mika_tool_call")
+        .map_err(|e| format!("missing mika_tool_call: {e}"))?;
+
+    let ptr = buffer.call(&mut store, ()).map_err(|e| format!("mika_buffer: {e}"))? as usize;
+    let cap = buffer_size.call(&mut store, ()).map_err(|e| format!("mika_buffer_size: {e}"))? as usize;
+    let args_bytes = args.as_bytes();
+    if args_bytes.len() > cap {
+        return Err(format!("arguments too large: {} > {}", args_bytes.len(), cap));
+    }
+    memory.write(&mut store, ptr, args_bytes).map_err(|e| format!("write args: {e}"))?;
+
+    let packed = call
+        .call(&mut store, (ptr as i32, args_bytes.len() as i32))
+        .map_err(|e| format!("call: {e}"))? as u64;
+    let out_ptr = (packed >> 32) as usize;
+    let out_len = (packed & 0xffff_ffff) as usize;
+    let data = memory.data(&store);
+    let end = out_ptr.checked_add(out_len).ok_or_else(|| "invalid result range".to_string())?;
+    if end > data.len() {
+        return Err("result range out of bounds".to_string());
+    }
+    let output = String::from_utf8(data[out_ptr..end].to_vec())
+        .map_err(|e| format!("result is not utf-8: {e}"))?;
+    let logs = store.data().logs.clone();
+    Ok(serde_json::json!({ "output": output, "logs": logs }).to_string())
+}
+
+/// Kotlin: `nativeCall(wasm: ByteArray, contextJson: ByteArray, argsJson: String, timeoutMs: Long, memoryLimitBytes: Long, host: IWasmHost?): String`
+#[no_mangle]
+pub extern "system" fn Java_com_wangzan101_mika_plugin_WasmtimeNative_nativeCall<'local>(
+    mut env: JNIEnv<'local>,
+    _this: JObject<'local>,
+    wasm: JByteArray<'local>,
+    context_json: JByteArray<'local>,
+    args_json: JString<'local>,
+    timeout_ms: jlong,
+    memory_limit: jlong,
+    host: JObject<'local>,
+) -> jstring {
+    let outcome = catch_unwind(AssertUnwindSafe(|| -> Result<String, String> {
+        let bytes = env.convert_byte_array(&wasm).map_err(|e| format!("read wasm bytes: {e}"))?;
+        let context = env
+            .convert_byte_array(&context_json)
+            .map_err(|e| format!("read context: {e}"))?;
+        let args: String = env.get_string(&args_json).map_err(|e| format!("read args: {e}"))?.into();
+        let timeout = timeout_ms.max(1) as u64;
+        let limit = memory_limit.max(1 << 20) as usize;
+        // 宿主没给回调(未授权联网)时保持 None,guest 的 http_request 会得到 -2
+        let vm = env.get_java_vm().ok();
+        let host = if host.as_raw().is_null() {
+            None
+        } else {
+            Some(env.new_global_ref(&host).map_err(|e| format!("host ref: {e}"))?)
+        };
+        run(&bytes, &context, &args, timeout, limit, vm, host)
+    }));
+    match outcome {
+        Ok(Ok(output)) => env.new_string(output).map(|s| s.into_raw()).unwrap_or(std::ptr::null_mut()),
+        Ok(Err(message)) => {
+            let _ = env.throw_new("java/lang/RuntimeException", message);
+            std::ptr::null_mut()
+        }
+        Err(_) => {
+            let _ = env.throw_new("java/lang/RuntimeException", "wasm engine panicked");
+            std::ptr::null_mut()
+        }
+    }
+}

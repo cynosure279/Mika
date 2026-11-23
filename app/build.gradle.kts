@@ -25,6 +25,8 @@ android {
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
         // 关于页版本号后的 Beta 标记;出正式版时改成 false
         buildConfigField("boolean", "BETA", "true")
+        // Wasm 插件工具:独立进程隔离已就绪;发布包等真机验收通过后再打开(见 docs/dev/plugin-wasm.md)
+        buildConfigField("boolean", "WASM_PLUGINS", "false")
         buildConfigField("boolean", "ADB_LOGS", "false")
     }
 
@@ -56,6 +58,10 @@ android {
     sourceSets.getByName("androidTest").assets.srcDir(rootProject.file("eval/tasks"))
 
     buildTypes {
+        // Wasm 插件工具:调试包启用,发布包等真机 arm64 验收通过后再打开。
+        getByName("debug") {
+            buildConfigField("boolean", "WASM_PLUGINS", "true")
+        }
         // 真机验收时并排安装,保留发行版和用户数据;默认构建标识不变。
         if (providers.gradleProperty("devInstall").isPresent) getByName("debug") {
             applicationIdSuffix = ".dev"
