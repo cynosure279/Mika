@@ -134,11 +134,11 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
       - name: Install Rust 1.99.1 with Android target
-        run: rustup toolchain install 1.99.1 --profile minimal --target aarch64-linux-android
+        run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt --target aarch64-linux-android
       - name: Verify libmika_wasm.so is reproducible
         env:
           ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/28.2.13676358
-        run: tools/wasm/build-native.sh --check
+        run: bash tools/wasm/build-native.sh --check
       - name: Wasm plugin JVM tests
         run: ./gradlew :core:test --tests '*PluginScriptToolTest' :app:testDebugUnitTest --tests '*plugin.WasmHostHandlerTest' --tests '*plugin.PluginWasmRuntimeTest' --tests '*plugin.PluginHttpTest' --stacktrace
 
