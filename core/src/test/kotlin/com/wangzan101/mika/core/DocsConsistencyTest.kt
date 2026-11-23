@@ -61,7 +61,11 @@ class DocsConsistencyTest {
     private val pathExtensions = setOf("kt", "kts", "java", "md", "json", "xml", "txt", "yml", "yaml", "gradle", "toml", "properties", "py", "sh", "js", "html", "pro", "aidl", "cpp", "h")
     private val tool = Regex("""[a-z][a-z0-9]*(_[a-z0-9]+)+""")
     // 状态码不是模型工具名,即使其前缀与工具相同;微信消息里的字段名也一样(不是发给模型的工具)。
-    private val nonToolNames = setOf("copy_not_found", "copy_not_opened", "task_progress", "image_item")
+    private val nonToolNames = setOf(
+        "copy_not_found", "copy_not_opened", "task_progress", "image_item",
+        // Wasm 插件模块的导出名(guest 侧 ABI),不是发给模型的工具。
+        "mika_buffer", "mika_buffer_size", "mika_tool_call",
+    )
 
     /**
      * 实时语音会话里注册给模型的工具(定义在 app 的通话协议层,不在 core 的工具表里):
