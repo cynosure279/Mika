@@ -342,3 +342,113 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Wasmtime
+
+- Project: https://github.com/bytecodealliance/wasmtime(Bytecode Alliance)
+- Version: `wasmtime 49.0.5`(含 Cranelift 0.136.5、Pulley、`wasmparser`/`wasm-encoder` 0.258.3、`regalloc2` 0.15.2),
+  版本由 `tools/wasm/Cargo.lock` 固定
+- License: Apache-2.0 WITH LLVM-exception;Apache-2.0 全文见仓库根目录 `LICENSE`,LLVM 例外条款见下
+- Usage: 插件 Wasm 工具的执行引擎。以 Rust 库的形式**静态链接**进 `app/src/main/jniLibs/arm64-v8a/libmika_wasm.so`
+  (源码 `tools/wasm/`,由 `tools/wasm/build-native.sh` 编译,来源与校验值见 `tools/wasm/NATIVE-PROVENANCE.md`),
+  随 APK 发布;未修改 Wasmtime 的代码。只在 `:wasm` 进程里加载。
+- LLVM Exception:
+
+```text
+--- LLVM Exceptions to the Apache 2.0 License ----
+
+As an exception, if, as a result of your compiling your source code, portions
+of this Software are embedded into an Object form of such source code, you
+may redistribute such embedded portions in such Object form without complying
+with the conditions of Sections 4(a), 4(b) and 4(d) of the License.
+
+In addition, if you combine or link compiled forms of this Software with
+software that is licensed under the GPLv2 ("Combined Software") and if a
+court of competent jurisdiction determines that the patent provision (Section
+3), the indemnity provision (Section 9) or other Section of the License
+conflicts with the conditions of the GPLv2, you may retroactively and
+prospectively choose to deem waived or otherwise exclude such Section(s) of
+the License, but only in their entirety and only with respect to the Combined
+Software.
+```
+
+## libmika_wasm.so 里的其他 Rust 库
+
+- Source: crates.io,版本由 `tools/wasm/Cargo.lock` 固定;均未修改,和 Wasmtime 一起静态链接进
+  `app/src/main/jniLibs/arm64-v8a/libmika_wasm.so`(另含 Rust 标准库,MIT OR Apache-2.0)。
+- 双许可(MIT OR Apache-2.0,或再加 Apache-2.0 WITH LLVM-exception)的库,Mika 按 Apache-2.0 使用(全文见仓库根目录 `LICENSE`);
+  `Unlicense OR MIT` 的库按 Unlicense 使用。
+- 按许可证逐个列出:
+  - MIT OR Apache-2.0:`addr2line 0.26.1`、`allocator-api2 0.2.21`、`anyhow 1.0.104`、`arbitrary 1.5.0`、`bitflags 2.13.2`、
+    `block-buffer 0.10.4`、`bumpalo 3.20.3`、`cesu8 1.1.0`、`cfg-if 1.0.5`、`cobs 0.3.0`、`cpp_demangle 0.5.1`、`cpufeatures 0.2.17`、
+    `crc32fast 1.5.4`、`crypto-common 0.1.7`、`digest 0.10.7`、`either 1.19.0`、`embedded-io 0.4.0`、`embedded-io 0.6.1`、
+    `equivalent 1.0.3`、`errno 0.3.14`、`fnv 1.0.7`、`futures 0.3.34`、`futures-channel 0.3.34`、`futures-core 0.3.34`、
+    `futures-io 0.3.34`、`futures-sink 0.3.34`、`futures-task 0.3.34`、`futures-util 0.3.34`、`gimli 0.33.0`、`hashbrown 0.16.1`、
+    `hashbrown 0.17.1`、`indexmap 2.14.2`、`itertools 0.14.0`、`itoa 1.0.19`、`jni 0.21.1`、`jni-sys 0.3.1`、`jni-sys 0.4.1`、
+    `leb128fmt 0.1.0`、`libc 0.2.191`、`log 0.4.35`、`memfd 0.6.6`、`object 0.40.0`、`once_cell 1.21.4`、`pin-project-lite 0.2.17`、
+    `postcard 1.1.3`、`rustc-demangle 0.1.28`、`rustc-hash 2.1.3`、`semver 1.0.28`、`serde 1.0.229`、`serde_core 1.0.229`、
+    `serde_json 1.0.154`、`sha2 0.10.9`、`smallvec 1.16.5`、`stable_deref_trait 1.2.1`、`thiserror 1.0.69`、`thiserror 2.0.21`、
+    `typenum 1.20.1`
+  - Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT:`linux-raw-sys 0.12.1`、`rustix 1.1.6`、`wasm-encoder 0.258.3`、
+    `wasmparser 0.258.3`、`wasmprinter 0.258.3`
+  - Apache-2.0 WITH LLVM-exception(Wasmtime 项目的其余组件,见上一节):`cranelift-assembler-x64`、`cranelift-bforest`、
+    `cranelift-bitset`、`cranelift-codegen`、`cranelift-codegen-shared`、`cranelift-control`、`cranelift-entity`、
+    `cranelift-frontend`、`cranelift-native`(均为 0.136.5)、`pulley-interpreter`、`wasmtime-environ`、
+    `wasmtime-internal-component-util`、`wasmtime-internal-core`、`wasmtime-internal-cranelift`、`wasmtime-internal-fiber`、
+    `wasmtime-internal-jit-debug`、`wasmtime-internal-jit-icache-coherence`、`wasmtime-internal-unwinder`(均为 49.0.5)、
+    `regalloc2 0.15.2`、`target-lexicon 0.13.5`
+  - Unlicense OR MIT:`memchr 2.8.3`、`termcolor 1.4.1`
+  - Zlib:`foldhash 0.2.0`(Copyright (c) 2024 Orson Peters)
+  - MIT:`bytes 1.12.1`(Copyright (c) 2018 Carl Lerche)、`slab 0.4.12`(Copyright (c) 2019 Carl Lerche)、
+    `combine 4.6.9`(Copyright (c) 2015 Markus Westerlind)、`generic-array 0.14.7`(Copyright (c) 2015 Bartłomiej Kamiński)、
+    `libm 0.2.16`(Copyright (c) 2018 Jorge Aparicio;部分代码来自 musl libc,Copyright © 2005-2020 Rich Felker, et al.,
+    以及 Sun Microsystems、David Schultz、Steven G. Kargl、Bruce D. Evans、Stephen L. Moshier、Arm Limited 的数学库代码)、
+    `zmij 1.0.23`(David Tolnay,移植自 Victor Zverovich 的 zmij)。这几项的许可证正文:
+- 只在编译期用到、不进二进制的库(过程宏、构建脚本)不在上面:`proc-macro2`、`quote`、`syn`、`unicode-ident`、`serde_derive`、
+  `thiserror-impl`、`async-trait`、`pulley-macros`、`jni-sys-macros`、`wasmtime-internal-versioned-export-macros`、`cc`、
+  `find-msvc-tools`、`shlex`、`cranelift-codegen-meta`、`cranelift-assembler-x64-meta`、`cranelift-srcgen`、`cranelift-isle`、
+  `heck`、`version_check`、`walkdir`、`same-file`;`Cargo.lock` 里只供 Windows/macOS 的 `windows-*`、`winapi-util`、`mach2`
+  也不编进 Android 产物。
+- 依赖升级后按 `tools/wasm/Cargo.lock` 重新核对这份清单。
+
+```text
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+```text
+zlib License (foldhash)
+
+This software is provided 'as-is', without any express or implied warranty. In
+no event will the authors be held liable for any damages arising from the use of
+this software.
+
+Permission is granted to anyone to use this software for any purpose, including
+commercial applications, and to alter it and redistribute it freely, subject to
+the following restrictions:
+
+1. The origin of this software must not be misrepresented; you must not claim
+   that you wrote the original software. If you use this software in a product,
+   an acknowledgment in the product documentation would be appreciated but is
+   not required.
+2. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+3. This notice may not be removed or altered from any source distribution.
+```

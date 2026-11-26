@@ -74,6 +74,8 @@ object Licenses {
         Entry("commonmark-java", "BSD-2-Clause", "版本 0.30.1(含表格、删除线扩展),把回答里的 Markdown 解析成结构后显示。Copyright (c) 2015, Atlassian Pty Ltd. https://github.com/commonmark/commonmark-java"),
         Entry("xterm.js", "MIT", "版本 5.5.0(及 @xterm/addon-fit 0.10.0),用户终端页的终端仿真器。https://github.com/xtermjs/xterm.js"),
         Entry("Shizuku API", "Apache-2.0", "版本 13.1.5(api 与 provider),仅在设备已安装、启动并授权 Shizuku 时按官方 API 绑定本地助手服务。https://github.com/RikkaApps/Shizuku-API"),
+        Entry("Wasmtime", "Apache-2.0 WITH LLVM-exception", "版本 49.0.5(含 Cranelift 0.136.5),未修改,静态链接进插件 Wasm 引擎 libmika_wasm.so,只在 :wasm 进程里加载。源码与编译脚本见 tools/wasm/。https://github.com/bytecodealliance/wasmtime"),
+        Entry("libmika_wasm.so 里的其他 Rust 库", "MIT / Apache-2.0 / Zlib 等", "和 Wasmtime 一起静态链接的 crates.io 库(jni、serde_json、sha2、gimli、object、rustix、libm 等),版本由 tools/wasm/Cargo.lock 固定;逐个库的名称、版本、许可证与版权见 licenses/THIRD_PARTY_NOTICES.md。"),
         Entry("MCP 服务品牌 logo（mcp/mcp-logos.json）", "CC0 1.0", "服务目录/列表/管理页的品牌轮廓图标字形本体为 CC0 1.0;各品牌标志仍归各自品牌所有,仅用于「可连接的服务」标识。"),
         Entry("MCP 服务品牌 logo 补充集（mcp/mcp-logos.json）", "MIT", "Lobe Icons 版本 1.106.0,补上前一项没有的 AI/搜索服务单色标志。Copyright (c) 2023 LobeHub. https://github.com/lobehub/lobe-icons"),
     )
