@@ -320,10 +320,10 @@
     <string name="models_group_used_by">用作 %1$s</string>
     <string name="models_group_member_context">上下文</string>
     <string name="model_not_chat_capable">Mika 不能用這個模型對話；仍可在下方把它標為僅用於朗讀。</string>
-    <string name="tool_video_frames">Look at video</string>
-    <string name="tool_video_info">Video info</string>
-    <string name="tool_video_save">Save video</string>
-    <string name="tool_share_video">Share video to app</string>
+    <string name="tool_video_frames">看影片</string>
+    <string name="tool_video_info">查看影片資訊</string>
+    <string name="tool_video_save">儲存影片</string>
+    <string name="tool_share_video">分享影片到 App</string>
     <string name="role_video">影片模型</string>
     <string name="role_video_what">讓 Mika 產生短影片</string>
     <string name="video_hint">Mika 可以按你的描述、用你自己設定的影片模型產生短影片。描述會發給你選的服務商，每段影片由該服務商計費。</string>

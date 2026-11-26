@@ -91,4 +91,7 @@
     <string name="trigger_failed_streak">Tugas terjadwal gagal %1$d kali berturut-turut</string>
     <string name="trigger_failed_streak_hint">Anda bisa menjeda atau mengubah rencana ini di halaman Tugas terjadwal.</string>
     <string name="task_no_phone_helper_shizuku">Kontrol ponsel belum siap. Mulai Shizuku dan beri izin ke Mika (atau periksa Kontrol ponsel di Pengaturan). Tugas web dan file tidak terpengaruh.</string>
+    <string name="task_video_submitted">Tugas video dikirim</string>
+    <string name="task_video_queued">Tugas video dalam antrean</string>
+    <string name="task_video_running">Membuat video…</string>
 </resources>

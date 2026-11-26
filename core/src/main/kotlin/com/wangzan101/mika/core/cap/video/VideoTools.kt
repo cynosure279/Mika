@@ -212,7 +212,7 @@ internal object VideoGenerate : AgentTool {
         }
         val first = a.str("first_frame_path", max = 500)?.let { workspacePath(it) }
         val generated = try {
-            port.generate(VideoGenerationRequest(prompt, duration, aspect, resolution, first)) { msg -> /* 进度由端口回调到任务卡片 */ }
+            port.generate(VideoGenerationRequest(prompt, duration, aspect, resolution, first))
         } catch (e: CancellationException) {
             cap.refund()
             throw e

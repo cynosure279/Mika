@@ -349,5 +349,5 @@
     <string name="chat_example_share_blurb">İşine yarayacak birine öner</string>
     <string name="chat_example_share">Mika proje bağlantısını https://github.com/wangzan101/mika bir arkadaşınla paylaş ve telefonu onun yerine kullanabildiğini söyle.</string>
     <string name="chat_video">Video</string>
-    <string name="chat_video_play">Play</string>
+    <string name="chat_video_play">Oynat</string>
 </resources>

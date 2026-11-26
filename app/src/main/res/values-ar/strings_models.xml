@@ -345,10 +345,10 @@
     <string name="models_group_used_by">يُستخدم كـ %1$s</string>
     <string name="models_group_member_context">السياق</string>
     <string name="model_not_chat_capable">لا يمكن لمايكا استخدام هذا النموذج للدردشة. ما زال بإمكانك تعليمه «للصوت فقط» أدناه.</string>
-    <string name="tool_video_frames">Look at video</string>
-    <string name="tool_video_info">Video info</string>
-    <string name="tool_video_save">Save video</string>
-    <string name="tool_share_video">Share video to app</string>
+    <string name="tool_video_frames">مشاهدة الفيديو</string>
+    <string name="tool_video_info">معلومات الفيديو</string>
+    <string name="tool_video_save">حفظ الفيديو</string>
+    <string name="tool_share_video">مشاركة الفيديو مع تطبيق</string>
     <string name="role_video">نموذج الفيديو</string>
     <string name="role_video_what">يتيح لـ Mika إنشاء مقاطع فيديو قصيرة</string>
     <string name="video_hint">يستطيع Mika إنشاء مقاطع فيديو قصيرة من وصف نصي باستخدام نموذج الفيديو الذي تضبطه. تُرسل الأوصاف إلى الخدمة التي تختارها، وتُحتسب تكلفة كل فيديو على تلك الخدمة.</string>

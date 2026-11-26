@@ -546,7 +546,7 @@ class TaskRun(
                 com.wangzan101.mika.media.AndroidVideoGenerationPort(
                     service, conversationId, model, caps,
                     com.wangzan101.mika.settings.ProviderStore.modelHttp,
-                    onProgress = { msg -> statusNote("视频:$msg") },
+                    onProgress = { stage -> statusNote(tr(videoStageText(stage))) },
                     onGenerated = ::addVideo,
                 )
             }
@@ -779,6 +779,12 @@ class TaskRun(
     @Volatile internal var noticeTainted = false
 
     suspend fun learnAfter(end: TaskState, outcome: RunOutcome?, conversations: ConversationStore) = runTeardown.learnAfter(end, outcome, conversations)
+
+    private fun videoStageText(stage: com.wangzan101.mika.core.model.VideoJobStage): Int = when (stage) {
+        com.wangzan101.mika.core.model.VideoJobStage.Submitted -> R.string.task_video_submitted
+        com.wangzan101.mika.core.model.VideoJobStage.Queued -> R.string.task_video_queued
+        com.wangzan101.mika.core.model.VideoJobStage.Running -> R.string.task_video_running
+    }
 
     /** 后台一步的说明写到任务卡片上(当前这一步的 note);不在干活(已暂停/结束)时不动。 */
     private fun statusNote(text: String) {

@@ -319,4 +319,22 @@
     <string name="models_group_used_by">Được dùng làm %1$s</string>
     <string name="models_group_member_context">Ngữ cảnh</string>
     <string name="model_not_chat_capable">Mika không thể dùng mô hình này cho trò chuyện. Bạn vẫn có thể đánh dấu nó là chỉ dùng cho giọng nói bên dưới.</string>
+    <string name="tool_video_frames">Xem video</string>
+    <string name="tool_video_info">Thông tin video</string>
+    <string name="tool_video_save">Lưu video</string>
+    <string name="tool_share_video">Chia sẻ video tới ứng dụng</string>
+    <string name="role_video">Mô hình video</string>
+    <string name="role_video_what">Cho phép Mika tạo video ngắn</string>
+    <string name="video_hint">Mika có thể tạo video ngắn từ một câu lệnh bằng mô hình video của riêng bạn. Câu lệnh được gửi tới dịch vụ bạn chọn và mỗi video được dịch vụ đó tính phí.</string>
+    <string name="video_enable">Cho phép Mika tạo video</string>
+    <string name="video_enable_note">Mặc định tắt. Mỗi lần tạo đều được dịch vụ tính phí</string>
+    <string name="video_provider">Dịch vụ</string>
+    <string name="video_no_providers">Hãy thêm một dịch vụ mô hình trước (video dùng cùng dịch vụ và khóa).</string>
+    <string name="video_model_name">Mô hình</string>
+    <string name="video_duration">Thời lượng (giây)</string>
+    <string name="video_max_per_task">Số video mỗi tác vụ</string>
+    <string name="video_aspect">Tỷ lệ khung hình</string>
+    <string name="video_resolution">Độ phân giải</string>
+    <string name="video_footer">Việc tạo chạy dưới dạng tác vụ nền và có thể mất vài phút. Video hoàn tất được lưu trong không gian làm việc tại out/video.</string>
+    <string name="tool_video_generate">Tạo video</string>
 </resources>

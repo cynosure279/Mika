@@ -94,4 +94,7 @@
     <string name="trigger_failed_streak">کار زمان‌بندی‌شده %1$d بار پشت سر هم ناموفق بود</string>
     <string name="trigger_failed_streak_hint">می‌توانید این برنامه را در صفحهٔ کارهای زمان‌بندی‌شده متوقف یا تغییر دهید.</string>
     <string name="task_no_phone_helper_shizuku">کنترل گوشی آماده نیست. Shizuku را شروع کنید و به Mika مجوز بدهید (یا کنترل گوشی را در تنظیمات بررسی کنید). وظایف وب و فایل تحت تأثیر قرار نمی‌گیرند.</string>
+    <string name="task_video_submitted">کار ویدیو ارسال شد</string>
+    <string name="task_video_queued">کار ویدیو در صف است</string>
+    <string name="task_video_running">در حال ساخت ویدیو…</string>
 </resources>

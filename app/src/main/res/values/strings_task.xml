@@ -94,4 +94,7 @@
     <string name="trigger_failed_streak">Scheduled task failed %1$d times in a row</string>
     <string name="trigger_failed_streak_hint">You can pause or change this plan on the Scheduled tasks page.</string>
     <string name="task_no_phone_helper_shizuku">Phone control isn’t ready. Start Shizuku and grant Mika permission (or check Phone control in Settings). Web and file tasks aren’t affected.</string>
+    <string name="task_video_submitted">Video job submitted</string>
+    <string name="task_video_queued">Video job queued</string>
+    <string name="task_video_running">Generating video…</string>
 </resources>

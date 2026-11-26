@@ -4,11 +4,17 @@ import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.model.ArkSeedanceModel
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.VideoCapabilities
+import com.wangzan101.mika.core.model.VideoJobStage
 import com.wangzan101.mika.core.model.VideoModelError
 import com.wangzan101.mika.core.model.VideoRequest
 import com.wangzan101.mika.core.tool.ActionPass
 import com.wangzan101.mika.core.screen.vision.LocScreen
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
@@ -37,10 +43,9 @@ class VideoGenerationTest {
         var last: VideoGenerationRequest? = null
         var calls = 0
         override val modelName = "fake-video"
-        override suspend fun generate(request: VideoGenerationRequest, onProgress: suspend (String) -> Unit): VideoTake {
+        override suspend fun generate(request: VideoGenerationRequest): VideoTake {
             calls += 1
             last = request
-            onProgress("working")
             if (fail != null && (!failOnlyFirst || calls == 1)) throw fail
             return VideoTake("/workspace/out/video/take.mp4", 5_000, 1280, 720, byteArrayOf(9, 8, 7))
         }
@@ -133,11 +138,11 @@ class VideoGenerationTest {
         server.enqueue(MockResponse().setBody("""{"id":"job-1"}"""))
         server.enqueue(MockResponse().setBody("""{"status":"running"}"""))
         server.enqueue(MockResponse().setBody("""{"status":"succeeded","content":{"video_url":"http://cdn/v.mp4"}}"""))
-        val progress = mutableListOf<String>()
+        val progress = mutableListOf<VideoJobStage>()
         val out = ark(server).generate(VideoRequest("a cat surfing", 5, "16:9", "720p")) { progress += it }
         assertEquals("http://cdn/v.mp4", out.url)
         assertEquals("job-1", out.jobId)
-        assertTrue(progress.isNotEmpty())
+        assertEquals(listOf(VideoJobStage.Submitted, VideoJobStage.Running), progress)
 
         val submit = server.takeRequest()
         assertEquals("/api/v3/contents/generations/tasks", submit.path)
@@ -183,6 +188,31 @@ class VideoGenerationTest {
         }.exceptionOrNull()
         assertTrue(e is VideoModelError.Unsupported)
         assertEquals(0, server.requestCount)
+        server.shutdown()
+    }
+
+    @Test fun arkTreatsACancelledJobAsFailedInsteadOfPollingUntilTimeout() = runTest {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("""{"id":"job-4"}"""))
+        server.enqueue(MockResponse().setBody("""{"status":"cancelled"}"""))
+        val e = runCatching { ark(server).generate(VideoRequest("x", 5, "16:9", "720p")) }.exceptionOrNull()
+        assertTrue(e is VideoModelError.Failed)
+        assertEquals(2, server.requestCount)
+        server.shutdown()
+    }
+
+    @Test fun arkCancelsTheRemoteJobWhenTheTaskIsCancelled() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("""{"id":"job-5"}"""))
+        repeat(50) { server.enqueue(MockResponse().setBody("""{"status":"queued"}""")) }
+        val model = ArkSeedanceModel(server.url("/api/v3").toString().trimEnd('/'), "k", "m", VideoCapabilities(), OkHttpClient(),
+            pollMs = 20, timeoutMs = 60_000)
+        val stages = mutableListOf<VideoJobStage>()
+        val job = launch { model.generate(VideoRequest("x", 5, "16:9", "720p")) { stages += it } }
+        withTimeout(5_000) { while (VideoJobStage.Queued !in stages) delay(5) }
+        job.cancelAndJoin()
+        val methods = List(server.requestCount) { server.takeRequest() }.map { it.method to it.path }
+        assertEquals("DELETE" to "/api/v3/contents/generations/tasks/job-5", methods.last())
         server.shutdown()
     }
 }

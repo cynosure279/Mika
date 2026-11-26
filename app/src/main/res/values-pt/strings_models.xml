@@ -328,10 +328,10 @@
     <string name="models_group_used_by">Usado como %1$s</string>
     <string name="models_group_member_context">Contexto</string>
     <string name="model_not_chat_capable">A Mika não pode usar este modelo para conversar. Você ainda pode marcá-lo como somente voz abaixo.</string>
-    <string name="tool_video_frames">Look at video</string>
-    <string name="tool_video_info">Video info</string>
-    <string name="tool_video_save">Save video</string>
-    <string name="tool_share_video">Share video to app</string>
+    <string name="tool_video_frames">Ver vídeo</string>
+    <string name="tool_video_info">Informações do vídeo</string>
+    <string name="tool_video_save">Salvar vídeo</string>
+    <string name="tool_share_video">Compartilhar vídeo com um app</string>
     <string name="role_video">Modelo de vídeo</string>
     <string name="role_video_what">Permite que o Mika gere vídeos curtos</string>
     <string name="video_hint">O Mika pode gerar vídeos curtos a partir de uma descrição com o seu próprio modelo de vídeo. As descrições são enviadas ao serviço que escolher e cada vídeo é cobrado nesse serviço.</string>

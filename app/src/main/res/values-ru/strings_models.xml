@@ -335,10 +335,10 @@
     <string name="models_group_used_by">Используется как %1$s</string>
     <string name="models_group_member_context">Контекст</string>
     <string name="model_not_chat_capable">Mika не может использовать эту модель для общения. Ниже её всё равно можно отметить как только для голоса.</string>
-    <string name="tool_video_frames">Look at video</string>
-    <string name="tool_video_info">Video info</string>
-    <string name="tool_video_save">Save video</string>
-    <string name="tool_share_video">Share video to app</string>
+    <string name="tool_video_frames">Посмотреть видео</string>
+    <string name="tool_video_info">Сведения о видео</string>
+    <string name="tool_video_save">Сохранить видео</string>
+    <string name="tool_share_video">Поделиться видео в приложении</string>
     <string name="role_video">Видеомодель</string>
     <string name="role_video_what">Разрешает Mika создавать короткие видео</string>
     <string name="video_hint">Mika может создавать короткие видео по описанию с помощью вашей видеомодели. Описания отправляются в выбранный вами сервис, и каждый ролик тарифицируется этим сервисом.</string>

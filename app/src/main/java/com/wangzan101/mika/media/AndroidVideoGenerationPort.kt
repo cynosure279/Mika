@@ -11,6 +11,7 @@ import com.wangzan101.mika.core.cap.video.VideoGenerationPort
 import com.wangzan101.mika.core.cap.video.VideoGenerationRequest
 import com.wangzan101.mika.core.model.ModelError
 import com.wangzan101.mika.core.model.VideoCapabilities
+import com.wangzan101.mika.core.model.VideoJobStage
 import com.wangzan101.mika.core.model.VideoModel
 import com.wangzan101.mika.core.model.VideoModelError
 import com.wangzan101.mika.core.model.VideoRequest
@@ -35,18 +36,18 @@ class AndroidVideoGenerationPort(
     private val model: VideoModel,
     override val capabilities: VideoCapabilities,
     private val http: OkHttpClient,
-    private val onProgress: suspend (String) -> Unit = {},
+    private val onProgress: suspend (VideoJobStage) -> Unit = {},
     private val onGenerated: (com.wangzan101.mika.core.chat.GeneratedVideo) -> Unit = {},
 ) : VideoGenerationPort {
     override val modelName: String get() = model.name
     private val dirs by lazy { SandboxDirs(context) }
     private val workspace: File by lazy { dirs.workspace(com.wangzan101.mika.chat.WorkspaceResolver.resolveFor(context, conversationId)) }
 
-    override suspend fun generate(request: VideoGenerationRequest, onProgress: suspend (String) -> Unit): VideoTake {
+    override suspend fun generate(request: VideoGenerationRequest): VideoTake {
         val first = request.firstFramePath?.let { firstFrame(it) }
         val output = model.generate(
             VideoRequest(request.prompt, request.durationSec, request.aspect, request.resolution, first?.first, first?.second),
-            this.onProgress,
+            onProgress,
         )
         val cache = withContext(Dispatchers.IO) {
             File(context.cacheDir, CACHE_DIR).apply { mkdirs() }.let { File(it, "gen-${System.nanoTime()}.mp4") }

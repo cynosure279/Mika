@@ -106,4 +106,7 @@
     <string name="trigger_failed_streak">المهمة المجدولة: عدد مرات الفشل المتتالية %1$d</string>
     <string name="trigger_failed_streak_hint">يمكنك إيقاف هذه الخطة مؤقتًا أو تغييرها من صفحة المهام المجدولة.</string>
     <string name="task_no_phone_helper_shizuku">التحكم بالهاتف غير جاهز. ابدأ Shizuku وامنح Mika الإذن (أو تحقق من التحكم بالهاتف في الإعدادات). مهام الويب والملفات غير متأثرة.</string>
+    <string name="task_video_submitted">تم إرسال مهمة الفيديو</string>
+    <string name="task_video_queued">مهمة الفيديو في قائمة الانتظار</string>
+    <string name="task_video_running">جارٍ إنشاء الفيديو…</string>
 </resources>

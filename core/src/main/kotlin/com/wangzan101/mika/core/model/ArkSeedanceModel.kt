@@ -1,6 +1,10 @@
 package com.wangzan101.mika.core.model
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -20,6 +24,7 @@ import java.util.Base64
 /**
  * 火山方舟 Seedance:POST /contents/generations/tasks 提交,GET .../tasks/{id} 轮询,
  * 成功后 content.video_url 是一个会过期的下载地址。结果 URL 交给调用方立即下载。
+ * 等待中被取消时发 DELETE .../tasks/{id}:排队中的任务会被取消、不再计费;已在生成的服务商那边会跑完。
  */
 class ArkSeedanceModel(
     baseUrl: String,
@@ -36,7 +41,7 @@ class ArkSeedanceModel(
     private val json = Json { ignoreUnknownKeys = true }
     private val jsonType = "application/json".toMediaType()
 
-    override suspend fun generate(request: VideoRequest, onProgress: suspend (String) -> Unit): VideoOutput {
+    override suspend fun generate(request: VideoRequest, onProgress: suspend (VideoJobStage) -> Unit): VideoOutput {
         check(request)
         val submit = buildJsonObject {
             put("model", model)
@@ -65,34 +70,49 @@ class ArkSeedanceModel(
         val submitted = HttpSupport.execute(http, req)
         if (submitted.status !in 200..299) throw ModelHttp.openAiError(submitted.status, submitted.retryAfter, submitted.body, model)
         val jobId = parseJobId(submitted.body)
-        onProgress("已提交视频任务")
+        onProgress(VideoJobStage.Submitted)
+        try {
+            return poll(jobId, request, onProgress)
+        } catch (e: CancellationException) {
+            withContext(NonCancellable) { withTimeoutOrNull(CANCEL_TIMEOUT_MS) { runCatching { cancelJob(jobId) } } }
+            throw e
+        }
+    }
+
+    private suspend fun poll(jobId: String, request: VideoRequest, onProgress: suspend (VideoJobStage) -> Unit): VideoOutput {
         val start = System.currentTimeMillis()
-        var last = ""
+        var last: VideoJobStage? = VideoJobStage.Submitted
         while (true) {
             if (System.currentTimeMillis() - start > timeoutMs) throw VideoModelError.Timeout("video job did not finish in time")
             delay(pollMs)
-            val poll = Request.Builder().url("$root/contents/generations/tasks/$jobId")
-                .withHeaders(headers)
-                .header("Authorization", "Bearer $apiKey")
-                .get()
-                .build()
-            val r = HttpSupport.execute(http, poll)
+            val r = HttpSupport.execute(http, task(jobId).get().build())
             if (r.status !in 200..299) throw ModelHttp.openAiError(r.status, r.retryAfter, r.body, model)
-            val status = parseStatus(r.body)
-            if (status != last) {
-                last = status
-                onProgress("视频任务:$status")
-            }
-            when (status) {
+            when (val status = parseStatus(r.body)) {
                 "succeeded" -> {
                     val url = parseVideoUrl(r.body) ?: throw VideoModelError.BadResponse("no content.video_url")
                     return VideoOutput(url = url, jobId = jobId, durationMs = request.durationSec * 1000L)
                 }
                 "failed" -> throw VideoModelError.Failed(parseError(r.body))
+                "cancelled" -> throw VideoModelError.Failed("video task was cancelled")
                 "expired" -> throw VideoModelError.Timeout("video task expired")
+                else -> {
+                    val stage = stageOf(status)
+                    if (stage != null && stage != last) {
+                        last = stage
+                        onProgress(stage)
+                    }
+                }
             }
         }
     }
+
+    private suspend fun cancelJob(jobId: String) {
+        HttpSupport.execute(http, task(jobId).delete().build())
+    }
+
+    private fun task(jobId: String): Request.Builder = Request.Builder().url("$root/contents/generations/tasks/$jobId")
+        .withHeaders(headers)
+        .header("Authorization", "Bearer $apiKey")
 
     private fun check(request: VideoRequest) {
         if (request.prompt.isBlank()) throw VideoModelError.Unsupported("prompt is empty")
@@ -120,4 +140,15 @@ class ArkSeedanceModel(
     private fun parseError(body: String): String =
         (runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()?.get("error") as? JsonObject)
             ?.get("message")?.jsonPrimitive?.contentOrNull ?: "video task failed"
+
+    companion object {
+        private const val CANCEL_TIMEOUT_MS = 5_000L
+
+        /** 方舟任务状态 → 进度;终态和不认识的状态为 null。 */
+        internal fun stageOf(status: String): VideoJobStage? = when (status) {
+            "queued" -> VideoJobStage.Queued
+            "running" -> VideoJobStage.Running
+            else -> null
+        }
+    }
 }

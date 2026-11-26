@@ -20,11 +20,11 @@ class VideoGenerationRequest(
     val firstFramePath: String? = null,
 )
 
-/** 生成能力的 App 侧实现:调 VideoModel、下载到工作区、抽一帧当封面。 */
+/** 生成能力的 App 侧实现:调 VideoModel、下载到工作区、抽一帧当封面;进度由端口自己报给任务卡片。 */
 interface VideoGenerationPort {
     val modelName: String
     val capabilities: VideoCapabilities
 
-    /** 提交并等到可下载;每有进展调一次 [onProgress]。失败抛 ModelError/VideoModelError/VideoError。 */
-    suspend fun generate(request: VideoGenerationRequest, onProgress: suspend (String) -> Unit): VideoTake
+    /** 提交、等到可下载、存进工作区。失败抛 ModelError/VideoModelError/VideoError。 */
+    suspend fun generate(request: VideoGenerationRequest): VideoTake
 }

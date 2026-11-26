@@ -91,4 +91,7 @@
     <string name="trigger_failed_streak">Tác vụ theo lịch đã thất bại %1$d lần liên tiếp</string>
     <string name="trigger_failed_streak_hint">Bạn có thể tạm dừng hoặc thay đổi kế hoạch này trên trang Tác vụ theo lịch.</string>
     <string name="task_no_phone_helper_shizuku">Điều khiển điện thoại chưa sẵn sàng. Khởi động Shizuku và cấp quyền cho Mika (hoặc kiểm tra Điều khiển điện thoại trong Cài đặt). Các tác vụ web và tệp không bị ảnh hưởng.</string>
+    <string name="task_video_submitted">Đã gửi tác vụ video</string>
+    <string name="task_video_queued">Tác vụ video đang chờ</string>
+    <string name="task_video_running">Đang tạo video…</string>
 </resources>

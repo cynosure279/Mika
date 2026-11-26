@@ -322,10 +322,10 @@
     <string name="models_group_used_by">در نقش %1$s استفاده می‌شود</string>
     <string name="models_group_member_context">زمینه</string>
     <string name="model_not_chat_capable">میکا نمی‌تواند از این مدل برای گفتگو استفاده کند. هنوز می‌توانید آن را در پایین فقط-صدا علامت بزنید.</string>
-    <string name="tool_video_frames">Look at video</string>
-    <string name="tool_video_info">Video info</string>
-    <string name="tool_video_save">Save video</string>
-    <string name="tool_share_video">Share video to app</string>
+    <string name="tool_video_frames">دیدن ویدیو</string>
+    <string name="tool_video_info">اطلاعات ویدیو</string>
+    <string name="tool_video_save">ذخیره ویدیو</string>
+    <string name="tool_share_video">اشتراک ویدیو با برنامه</string>
     <string name="role_video">مدل ویدیو</string>
     <string name="role_video_what">به Mika اجازه می‌دهد ویدیوهای کوتاه بسازد</string>
     <string name="video_hint">Mika می‌تواند با مدل ویدیویی که خودتان تنظیم می‌کنید از یک توضیح، ویدیوی کوتاه بسازد. توضیح‌ها به سرویسی که انتخاب می‌کنید فرستاده می‌شود و هزینه هر ویدیو توسط همان سرویس محاسبه می‌شود.</string>

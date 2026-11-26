@@ -91,4 +91,7 @@
     <string name="trigger_failed_streak">スケジュールタスクが %1$d 回続けて失敗しました</string>
     <string name="trigger_failed_streak_hint">スケジュールタスクのページでこの予定を一時停止または変更できます。</string>
     <string name="task_no_phone_helper_shizuku">電話操作の準備ができていません。Shizuku を起動して Mika に権限を与えてください（または「設定 › 電話操作」を確認）。Web・ファイルタスクには影響しません。</string>
+    <string name="task_video_submitted">動画ジョブを送信しました</string>
+    <string name="task_video_queued">動画ジョブは順番待ちです</string>
+    <string name="task_video_running">動画を生成中…</string>
 </resources>

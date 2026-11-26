@@ -332,4 +332,6 @@
     <string name="chat_example_share_title">Chia sẻ Mika với bạn bè</string>
     <string name="chat_example_share_blurb">Giới thiệu cho người bạn cần đến nó</string>
     <string name="chat_example_share">Chia sẻ liên kết dự án Mika https://github.com/wangzan101/mika với một người bạn và nói rằng nó có thể thao tác điện thoại giúp họ.</string>
+    <string name="chat_video">Video</string>
+    <string name="chat_video_play">Phát</string>
 </resources>

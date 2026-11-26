@@ -6,11 +6,14 @@ interface VideoModel {
     val capabilities: VideoCapabilities
 
     /**
-     * 提交并等待到可下载;每有进展调一次 [onProgress](给任务卡片看的短句)。
-     * 失败抛 [ModelError](服务商 HTTP)或 [VideoModelError]。
+     * 提交并等待到可下载;任务每进一步调一次 [onProgress](App 侧换成用户语言的短句显示在任务卡片上)。
+     * 失败抛 [ModelError](服务商 HTTP)或 [VideoModelError]。等待中被取消时尽量把还没开始的服务商任务也取消掉。
      */
-    suspend fun generate(request: VideoRequest, onProgress: suspend (String) -> Unit = {}): VideoOutput
+    suspend fun generate(request: VideoRequest, onProgress: suspend (VideoJobStage) -> Unit = {}): VideoOutput
 }
+
+/** 异步视频任务走到了哪一步。 */
+enum class VideoJobStage { Submitted, Queued, Running }
 
 /** 一个视频模型能做什么。 */
 data class VideoCapabilities(

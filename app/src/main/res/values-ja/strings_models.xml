@@ -320,10 +320,10 @@
     <string name="models_group_used_by">%1$s として使用</string>
     <string name="models_group_member_context">コンテキスト</string>
     <string name="model_not_chat_capable">このモデルは Mika のチャットには使えません。下で「音声専用」にすることはできます。</string>
-    <string name="tool_video_frames">Look at video</string>
-    <string name="tool_video_info">Video info</string>
-    <string name="tool_video_save">Save video</string>
-    <string name="tool_share_video">Share video to app</string>
+    <string name="tool_video_frames">動画を見る</string>
+    <string name="tool_video_info">動画の情報</string>
+    <string name="tool_video_save">動画を保存</string>
+    <string name="tool_share_video">動画をアプリに共有</string>
     <string name="role_video">動画モデル</string>
     <string name="role_video_what">Mika が短い動画を生成できるようにする</string>
     <string name="video_hint">Mika は、あなたが設定した動画モデルでプロンプトから短い動画を生成できます。プロンプトは選んだサービスに送信され、動画ごとにそのサービスで課金されます。</string>
