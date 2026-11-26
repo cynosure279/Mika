@@ -334,6 +334,8 @@
     <string name="video_enable">Mika’nın video oluşturmasına izin ver</string>
     <string name="video_enable_note">Varsayılan olarak kapalı. Her oluşturma hizmet tarafından ücretlendirilir</string>
     <string name="video_footer">Oluşturma arka planda bir iş olarak çalışır ve birkaç dakika sürebilir. Biten video çalışma alanında out/video altına kaydedilir.</string>
+    <string name="video_no_compatible">Model hizmetlerinizin hiçbiri video oluşturamıyor. Önce oluşturabilen bir hizmet ekleyin: %1$s.</string>
+    <string name="video_choice_stale">Daha önce seçtiğiniz hizmet artık video oluşturamıyor (kaldırıldı veya adresi değişti). Aşağıdan yeniden seçin; o zamana kadar Mika video oluşturmaz.</string>
     <string name="video_hint">Mika, kendi video modelinizle bir istemden kısa videolar oluşturabilir. İstemler seçtiğiniz hizmete gönderilir ve her video o hizmet tarafından ücretlendirilir.</string>
     <string name="video_max_per_task">Görev başına video</string>
     <string name="video_model_name">Model</string>

@@ -536,20 +536,20 @@ class TaskRun(
 
     internal val videoSettings by lazy { com.wangzan101.mika.settings.VideoSettings.get(service) }
 
-    /** 本任务的视频生成端口:用户配置并打开了视频模型、且这是手机上开始的任务时才建。 */
+    /**
+     * 本任务的视频生成端口:用户打开了视频生成、选的服务商现在仍能生成视频、且这是手机上开始的任务时才建。
+     * 哪家、什么协议由 [com.wangzan101.mika.settings.videoModel] 按服务商的声明决定;选择对不上时不建,工具也就不出现。
+     */
     internal val videoGenerationPort by lazy {
         val state = videoSettings.state.value
-        val choice = state.choice
-        if (!state.enabled || choice == null || choice.model.isBlank() || provenance.origin != RunOrigin.Ui) null
-        else videoSettings.capabilities()?.let { caps ->
-            com.wangzan101.mika.settings.ProviderStore.get(service).videoModel(choice, caps)?.let { model ->
-                com.wangzan101.mika.media.AndroidVideoGenerationPort(
-                    service, conversationId, model, caps,
-                    com.wangzan101.mika.settings.ProviderStore.modelHttp,
-                    onProgress = { stage -> statusNote(tr(videoStageText(stage))) },
-                    onGenerated = ::addVideo,
-                )
-            }
+        if (!state.enabled || provenance.origin != RunOrigin.Ui) null
+        else com.wangzan101.mika.settings.ProviderStore.get(service).videoModel(state.choice)?.let { model ->
+            com.wangzan101.mika.media.AndroidVideoGenerationPort(
+                service, conversationId, model,
+                com.wangzan101.mika.settings.ProviderStore.modelHttp,
+                onProgress = { stage -> statusNote(tr(videoStageText(stage))) },
+                onGenerated = ::addVideo,
+            )
         }
     }
 

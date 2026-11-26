@@ -69,7 +69,10 @@ class ToolRiskTest {
     private object NoVideoGeneration : com.wangzan101.mika.core.cap.video.VideoGenerationPort {
         override val modelName = "test-video"
         override val capabilities = com.wangzan101.mika.core.model.VideoCapabilities()
-        override suspend fun generate(request: com.wangzan101.mika.core.cap.video.VideoGenerationRequest) =
+        override suspend fun generate(
+            request: com.wangzan101.mika.core.cap.video.VideoGenerationRequest,
+            onStage: suspend (com.wangzan101.mika.core.model.VideoJobStage) -> Unit,
+        ) =
             com.wangzan101.mika.core.cap.video.VideoTake("/workspace/out/video/x.mp4", null, 0, 0, null)
     }
 

@@ -17,7 +17,8 @@ import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.settings.VideoChoice
-import com.wangzan101.mika.settings.VideoProtocol
+import com.wangzan101.mika.settings.VideoProviders
+import com.wangzan101.mika.settings.VideoSelection
 import com.wangzan101.mika.settings.VideoSettings
 import com.wangzan101.mika.settings.VideoSettingsState
 import com.wangzan101.mika.ui.components.FooterNote
@@ -31,6 +32,8 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 
 /**
  * 设置 › 模型 › 视频模型:选服务商、模型、默认时长/画幅/清晰度、每任务最多几个;打开后才提供 video_generate。
+ * 只列能生成视频的服务商([VideoProviders.compatible]);可选的时长、画幅、清晰度来自所填模型的能力。
+ * 存着的选择对不上现在的服务商时说明原因,任务里也不会用它。
  * 和语音转写、声音模型一样不在 [com.wangzan101.mika.core.model.ModelRole] 里。
  */
 @Composable
@@ -43,6 +46,13 @@ fun VideoModelScreen(store: ProviderStore, onBack: () -> Unit) {
     var model by remember { mutableStateOf(state.choice?.model.orEmpty()) }
     var duration by remember { mutableStateOf(state.durationSec.toString()) }
     var maxPerTask by remember { mutableStateOf(state.maxPerTask.toString()) }
+    val compatible = VideoProviders.compatible(providers)
+    val selection = VideoProviders.resolve(state.choice, providers)
+    val target = when (selection) {
+        is VideoSelection.Ready -> selection.target
+        is VideoSelection.NoModel -> selection.target
+        else -> null
+    }
 
     Page(tr(R.string.role_video), onBack) {
         Text(tr(R.string.video_hint), Modifier.padding(top = 4.dp, bottom = 12.dp), fontSize = 14.5.sp, lineHeight = 22.sp, color = c.ink2)
@@ -54,34 +64,38 @@ fun VideoModelScreen(store: ProviderStore, onBack: () -> Unit) {
         }
 
         GroupLabel(tr(R.string.video_provider), Modifier.padding(top = 12.dp))
-        if (providers.isEmpty()) {
-            FooterNote(tr(R.string.video_no_providers))
-        } else {
-            GroupCard {
-                providers.forEachIndexed { i, p ->
+        if (selection is VideoSelection.Stale) FooterNote(tr(R.string.video_choice_stale))
+        when {
+            providers.isEmpty() -> FooterNote(tr(R.string.video_no_providers))
+            compatible.isEmpty() -> FooterNote(tr(R.string.video_no_compatible, VideoProviders.presetLabels().joinToString(" / ")))
+            else -> GroupCard {
+                compatible.forEachIndexed { i, (p, backend) ->
                     RadioRow(
-                        ModelsCopy.providerName(p), selected = state.choice?.providerId == p.id, first = i == 0,
+                        ModelsCopy.providerName(p), selected = target?.provider?.id == p.id, first = i == 0,
                         subtitle = p.baseUrl,
-                        onClick = { settings.setChoice(VideoChoice(p.id, model, VideoProtocol.ArkSeedance)) },
+                        onClick = { settings.setChoice(VideoChoice(p.id, model, backend.id)) },
                     )
                 }
             }
         }
 
-        state.choice?.let { choice ->
+        val choice = state.choice
+        if (target != null && choice != null) {
+            val caps = (selection as? VideoSelection.Ready)?.capabilities
             GroupCard {
                 InputRow(
                     tr(R.string.video_model_name), model,
                     onChange = { model = it; settings.setChoice(choice.copy(model = it)) },
-                    placeholder = "doubao-seedance-1-0-pro-250528", first = true,
+                    placeholder = target.backend.modelHint, first = true,
                 )
                 InputRow(
                     tr(R.string.video_duration), duration,
                     onChange = {
                         duration = it
-                        it.toIntOrNull()?.let { v -> settings.setDurationSec(v.coerceIn(1, 60)) }
+                        it.toIntOrNull()?.let { v -> settings.setDurationSec(v) }
                     },
-                    placeholder = "5", keyboard = KeyboardType.Number,
+                    placeholder = caps?.let { tr(R.string.video_duration_range, it.durations.first, it.durations.last) } ?: "5",
+                    keyboard = KeyboardType.Number,
                 )
                 InputRow(
                     tr(R.string.video_max_per_task), maxPerTask,
@@ -93,16 +107,21 @@ fun VideoModelScreen(store: ProviderStore, onBack: () -> Unit) {
                 )
             }
 
-            GroupLabel(tr(R.string.video_aspect))
-            GroupCard {
-                listOf("16:9", "9:16", "1:1").forEachIndexed { i, aspect ->
-                    RadioRow(aspect, state.aspect == aspect, { settings.setAspect(aspect) }, first = i == 0)
+            if (caps != null) {
+                // 存着的偏好这个模型不支持时,显示工具实际会用的那个(和 video_generate 的退回规则一致)
+                val aspect = state.aspect.takeIf { it in caps.aspects } ?: caps.aspects.first()
+                val resolution = state.resolution.takeIf { it in caps.resolutions } ?: caps.resolutions.first()
+                GroupLabel(tr(R.string.video_aspect))
+                GroupCard {
+                    caps.aspects.forEachIndexed { i, a ->
+                        RadioRow(a, aspect == a, { settings.setAspect(a) }, first = i == 0)
+                    }
                 }
-            }
-            GroupLabel(tr(R.string.video_resolution))
-            GroupCard {
-                listOf("480p", "720p", "1080p").forEachIndexed { i, resolution ->
-                    RadioRow(resolution, state.resolution == resolution, { settings.setResolution(resolution) }, first = i == 0)
+                GroupLabel(tr(R.string.video_resolution))
+                GroupCard {
+                    caps.resolutions.forEachIndexed { i, r ->
+                        RadioRow(r, resolution == r, { settings.setResolution(r) }, first = i == 0)
+                    }
                 }
             }
         }

@@ -1,7 +1,9 @@
 package com.wangzan101.mika.core.cap.video
 
 import com.wangzan101.mika.core.assembly.toolDispatcher
+import com.wangzan101.mika.core.model.ArkSeedance
 import com.wangzan101.mika.core.model.ArkSeedanceModel
+import com.wangzan101.mika.core.model.ModelError
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.VideoCapabilities
 import com.wangzan101.mika.core.model.VideoJobStage
@@ -36,17 +38,21 @@ class VideoGenerationTest {
     }
 
     private class FakeGeneration(
-        override val capabilities: VideoCapabilities = VideoCapabilities(),
+        override val capabilities: VideoCapabilities = VideoCapabilities(durations = 4..30, resolutions = setOf("480p", "720p", "1080p")),
         private val fail: Throwable? = null,
         private val failOnlyFirst: Boolean = false,
+        /** 失败前先报一次「已提交」:模拟服务商已收下任务之后才出错。 */
+        private val failAfterSubmit: Boolean = false,
     ) : VideoGenerationPort {
         var last: VideoGenerationRequest? = null
         var calls = 0
         override val modelName = "fake-video"
-        override suspend fun generate(request: VideoGenerationRequest): VideoTake {
+        override suspend fun generate(request: VideoGenerationRequest, onStage: suspend (VideoJobStage) -> Unit): VideoTake {
             calls += 1
             last = request
-            if (fail != null && (!failOnlyFirst || calls == 1)) throw fail
+            val failing = fail != null && (!failOnlyFirst || calls == 1)
+            if (!failing || failAfterSubmit) onStage(VideoJobStage.Submitted)
+            if (failing) throw fail!!
             return VideoTake("/workspace/out/video/take.mp4", 5_000, 1280, 720, byteArrayOf(9, 8, 7))
         }
     }
@@ -133,17 +139,21 @@ class VideoGenerationTest {
 
     // ---- 火山方舟 Seedance 适配器 ----
 
-    private fun ark(server: MockWebServer, capabilities: VideoCapabilities = VideoCapabilities()) = ArkSeedanceModel(
+    private fun ark(
+        server: MockWebServer,
+        capabilities: VideoCapabilities = ArkSeedance.capabilities(MODEL),
+        timeoutMs: Long = 5_000,
+    ) = ArkSeedanceModel(
         server.url("/api/v3").toString().trimEnd('/'),
         "test-key",
-        "doubao-seedance-1-0-pro-250528",
+        MODEL,
         capabilities,
         OkHttpClient(),
         pollMs = 1,
-        timeoutMs = 5_000,
+        timeoutMs = timeoutMs,
     )
 
-    @Test fun arkSubmitsPollsAndReturnsTheDownloadUrl() = runTest {
+    @Test fun arkSubmitsPollsAndReturnsTheDownloadUrl() = runBlocking {
         val server = MockWebServer()
         server.enqueue(MockResponse().setBody("""{"id":"job-1"}"""))
         server.enqueue(MockResponse().setBody("""{"status":"running"}"""))
@@ -158,7 +168,7 @@ class VideoGenerationTest {
         assertEquals("/api/v3/contents/generations/tasks", submit.path)
         assertEquals("Bearer test-key", submit.getHeader("Authorization"))
         val body = Json.parseToJsonElement(submit.body.readUtf8()).jsonObject
-        assertEquals("doubao-seedance-1-0-pro-250528", body["model"]!!.jsonPrimitive.content)
+        assertEquals(MODEL, body["model"]!!.jsonPrimitive.content)
         assertEquals("5", body["duration"]!!.jsonPrimitive.content)
         assertEquals("16:9", body["ratio"]!!.jsonPrimitive.content)
         assertEquals("720p", body["resolution"]!!.jsonPrimitive.content)
@@ -170,7 +180,7 @@ class VideoGenerationTest {
         server.shutdown()
     }
 
-    @Test fun arkSendsTheFirstFrameAsADataUrl() = runTest {
+    @Test fun arkSendsTheFirstFrameAsADataUrl() = runBlocking {
         val server = MockWebServer()
         server.enqueue(MockResponse().setBody("""{"id":"job-2"}"""))
         server.enqueue(MockResponse().setBody("""{"status":"succeeded","content":{"video_url":"http://cdn/v.mp4"}}"""))
@@ -181,7 +191,7 @@ class VideoGenerationTest {
         server.shutdown()
     }
 
-    @Test fun arkMapsFailedJobsToVideoModelError() = runTest {
+    @Test fun arkMapsFailedJobsToVideoModelError() = runBlocking {
         val server = MockWebServer()
         server.enqueue(MockResponse().setBody("""{"id":"job-3"}"""))
         server.enqueue(MockResponse().setBody("""{"status":"failed","error":{"message":"content blocked"}}"""))
@@ -191,7 +201,7 @@ class VideoGenerationTest {
         server.shutdown()
     }
 
-    @Test fun arkRejectsUnsupportedRequestsBeforeSending() = runTest {
+    @Test fun arkRejectsUnsupportedRequestsBeforeSending() = runBlocking {
         val server = MockWebServer()
         val e = runCatching {
             ark(server, VideoCapabilities(durations = 4..10)).generate(VideoRequest("x", 30, "16:9", "720p"))
@@ -201,7 +211,7 @@ class VideoGenerationTest {
         server.shutdown()
     }
 
-    @Test fun arkTreatsACancelledJobAsFailedInsteadOfPollingUntilTimeout() = runTest {
+    @Test fun arkTreatsACancelledJobAsFailedInsteadOfPollingUntilTimeout() = runBlocking {
         val server = MockWebServer()
         server.enqueue(MockResponse().setBody("""{"id":"job-4"}"""))
         server.enqueue(MockResponse().setBody("""{"status":"cancelled"}"""))
@@ -215,7 +225,7 @@ class VideoGenerationTest {
         val server = MockWebServer()
         server.enqueue(MockResponse().setBody("""{"id":"job-5"}"""))
         repeat(50) { server.enqueue(MockResponse().setBody("""{"status":"queued"}""")) }
-        val model = ArkSeedanceModel(server.url("/api/v3").toString().trimEnd('/'), "k", "m", VideoCapabilities(), OkHttpClient(),
+        val model = ArkSeedanceModel(server.url("/api/v3").toString().trimEnd('/'), "k", "m", ArkSeedance.COMMON, OkHttpClient(),
             pollMs = 20, timeoutMs = 60_000)
         val stages = mutableListOf<VideoJobStage>()
         val job = launch { model.generate(VideoRequest("x", 5, "16:9", "720p")) { stages += it } }
@@ -224,5 +234,171 @@ class VideoGenerationTest {
         val methods = List(server.requestCount) { server.takeRequest() }.map { it.method to it.path }
         assertEquals("DELETE" to "/api/v3/contents/generations/tasks/job-5", methods.last())
         server.shutdown()
+    }
+
+    @Test fun aJobThatTimesOutAfterSubmissionKeepsItsAllowance() = runTest {
+        // 服务商已收下任务(可能在计费),之后超时:不退额度,模型不能接着再建一个
+        val gen = FakeGeneration(fail = VideoModelError.Timeout("slow"), failAfterSubmit = true)
+        val d = dispatcher(gen)
+        assertEquals("video_timeout", d.execute(Part.ToolCall("c", "video_generate", """{"prompt":"one"}"""), ActionPass()).content.s("error"))
+        assertEquals("task_video_limit_reached", d.execute(Part.ToolCall("c", "video_generate", """{"prompt":"two"}"""), ActionPass()).content.s("error"))
+        assertEquals(1, gen.calls)
+    }
+
+    @Test fun anUnconfirmedSubmitKeepsItsAllowanceAndSaysNotToRetry() = runTest {
+        val gen = FakeGeneration(fail = VideoModelError.Unconfirmed(java.io.IOException("reset")))
+        val d = dispatcher(gen)
+        val first = d.execute(Part.ToolCall("c", "video_generate", """{"prompt":"one"}"""), ActionPass()).content
+        assertEquals("video_submit_unconfirmed", first.s("error"))
+        assertEquals("false", first.s("recoverable"))
+        assertEquals("task_video_limit_reached", d.execute(Part.ToolCall("c", "video_generate", """{"prompt":"two"}"""), ActionPass()).content.s("error"))
+    }
+
+    @Test fun aFailureBeforeSubmissionRefundsTheAllowance() = runTest {
+        val gen = FakeGeneration(fail = ModelError.Network(java.io.IOException("offline")), failOnlyFirst = true)
+        val d = dispatcher(gen)
+        assertEquals("video_network_failed", d.execute(Part.ToolCall("c", "video_generate", """{"prompt":"one"}"""), ActionPass()).content.s("error"))
+        assertEquals("true", d.execute(Part.ToolCall("c", "video_generate", """{"prompt":"two"}"""), ActionPass()).content.s("ok"))
+    }
+
+    @Test fun aClientErrorPassesTheServiceDetailThrough() = runTest {
+        val gen = FakeGeneration(fail = ModelError.Server(400, "InvalidParameter: ratio"))
+        val r = dispatcher(gen).execute(Part.ToolCall("c", "video_generate", """{"prompt":"one"}"""), ActionPass()).content
+        assertEquals("video_request_rejected", r.s("error"))
+        assertTrue(r.s("message").contains("InvalidParameter: ratio"))
+    }
+
+    @Test fun arkRequestBodyMatchesTheDocumentedShape() = runBlocking {
+        val model = ArkSeedanceModel("https://ark.cn-beijing.volces.com/api/v3", "k", MODEL, ArkSeedance.capabilities(MODEL), OkHttpClient())
+        val body = model.submitBody(VideoRequest("a cat", 8, "21:9", "1080p"))
+        // 参数放在 body 顶层(文档推荐的强校验方式),不拼进提示词
+        assertEquals(setOf("model", "content", "ratio", "duration", "resolution", "generate_audio", "execution_expires_after"), body.keys)
+        assertEquals("21:9", body["ratio"]!!.jsonPrimitive.content)
+        assertEquals("8", body["duration"]!!.jsonPrimitive.content)
+        assertEquals("1080p", body["resolution"]!!.jsonPrimitive.content)
+        assertEquals("true", body["generate_audio"]!!.jsonPrimitive.content)
+        assertEquals("3600", body["execution_expires_after"]!!.jsonPrimitive.content)
+        val text = body["content"]!!.jsonArray.single().jsonObject
+        assertEquals("text", text["type"]!!.jsonPrimitive.content)
+        assertEquals("a cat", text["text"]!!.jsonPrimitive.content)
+        assertFalse(text["text"]!!.jsonPrimitive.content.contains("--"))
+    }
+
+    @Test fun arkSendsAdaptiveRatioWhenTheModelKeepsTheFirstFramesAspect() = runBlocking {
+        val v25 = "doubao-seedance-2-5-260628"
+        val model = ArkSeedanceModel("https://ark.cn-beijing.volces.com/api/v3", "k", v25, ArkSeedance.capabilities(v25), OkHttpClient())
+        val body = model.submitBody(VideoRequest("go", 5, "16:9", "720p", byteArrayOf(1), "IMAGE/PNG"))
+        assertEquals("adaptive", body["ratio"]!!.jsonPrimitive.content)
+        val image = body["content"]!!.jsonArray[1].jsonObject
+        assertEquals("image_url", image["type"]!!.jsonPrimitive.content)
+        assertEquals("first_frame", image["role"]!!.jsonPrimitive.content)
+        // 文档要求 data:image/<格式> 里的格式小写
+        assertTrue(image["image_url"]!!.jsonObject["url"]!!.jsonPrimitive.content.startsWith("data:image/png;base64,"))
+        // 不带首帧时照常发选的比例
+        assertEquals("16:9", model.submitBody(VideoRequest("go", 5, "16:9", "720p"))["ratio"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun arkOmitsTheAudioFlagForModelsItDoesNotRecognise() = runBlocking {
+        val model = ArkSeedanceModel("https://ark.cn-beijing.volces.com/api/v3", "k", "ep-20261126-abc", ArkSeedance.capabilities("ep-20261126-abc"), OkHttpClient())
+        assertFalse("generate_audio" in model.submitBody(VideoRequest("go", 5, "16:9", "720p")).keys)
+    }
+
+    @Test fun arkUsesTheReportedDuration() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("""{"id":"cgt-1"}"""))
+        server.enqueue(MockResponse().setBody(
+            """{"id":"cgt-1","model":"$MODEL","status":"succeeded","content":{"video_url":"https://cdn/v.mp4"},"duration":11,"ratio":"16:9","resolution":"720p","framespersecond":24}""",
+        ))
+        val out = ark(server).generate(VideoRequest("x", 5, "16:9", "720p"))
+        assertEquals(11_000L, out.durationMs)
+        server.shutdown()
+    }
+
+    @Test fun arkRidesOutTransientPollErrorsInsteadOfDroppingAPaidJob() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("""{"id":"cgt-2"}"""))
+        server.enqueue(MockResponse().setResponseCode(503))
+        server.enqueue(MockResponse().setResponseCode(429))
+        server.enqueue(MockResponse().setBody("""{"status":"succeeded","content":{"video_url":"https://cdn/v.mp4"}}"""))
+        assertEquals("https://cdn/v.mp4", ark(server).generate(VideoRequest("x", 5, "16:9", "720p")).url)
+        assertEquals(4, server.requestCount)
+        server.shutdown()
+    }
+
+    @Test fun arkGivesUpOnAuthErrorsWhilePollingAndCancelsTheJob() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("""{"id":"cgt-3"}"""))
+        server.enqueue(MockResponse().setResponseCode(401))
+        server.enqueue(MockResponse().setBody("{}"))
+        val e = runCatching { ark(server).generate(VideoRequest("x", 5, "16:9", "720p")) }.exceptionOrNull()
+        assertTrue(e is ModelError.Auth)
+        val methods = List(server.requestCount) { server.takeRequest().method }
+        assertEquals(listOf("POST", "GET", "DELETE"), methods)
+        server.shutdown()
+    }
+
+    @Test fun arkTimesOutLocallyAndTriesToCancelTheQueuedJob() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("""{"id":"cgt-4"}"""))
+        repeat(400) { server.enqueue(MockResponse().setBody("""{"status":"queued"}""")) }
+        val e = runCatching { ark(server, timeoutMs = 150).generate(VideoRequest("x", 5, "16:9", "720p")) }.exceptionOrNull()
+        assertTrue(e is VideoModelError.Timeout)
+        val requests = List(server.requestCount) { server.takeRequest() }
+        assertEquals("DELETE" to "/api/v3/contents/generations/tasks/cgt-4", requests.last().method to requests.last().path)
+        server.shutdown()
+    }
+
+    @Test fun arkDoesNotCancelAJobTheServiceAlreadyEnded() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("""{"id":"cgt-5"}"""))
+        server.enqueue(MockResponse().setBody("""{"status":"expired"}"""))
+        val e = runCatching { ark(server).generate(VideoRequest("x", 5, "16:9", "720p")) }.exceptionOrNull()
+        assertTrue(e is VideoModelError.Timeout)
+        assertEquals(2, server.requestCount)
+        server.shutdown()
+    }
+
+    @Test fun arkReportsTheErrorCodeOfAFailedJob() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setBody("""{"id":"cgt-6"}"""))
+        server.enqueue(MockResponse().setBody("""{"status":"failed","error":{"code":"OutputVideoSensitiveContentDetected","message":"blocked"}}"""))
+        val e = runCatching { ark(server).generate(VideoRequest("x", 5, "16:9", "720p")) }.exceptionOrNull()
+        assertEquals("OutputVideoSensitiveContentDetected: blocked", e!!.message)
+        server.shutdown()
+    }
+
+    @Test fun arkNeverResendsASubmitWhoseConnectionDropped() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setSocketPolicy(okhttp3.mockwebserver.SocketPolicy.DISCONNECT_AFTER_REQUEST))
+        server.enqueue(MockResponse().setBody("""{"id":"duplicate"}"""))
+        val e = runCatching { ark(server).generate(VideoRequest("x", 5, "16:9", "720p")) }.exceptionOrNull()
+        assertTrue(e is VideoModelError.Unconfirmed)
+        assertEquals(1, server.requestCount)
+        server.shutdown()
+    }
+
+    @Test fun arkMapsSubmitRejectionsThroughModelHttp() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(400).setBody("""{"error":{"code":"InvalidParameter","message":"ratio is invalid"}}"""))
+        val e = runCatching { ark(server).generate(VideoRequest("x", 5, "16:9", "720p")) }.exceptionOrNull()
+        assertTrue(e is ModelError.Server)
+        assertEquals(400, (e as ModelError.Server).status)
+        assertEquals(1, server.requestCount)
+        server.shutdown()
+    }
+
+    @Test fun arkKeepsTheKeyOutOfErrors() = runBlocking {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(401).setBody("""{"error":{"message":"bad key"}}"""))
+        val e = runCatching {
+            ArkSeedanceModel(server.url("/api/v3").toString(), "sk-secret-123", MODEL, ArkSeedance.capabilities(MODEL), OkHttpClient(), pollMs = 1)
+                .generate(VideoRequest("x", 5, "16:9", "720p"))
+        }.exceptionOrNull()!!
+        assertFalse(generateSequence(e) { it.cause }.any { it.message.orEmpty().contains("sk-secret-123") })
+        server.shutdown()
+    }
+
+    private companion object {
+        const val MODEL = "doubao-seedance-2-0-260128"
     }
 }

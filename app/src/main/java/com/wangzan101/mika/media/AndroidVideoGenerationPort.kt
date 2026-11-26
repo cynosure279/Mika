@@ -17,7 +17,9 @@ import com.wangzan101.mika.core.model.VideoModelError
 import com.wangzan101.mika.core.model.VideoRequest
 import com.wangzan101.mika.core.workspace.SandboxPaths
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -34,21 +36,23 @@ class AndroidVideoGenerationPort(
     private val context: Context,
     private val conversationId: String,
     private val model: VideoModel,
-    override val capabilities: VideoCapabilities,
     private val http: OkHttpClient,
     private val onProgress: suspend (VideoJobStage) -> Unit = {},
     private val onGenerated: (com.wangzan101.mika.core.chat.GeneratedVideo) -> Unit = {},
 ) : VideoGenerationPort {
     override val modelName: String get() = model.name
+    override val capabilities: VideoCapabilities get() = model.capabilities
     private val dirs by lazy { SandboxDirs(context) }
     private val workspace: File by lazy { dirs.workspace(com.wangzan101.mika.chat.WorkspaceResolver.resolveFor(context, conversationId)) }
 
-    override suspend fun generate(request: VideoGenerationRequest): VideoTake {
+    override suspend fun generate(request: VideoGenerationRequest, onStage: suspend (VideoJobStage) -> Unit): VideoTake {
         val first = request.firstFramePath?.let { firstFrame(it) }
         val output = model.generate(
             VideoRequest(request.prompt, request.durationSec, request.aspect, request.resolution, first?.first, first?.second),
-            onProgress,
-        )
+        ) { stage ->
+            onStage(stage)
+            onProgress(stage)
+        }
         val cache = withContext(Dispatchers.IO) {
             File(context.cacheDir, CACHE_DIR).apply { mkdirs() }.let { File(it, "gen-${System.nanoTime()}.mp4") }
         }
@@ -91,36 +95,42 @@ class AndroidVideoGenerationPort(
         }
     }
 
-    /** 边下边写;超过 [MAX_BYTES] 就停。协程取消时取消这次请求。 */
-    private suspend fun download(url: String, target: File) = withContext(Dispatchers.IO) {
+    /**
+     * 边下边写;超过 [MAX_BYTES] 就停。下载地址是服务商给的临时签名链接:不带服务商的 Key 和请求头,也不写进日志或报错。
+     * 协程一取消就取消这次请求(阻塞中的读随之抛出),不等读完。
+     */
+    private suspend fun download(url: String, target: File) = coroutineScope {
         val call = http.newCall(Request.Builder().url(url).get().build())
-        val job = coroutineContext[Job]
-        val cancelHook = job?.invokeOnCompletion { if (job.isCancelled) call.cancel() }
+        val cancelOnStop = launch { try { awaitCancellation() } finally { call.cancel() } }
         try {
-            call.execute().use { resp ->
-                if (!resp.isSuccessful) throw ModelError.Server(resp.code)
-                val body = resp.body ?: throw VideoModelError.BadResponse("empty download")
-                if (body.contentLength() > MAX_BYTES) throw VideoError.TooLarge(body.contentLength())
-                body.byteStream().use { input ->
-                    target.outputStream().use { out ->
-                        val buf = ByteArray(64 * 1024)
-                        var total = 0L
-                        while (true) {
-                            ensureActive()
-                            val n = input.read(buf)
-                            if (n < 0) break
-                            total += n
-                            if (total > MAX_BYTES) throw VideoError.TooLarge(total)
-                            out.write(buf, 0, n)
+            withContext(Dispatchers.IO) {
+                try {
+                    call.execute().use { resp ->
+                        if (!resp.isSuccessful) throw ModelError.Server(resp.code, "video download failed")
+                        val body = resp.body ?: throw VideoModelError.BadResponse("empty download")
+                        if (body.contentLength() > MAX_BYTES) throw VideoError.TooLarge(body.contentLength())
+                        body.byteStream().use { input ->
+                            target.outputStream().use { out ->
+                                val buf = ByteArray(64 * 1024)
+                                var total = 0L
+                                while (true) {
+                                    ensureActive()
+                                    val n = input.read(buf)
+                                    if (n < 0) break
+                                    total += n
+                                    if (total > MAX_BYTES) throw VideoError.TooLarge(total)
+                                    out.write(buf, 0, n)
+                                }
+                            }
                         }
                     }
+                } catch (e: IOException) {
+                    ensureActive()
+                    throw ModelError.Network(e)
                 }
             }
-        } catch (e: IOException) {
-            ensureActive()
-            throw ModelError.Network(e)
         } finally {
-            cancelHook?.dispose()
+            cancelOnStop.cancel()
         }
     }
 

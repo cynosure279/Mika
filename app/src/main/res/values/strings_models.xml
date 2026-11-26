@@ -341,5 +341,8 @@
     <string name="video_aspect">Aspect ratio</string>
     <string name="video_resolution">Resolution</string>
     <string name="video_footer">Generation runs as a background job and can take a few minutes. The finished video is saved in the workspace under out/video.</string>
+    <string name="video_no_compatible">None of your model services can generate videos. Add one that can first: %1$s.</string>
+    <string name="video_choice_stale">The service you chose before can no longer generate videos (it was removed or its address changed). Pick one below; until then Mika won’t generate videos.</string>
+    <string name="video_duration_range" translatable="false">%1$d–%2$d</string>
     <string name="tool_video_generate">Generate video</string>
 </resources>

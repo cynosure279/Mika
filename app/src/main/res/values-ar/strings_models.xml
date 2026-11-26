@@ -362,5 +362,7 @@
     <string name="video_aspect">نسبة العرض إلى الارتفاع</string>
     <string name="video_resolution">الدقة</string>
     <string name="video_footer">يجري الإنشاء في الخلفية وقد يستغرق بضع دقائق. يُحفظ الفيديو الناتج في مساحة العمل ضمن out/video.</string>
+    <string name="video_no_compatible">لا تستطيع أي من خدمات النماذج لديك إنشاء مقاطع فيديو. أضف أولًا خدمة تستطيع ذلك: %1$s.</string>
+    <string name="video_choice_stale">لم تعد الخدمة التي اخترتها سابقًا قادرة على إنشاء الفيديو (حُذفت أو تغيّر عنوانها). اختر خدمة أخرى أدناه؛ وحتى ذلك الحين لن تنشئ Mika مقاطع فيديو.</string>
     <string name="tool_video_generate">إنشاء فيديو</string>
 </resources>

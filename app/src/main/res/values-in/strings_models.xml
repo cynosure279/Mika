@@ -335,5 +335,7 @@
     <string name="video_aspect">Rasio aspek</string>
     <string name="video_resolution">Resolusi</string>
     <string name="video_footer">Pembuatan berjalan di latar belakang dan bisa memakan beberapa menit. Video yang selesai disimpan di ruang kerja pada out/video.</string>
+    <string name="video_no_compatible">Tidak ada layanan model Anda yang bisa membuat video. Tambahkan dulu layanan yang bisa: %1$s.</string>
+    <string name="video_choice_stale">Layanan yang Anda pilih sebelumnya tidak bisa lagi membuat video (dihapus atau alamatnya berubah). Pilih ulang di bawah; sampai saat itu Mika tidak akan membuat video.</string>
     <string name="tool_video_generate">Buat video</string>
 </resources>

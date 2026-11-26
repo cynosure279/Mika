@@ -336,5 +336,7 @@
     <string name="video_aspect">Tỷ lệ khung hình</string>
     <string name="video_resolution">Độ phân giải</string>
     <string name="video_footer">Việc tạo chạy dưới dạng tác vụ nền và có thể mất vài phút. Video hoàn tất được lưu trong không gian làm việc tại out/video.</string>
+    <string name="video_no_compatible">Không dịch vụ mô hình nào của bạn tạo được video. Hãy thêm một dịch vụ có thể tạo video trước: %1$s.</string>
+    <string name="video_choice_stale">Dịch vụ bạn chọn trước đây không còn tạo được video (đã bị xóa hoặc địa chỉ đã thay đổi). Hãy chọn lại bên dưới; trước đó Mika sẽ không tạo video.</string>
     <string name="tool_video_generate">Tạo video</string>
 </resources>

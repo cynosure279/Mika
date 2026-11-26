@@ -19,6 +19,7 @@ import com.wangzan101.mika.core.tool.fail
 import com.wangzan101.mika.core.tool.int
 import com.wangzan101.mika.core.tool.okObj
 import com.wangzan101.mika.core.tool.str
+import com.wangzan101.mika.core.model.VideoJobStage
 import com.wangzan101.mika.core.model.VideoModelError
 import com.wangzan101.mika.core.workspace.SandboxPaths
 import kotlinx.coroutines.CancellationException
@@ -190,7 +191,7 @@ internal object VideoGenerate : AgentTool {
             "prompt" to str("What the video should show, 1-4000 characters."),
             "durationSec" to int("Duration in seconds; the model's capability range applies.", 1, 60),
             "aspect" to str("Aspect ratio, e.g. 16:9 or 9:16.", listOf("16:9", "9:16", "1:1", "4:3", "3:4", "21:9")),
-            "resolution" to str("Resolution, e.g. 480p, 720p or 1080p.", listOf("480p", "720p", "1080p")),
+            "resolution" to str("Resolution, e.g. 480p, 720p or 1080p.", listOf("480p", "720p", "1080p", "4k")),
             "first_frame_path" to str("Optional workspace image path to use as the first frame."),
             "name" to str("Optional file name to suggest, without a path."),
         ), listOf("prompt"))
@@ -213,13 +214,18 @@ internal object VideoGenerate : AgentTool {
             return fail("task_video_limit_reached", "This task already used its video allowance (${cap.used()}/${cap.maxPerTask}).")
         }
         val first = a.str("first_frame_path", max = 500)?.let { workspacePath(it) }
+        // 额度只在确定没花钱时退:服务商还没收下任务,或明确报告任务失败(没有产出)。
+        // 收下之后的超时、断网、下载失败,以及提交后不知道建没建成的,都不退,免得模型重试又建一个付费任务。
+        var submitted = false
         val generated = try {
-            port.generate(VideoGenerationRequest(prompt, duration, aspect, resolution, first))
+            port.generate(VideoGenerationRequest(prompt, duration, aspect, resolution, first)) { stage ->
+                if (stage == VideoJobStage.Submitted) submitted = true
+            }
         } catch (e: CancellationException) {
-            cap.refund()
+            if (!submitted) cap.refund()
             throw e
         } catch (e: Throwable) {
-            cap.refund()
+            if ((!submitted && e !is VideoModelError.Unconfirmed) || e is VideoModelError.Failed) cap.refund()
             return videoFailure(e)
         }
         return ToolExecution(okObj {
@@ -240,12 +246,21 @@ private fun videoFailure(e: Throwable): ToolExecution = when (e) {
     is VideoModelError.BadResponse -> fail("video_bad_response", e.message ?: "The video service returned something unreadable.")
     is VideoModelError.Timeout -> fail("video_timeout", e.message ?: "The video job timed out.")
     is VideoModelError.Failed -> fail("video_generation_failed", e.message ?: "The video job failed.")
+    is VideoModelError.Unconfirmed -> fail(
+        "video_submit_unconfirmed",
+        "The connection dropped after the request was sent, so the job may exist and be billed. Do not retry; tell the user to check the service console.",
+        recoverable = false,
+    )
     is com.wangzan101.mika.core.model.ModelError.Auth -> fail("video_auth_failed", "The video service rejected the API key.", recoverable = false)
     is com.wangzan101.mika.core.model.ModelError.QuotaExceeded -> fail("video_quota_exceeded", "The video service quota is used up.", recoverable = false)
     is com.wangzan101.mika.core.model.ModelError.RateLimited -> fail("video_rate_limited", "The video service is rate limiting. Wait, then try once more.")
     is com.wangzan101.mika.core.model.ModelError.ContentRefused -> fail("video_content_filtered", "The video service refused this content.")
     is com.wangzan101.mika.core.model.ModelError.Network, is com.wangzan101.mika.core.model.ModelError.Proxy ->
         fail("video_network_failed", "Could not reach the video service.")
-    is com.wangzan101.mika.core.model.ModelError.Server -> fail("video_server_error", "The video service had a server error.")
+    is com.wangzan101.mika.core.model.ModelError.Server ->
+        if (e.status in 400..499) fail("video_request_rejected", e.message?.take(300) ?: "The video service rejected the request.")
+        else fail("video_server_error", "The video service had a server error.")
+    is com.wangzan101.mika.core.model.ModelError.ModelNotFound, is com.wangzan101.mika.core.model.ModelError.ModelNotAvailable ->
+        fail("video_model_unavailable", e.message ?: "This account cannot use the video model.", recoverable = false)
     else -> fail("video_failed", e.message?.take(300) ?: "Video generation failed.")
 }

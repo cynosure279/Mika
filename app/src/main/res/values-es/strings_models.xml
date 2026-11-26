@@ -347,5 +347,7 @@
     <string name="video_aspect">Relación de aspecto</string>
     <string name="video_resolution">Resolución</string>
     <string name="video_footer">La generación se ejecuta en segundo plano y puede tardar unos minutos. El vídeo terminado se guarda en el espacio de trabajo, en out/video.</string>
+    <string name="video_no_compatible">Ninguno de tus servicios de modelos puede generar vídeos. Añade primero uno que pueda: %1$s.</string>
+    <string name="video_choice_stale">El servicio que elegiste ya no puede generar vídeos (se eliminó o cambió su dirección). Elige otro abajo; hasta entonces Mika no generará vídeos.</string>
     <string name="tool_video_generate">Generar vídeo</string>
 </resources>

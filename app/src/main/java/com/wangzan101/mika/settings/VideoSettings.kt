@@ -2,7 +2,6 @@ package com.wangzan101.mika.settings
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.wangzan101.mika.core.model.VideoCapabilities
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,22 +15,17 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 
-/** 视频生成的服务商协议。存名字,只能往后加。 */
-enum class VideoProtocol(val wire: String) {
-    /** 火山方舟 Seedance:create/poll。 */
-    ArkSeedance("ark-seedance");
-
-    companion object {
-        fun of(wire: String?): VideoProtocol? = entries.firstOrNull { it.wire == wire }
-    }
-}
-
-/** 用户选的视频服务商、模型和协议;Key 仍由 [ProviderStore] 按服务商保存。 */
-data class VideoChoice(val providerId: String, val model: String, val protocol: VideoProtocol)
+/**
+ * 用户选的视频服务商、模型和协议;Key 仍由 [ProviderStore] 按服务商保存。
+ * [backendId] 是 [com.wangzan101.mika.core.model.VideoBackend.id]:服务商地址后来改了、不再说这种协议时,
+ * [VideoProviders.resolve] 认出来,不把请求发错地方。
+ */
+data class VideoChoice(val providerId: String, val model: String, val backendId: String)
 
 /**
- * 视频生成设置。默认关;打开并选模型后才提供 video_generate。
+ * 视频生成设置。默认关;打开并选了能生成视频的服务商和模型后才提供 video_generate。
  * [maxPerTask] 是每任务最多生成几个(默认 1),防止模型循环烧钱。
+ * 时长、宽高比、清晰度是用户偏好;模型不支持时由工具退回模型支持的值(能力见 [VideoProviders.resolve])。
  */
 data class VideoSettingsState(
     val enabled: Boolean = false,
@@ -58,19 +52,6 @@ class VideoSettings(private val prefs: SharedPreferences) {
     fun setAspect(a: String) = update { copy(aspect = a) }
     fun setResolution(r: String) = update { copy(resolution = r) }
 
-    /** 按协议给能力初值;实际以服务商/模型为准。 */
-    fun capabilities(): VideoCapabilities? = when (_state.value.choice?.protocol) {
-        VideoProtocol.ArkSeedance -> VideoCapabilities(
-            // Seedance 1.x 公开文档的范围:2-12 秒,480p/720p/1080p(没有 4k)
-            durations = 2..12,
-            aspects = setOf("16:9", "9:16", "1:1", "4:3", "3:4", "21:9"),
-            resolutions = setOf("480p", "720p", "1080p"),
-            supportsFirstFrame = true,
-            supportsAudio = true,
-        )
-        null -> null
-    }
-
     private fun update(block: VideoSettingsState.() -> VideoSettingsState) {
         val next = _state.value.block()
         prefs.edit().putString(KEY, encode(next).toString()).apply()
@@ -91,7 +72,7 @@ class VideoSettings(private val prefs: SharedPreferences) {
         state.choice?.let { c ->
             put("providerId", c.providerId)
             put("model", c.model)
-            put("protocol", c.protocol.wire)
+            put("protocol", c.backendId)
         }
     }
 
@@ -99,9 +80,10 @@ class VideoSettings(private val prefs: SharedPreferences) {
         fun bool(key: String, fallback: Boolean) = (obj[key] as? JsonPrimitive)?.booleanOrNull ?: fallback
         val providerId = (obj["providerId"] as? JsonPrimitive)?.contentOrNull
         val model = (obj["model"] as? JsonPrimitive)?.contentOrNull
-        val protocol = VideoProtocol.of((obj["protocol"] as? JsonPrimitive)?.contentOrNull)
-        val choice = if (providerId.isNullOrBlank() || model.isNullOrBlank() || protocol == null) null
-        else VideoChoice(providerId, model, protocol)
+        // 认不认得这种协议、服务商还对不对得上,交给 [VideoProviders.resolve];这里原样读回来
+        val backendId = (obj["protocol"] as? JsonPrimitive)?.contentOrNull
+        val choice = if (providerId.isNullOrBlank() || backendId.isNullOrBlank()) null
+        else VideoChoice(providerId, model.orEmpty(), backendId)
         return VideoSettingsState(
             enabled = bool("enabled", false),
             choice = choice,

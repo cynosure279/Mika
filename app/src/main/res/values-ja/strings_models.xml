@@ -337,5 +337,7 @@
     <string name="video_aspect">アスペクト比</string>
     <string name="video_resolution">解像度</string>
     <string name="video_footer">生成はバックグラウンドで実行され、数分かかることがあります。完成した動画はワークスペースの out/video に保存されます。</string>
+    <string name="video_no_compatible">追加したモデルサービスはどれも動画を生成できません。先に動画を生成できるサービスを追加してください：%1$s。</string>
+    <string name="video_choice_stale">以前選んだサービスは動画を生成できなくなりました（削除されたか、アドレスが変わりました）。下から選び直してください。それまで Mika は動画を生成しません。</string>
     <string name="tool_video_generate">動画を生成</string>
 </resources>

@@ -338,5 +338,7 @@
     <string name="video_aspect">画面比例</string>
     <string name="video_resolution">清晰度</string>
     <string name="video_footer">生成在后台进行，可能要几分钟。做好的视频保存在工作区的 out/video 下。</string>
+    <string name="video_no_compatible">你添加的模型服务商都不能生成视频。请先添加一个能生成视频的：%1$s。</string>
+    <string name="video_choice_stale">之前选的服务商已不能生成视频（已删除或地址改了）。请在下面重新选择；在此之前 Mika 不会生成视频。</string>
     <string name="tool_video_generate">生成视频</string>
 </resources>

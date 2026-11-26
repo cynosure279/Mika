@@ -339,5 +339,7 @@
     <string name="video_aspect">نسبت تصویر</string>
     <string name="video_resolution">وضوح</string>
     <string name="video_footer">ساخت در پس‌زمینه اجرا می‌شود و ممکن است چند دقیقه طول بکشد. ویدیوی آماده در فضای کاری زیر out/video ذخیره می‌شود.</string>
+    <string name="video_no_compatible">هیچ‌کدام از سرویس‌های مدل شما نمی‌تواند ویدیو بسازد. اول سرویسی اضافه کنید که بتواند: %1$s.</string>
+    <string name="video_choice_stale">سرویسی که قبلاً انتخاب کرده بودید دیگر نمی‌تواند ویدیو بسازد (حذف شده یا نشانی‌اش تغییر کرده). از پایین دوباره انتخاب کنید؛ تا آن موقع Mika ویدیو نمی‌سازد.</string>
     <string name="tool_video_generate">ساخت ویدیو</string>
 </resources>

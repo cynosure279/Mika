@@ -352,5 +352,7 @@
     <string name="video_aspect">Соотношение сторон</string>
     <string name="video_resolution">Разрешение</string>
     <string name="video_footer">Генерация идёт в фоне и может занять несколько минут. Готовое видео сохраняется в рабочей области в out/video.</string>
+    <string name="video_no_compatible">Ни один из ваших сервисов моделей не умеет создавать видео. Сначала добавьте подходящий: %1$s.</string>
+    <string name="video_choice_stale">Выбранный ранее сервис больше не может создавать видео (он удалён или его адрес изменился). Выберите другой ниже; до этого Mika не будет создавать видео.</string>
     <string name="tool_video_generate">Создать видео</string>
 </resources>
