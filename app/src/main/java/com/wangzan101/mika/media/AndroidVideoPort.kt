@@ -11,16 +11,18 @@ import com.wangzan101.mika.core.cap.video.VideoFrame
 import com.wangzan101.mika.core.cap.video.VideoInfo
 import com.wangzan101.mika.core.cap.video.VideoPort
 import com.wangzan101.mika.core.workspace.SandboxPaths
+import com.wangzan101.mika.core.workspace.GatedFile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import java.io.ByteArrayOutputStream
 import java.io.File
-import kotlin.math.max
-import kotlin.math.min
 
 /**
- * 视频能力的手机实现:读工作区视频的元数据/抽帧用 MediaMetadataRetriever,存影片库走 [VideoExporter]。
- * 为了避免「检查完再按路径用」被沙箱里换掉,先经工作区闸门复制到缓存,再在缓存文件上解码。
+ * 视频能力的手机实现:读工作区视频的元数据/抽帧用 MediaMetadataRetriever([VideoProbe]),存影片库走 [VideoExporter]。
+ * 为了避免「检查完再按路径用」被沙箱里换掉,解码直接读工作区闸门核实过的那个句柄;不复制到缓存,也不整段读进内存。
  */
 class AndroidVideoPort(
     private val context: Context,
@@ -29,56 +31,26 @@ class AndroidVideoPort(
     private val dirs by lazy { SandboxDirs(context) }
     private val workspace: File by lazy { dirs.workspace(com.wangzan101.mika.chat.WorkspaceResolver.resolveFor(context, conversationId)) }
 
-    override suspend fun info(path: String): VideoInfo {
-        val rel = relative(path) ?: throw VideoError.Unsupported("the path must be under ${SandboxPaths.WORKSPACE}")
-        val file = cacheCopy(rel)
-        return withContext(Dispatchers.IO) {
-        val retriever = MediaMetadataRetriever()
-        try {
-            retriever.setDataSource(file.absolutePath)
-            val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
-            val width = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
-            val height = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
-            val rotation = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
-            val (w, h) = if (rotation == 90 || rotation == 270) height to width else width to height
-            val hasAudio = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO) == "yes"
-            VideoInfo(path, duration, w, h, mimeOf(path.substringAfterLast('.', "")), file.length(), hasAudio)
-        } catch (e: Exception) {
-            throw VideoError.BadVideo(e.message ?: "cannot read this video")
-        } finally {
-            runCatching { retriever.release() }
-            file.delete()
-        }
-        }
+    override suspend fun info(path: String): VideoInfo = probe(path) { g, r ->
+        val m = VideoProbe.meta(r)
+        VideoInfo(path, m.durationMs, m.width, m.height, mimeOf(path.substringAfterLast('.', "")), g.size, m.hasAudio)
     }
 
     override suspend fun frames(path: String, count: Int): List<VideoFrame> {
-        val rel = relative(path) ?: throw VideoError.Unsupported("the path must be under ${SandboxPaths.WORKSPACE}")
-        val file = cacheCopy(rel)
-        return withContext(Dispatchers.IO) {
-        val retriever = MediaMetadataRetriever()
-        try {
-            retriever.setDataSource(file.absolutePath)
-            val duration = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
-            val times = if (count <= 1) listOf(duration / 2) else List(count) { i -> duration * i / (count - 1) }
-            val out = mutableListOf<VideoFrame>()
-            for (atMs in times) {
-                val bitmap = retriever.getFrameAtTime(atMs.coerceAtLeast(0) * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC) ?: continue
-                try {
-                    out += VideoFrame(atMs, jpeg(bitmap))
-                } finally {
-                    bitmap.recycle()
-                }
+        val job = currentCoroutineContext()[Job]
+        return probe(path) { _, r ->
+            val duration = VideoProbe.meta(r).durationMs ?: 0L
+            VideoProbe.sampleTimes(duration, count).mapNotNull { atMs ->
+                job?.ensureActive()
+                VideoProbe.frameJpeg(r, atMs, FRAME_SIDE)?.let { VideoFrame(atMs, it) }
             }
-            out
-        } catch (e: Exception) {
-            throw VideoError.BadVideo(e.message ?: "cannot decode this video")
-        } finally {
-            runCatching { retriever.release() }
-            file.delete()
-        }
         }
     }
+
+    /** 聊天卡片的封面:开头附近一帧,长边 [maxSide] 以内;读不出来为 null。 */
+    suspend fun poster(path: String, maxSide: Int): Bitmap? =
+        runCatching { probe(path) { _, r -> VideoProbe.frameBitmap(r, 0, maxSide) } }
+            .getOrElse { if (it is CancellationException) throw it else null }
 
     override suspend fun saveToMovies(path: String, name: String?): SavedVideo {
         val rel = relative(path) ?: throw VideoError.Unsupported("the path must be under ${SandboxPaths.WORKSPACE}")
@@ -93,37 +65,23 @@ class AndroidVideoPort(
         }
     }
 
-    /** 经工作区闸门复制到缓存,返回临时文件;调用方负责删。 */
-    private suspend fun cacheCopy(rel: String): File = dirs.tree.shared {
-        withContext(Dispatchers.IO) {
-            val dir = File(context.cacheDir, "video").apply { mkdirs() }
-            val file = File(dir, "clip-${System.nanoTime()}.${rel.substringAfterLast('.', "mp4")}")
-            try {
+    /** 经工作区闸门打开 [path],在同一个句柄上解码。 */
+    private suspend fun <T> probe(path: String, block: (GatedFile, MediaMetadataRetriever) -> T): T {
+        val rel = relative(path) ?: throw VideoError.Unsupported("the path must be under ${SandboxPaths.WORKSPACE}")
+        return dirs.tree.shared {
+            withContext(Dispatchers.IO) {
                 dirs.gate.openRead(workspace, rel).use { g ->
-                    if (g.size > MAX_BYTES) throw VideoError.TooLarge(g.size)
-                    g.input().use { input -> file.outputStream().use { input.copyTo(it) } }
+                    try {
+                        VideoProbe.open(g) { r -> block(g, r) }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: VideoError) {
+                        throw e
+                    } catch (e: Exception) {
+                        throw VideoError.BadVideo(e.message ?: "cannot decode this video")
+                    }
                 }
-                file
-            } catch (e: Throwable) {
-                file.delete()
-                throw e
             }
-        }
-    }
-
-    private fun jpeg(bitmap: Bitmap): ByteArray {
-        val maxSide = max(bitmap.width, bitmap.height)
-        val scaled = if (maxSide <= 1280) bitmap else {
-            val f = 1280.0 / maxSide
-            Bitmap.createScaledBitmap(bitmap, max(1, (bitmap.width * f).toInt()), max(1, (bitmap.height * f).toInt()), true)
-        }
-        try {
-            return ByteArrayOutputStream().use { out ->
-                scaled.compress(Bitmap.CompressFormat.JPEG, 80, out)
-                out.toByteArray()
-            }
-        } finally {
-            if (scaled !== bitmap) scaled.recycle()
         }
     }
 
@@ -146,7 +104,9 @@ class AndroidVideoPort(
     }
 
     companion object {
-        /** 看、存、分享一段工作区视频的上限。 */
+        /** 存、分享一段工作区视频的上限。 */
         const val MAX_BYTES = 1024L * 1024 * 1024
+        /** 给模型看的帧长边。 */
+        private const val FRAME_SIDE = 1280
     }
 }
