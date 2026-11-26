@@ -145,7 +145,7 @@ interface IMikaShell {
     Bundle setDeviceFilePolicy(int protocol, String session, long revision, in String[] roots, in boolean[] recursive) = 60;
 
     // 把工作区里的一个文件分享给一个包:ACTION_SEND + EXTRA_STREAM,content URI 已授权可读;只打开分享页,不发出。
-    int startShareFile(int displayId, String packageName, String uri, String mime, String text) = 62;
+    int startShareFile(int displayId, String packageName, String uri, String mime, String text) = 61;
 
     // 原地改变 Mika 虚拟屏尺寸并替换接收画面的 Surface，保留屏上的任务。
     boolean resizeDisplay(int displayId, in Surface surface, int width, int height, int dpi) = 62;
