@@ -89,6 +89,16 @@ class VideoGenerationTest {
         assertEquals("720p", gen.last!!.resolution)
     }
 
+    @Test fun settingsDefaultsOutsideTheModelRangeFallBackToWhatItSupports() = runTest {
+        val gen = FakeGeneration(VideoCapabilities(durations = 4..10, aspects = setOf("9:16"), resolutions = setOf("720p")))
+        val d = toolDispatcher(LocScreen(), visionEnabled = true, video = FakePort(), videoGeneration = gen,
+            videoDurationSec = 60, videoAspect = "16:9", videoResolution = "4k")
+        assertEquals("true", d.execute(Part.ToolCall("c", "video_generate", """{"prompt":"a cat"}"""), ActionPass()).content.s("ok"))
+        assertEquals(10, gen.last!!.durationSec)
+        assertEquals("9:16", gen.last!!.aspect)
+        assertEquals("720p", gen.last!!.resolution)
+    }
+
     @Test fun refusedWhenOverThePerTaskAllowance() = runTest {
         val gen = FakeGeneration()
         val d = dispatcher(gen)

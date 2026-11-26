@@ -190,7 +190,7 @@ internal object VideoGenerate : AgentTool {
             "prompt" to str("What the video should show, 1-4000 characters."),
             "durationSec" to int("Duration in seconds; the model's capability range applies.", 1, 60),
             "aspect" to str("Aspect ratio, e.g. 16:9 or 9:16.", listOf("16:9", "9:16", "1:1", "4:3", "3:4", "21:9")),
-            "resolution" to str("Resolution, e.g. 480p, 720p, 1080p, 4k.", listOf("480p", "720p", "1080p", "4k")),
+            "resolution" to str("Resolution, e.g. 480p, 720p or 1080p.", listOf("480p", "720p", "1080p")),
             "first_frame_path" to str("Optional workspace image path to use as the first frame."),
             "name" to str("Optional file name to suggest, without a path."),
         ), listOf("prompt"))
@@ -201,9 +201,11 @@ internal object VideoGenerate : AgentTool {
         val cap = ctx[VideoCapability.KEY] ?: return fail("video_unavailable", "Video generation is not configured.")
         val port = cap.generation ?: return fail("video_unavailable", "Video generation is not configured.")
         val prompt = a.str("prompt", max = 4000)!!.trim()
-        val duration = a.int("durationSec", 1, 60) ?: cap.defaultDuration
-        val aspect = a.str("aspect") ?: cap.defaultAspect
-        val resolution = a.str("resolution") ?: cap.defaultResolution
+        val caps = port.capabilities
+        // 没指定时用设置里的默认值;设置里的值这个模型不支持时退回它支持的,免得每次都因为默认值报错
+        val duration = a.int("durationSec", 1, 60) ?: cap.defaultDuration.coerceIn(caps.durations.first, caps.durations.last)
+        val aspect = a.str("aspect") ?: cap.defaultAspect.takeIf { it in caps.aspects } ?: caps.aspects.first()
+        val resolution = a.str("resolution") ?: cap.defaultResolution.takeIf { it in caps.resolutions } ?: caps.resolutions.first()
         if (duration !in port.capabilities.durations) throw ArgError("durationSec", "this model supports ${port.capabilities.durations.first}-${port.capabilities.durations.last}s")
         if (aspect !in port.capabilities.aspects) throw ArgError("aspect", "this model does not support $aspect")
         if (resolution !in port.capabilities.resolutions) throw ArgError("resolution", "this model does not support $resolution")

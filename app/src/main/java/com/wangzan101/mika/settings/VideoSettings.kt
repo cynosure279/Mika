@@ -61,9 +61,10 @@ class VideoSettings(private val prefs: SharedPreferences) {
     /** 按协议给能力初值;实际以服务商/模型为准。 */
     fun capabilities(): VideoCapabilities? = when (_state.value.choice?.protocol) {
         VideoProtocol.ArkSeedance -> VideoCapabilities(
-            durations = 4..30,
+            // Seedance 1.x 公开文档的范围:2-12 秒,480p/720p/1080p(没有 4k)
+            durations = 2..12,
             aspects = setOf("16:9", "9:16", "1:1", "4:3", "3:4", "21:9"),
-            resolutions = setOf("480p", "720p", "1080p", "4k"),
+            resolutions = setOf("480p", "720p", "1080p"),
             supportsFirstFrame = true,
             supportsAudio = true,
         )
