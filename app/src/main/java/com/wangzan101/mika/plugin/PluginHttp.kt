@@ -1,6 +1,6 @@
 package com.wangzan101.mika.plugin
 
-import com.wangzan101.mika.core.net.LocalHosts
+import com.wangzan101.mika.core.cap.web.DownloadAddressPolicy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -32,8 +32,11 @@ import java.util.concurrent.TimeUnit
 class PluginHttp(
     private val client: OkHttpClient,
     private val log: (String) -> Unit = {},
-    /** 地址算不算本机/私网;测试里可以换掉(默认 [LocalHosts.isLocal])。 */
-    private val isLocal: (String) -> Boolean = LocalHosts::isLocal,
+    /**
+     * 地址算不算本机/私网/保留地址;测试里可以换掉。默认和网页下载同一条规则([DownloadAddressPolicy.blockedHost]);
+     * 域名解析后的地址由客户端上的 [DownloadAddressPolicy.guardedDns] 再查一遍(见 [WasmSupport])。
+     */
+    private val isLocal: (String) -> Boolean = DownloadAddressPolicy::blockedHost,
 ) {
     /** 出错抛 [HttpFailure];经 Binder 到原生侧后统一映射为 -5。 */
     class HttpFailure(message: String) : RuntimeException(message)

@@ -79,6 +79,15 @@ class PluginHttpTest {
         assertTrue(message, message.contains("local"))
     }
 
+    /** 默认规则和网页下载一样:短写 IP、局域网后缀、保留网段都算本机/私网。 */
+    @Test fun defaultPolicyRejectsPrivateAndShorthandAddresses() {
+        val plugin = PluginHttp(OkHttpClient())
+        for (u in listOf("http://127.1/x", "http://router.lan/x", "http://[::1]/x", "http://100.64.0.1/x", "http://0.0.0.0/x")) {
+            val message = failure { plugin.request("""{"url":"$u"}""") }
+            assertTrue("$u: $message", message.contains("local"))
+        }
+    }
+
     @Test fun responseBodyIsCappedAtOneMegabyte() {
         server.enqueue(MockResponse().setBody("x".repeat(1024 * 1024 + 1)))
         val message = failure { http().request("""{"url":"${url("/big")}"}""") }
