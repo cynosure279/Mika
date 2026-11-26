@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">Этому плагину нужна более новая версия Mika.</string>
     <string name="plugins_error_unsafe">В пакете есть небезопасный путь, установка отклонена.</string>
     <string name="plugins_error_too_large">Пакет слишком большой.</string>
+    <string name="plugins_error_wasm_unsupported">Эта версия пока не принимает плагины Wasm.</string>
     <string name="plugins_error_missing_manifest">В корне пакета нет manifest.json.</string>
     <string name="plugins_error_invalid">Пакет не является действительным плагином.</string>
     <plurals name="plugins_skill_count">

@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">这个插件需要更新版本的 Mika。</string>
     <string name="plugins_error_unsafe">安装包里有不安全的路径，已拒绝安装。</string>
     <string name="plugins_error_too_large">安装包太大。</string>
+    <string name="plugins_error_wasm_unsupported">这个版本还不接受 Wasm 插件。</string>
     <string name="plugins_error_missing_manifest">安装包根目录没有 manifest.json。</string>
     <string name="plugins_error_invalid">这个安装包不是有效的插件。</string>
     <plurals name="plugins_skill_count">

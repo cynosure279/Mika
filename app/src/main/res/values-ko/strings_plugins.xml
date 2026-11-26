@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">이 플러그인에는 더 새로운 버전의 Mika가 필요합니다.</string>
     <string name="plugins_error_unsafe">패키지에 안전하지 않은 경로가 있어 거부했습니다.</string>
     <string name="plugins_error_too_large">패키지가 너무 큽니다.</string>
+    <string name="plugins_error_wasm_unsupported">이 버전은 아직 Wasm 플러그인을 지원하지 않습니다.</string>
     <string name="plugins_error_missing_manifest">패키지 루트에 manifest.json이 없습니다.</string>
     <string name="plugins_error_invalid">이 패키지는 올바른 플러그인이 아닙니다.</string>
     <plurals name="plugins_skill_count">

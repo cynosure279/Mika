@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">Plugin ini memerlukan versi Mika yang lebih baru.</string>
     <string name="plugins_error_unsafe">Paket berisi jalur yang tidak aman dan ditolak.</string>
     <string name="plugins_error_too_large">Paket terlalu besar.</string>
+    <string name="plugins_error_wasm_unsupported">Versi ini belum menerima plugin Wasm.</string>
     <string name="plugins_error_missing_manifest">Paket tidak memiliki manifest.json di akarnya.</string>
     <string name="plugins_error_invalid">Paket ini bukan plugin yang valid.</string>
     <plurals name="plugins_skill_count">

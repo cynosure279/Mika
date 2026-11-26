@@ -22,6 +22,8 @@ object PluginErrors {
     const val TOO_LARGE = "too_large"
     const val MISSING_MANIFEST = "missing_manifest"
     const val INVALID_MANIFEST = "invalid_manifest"
+    /** 这个版本(发布包)还不接受 Wasm 插件;界面显示「这个版本还不接受 Wasm 插件」。 */
+    const val WASM_UNSUPPORTED = "wasm_unsupported"
     const val IO = "io"
 }
 
@@ -77,7 +79,7 @@ class PluginInstaller(
                     throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "manifest.json is not valid", e)
                 }
                 if (!BuildConfig.WASM_PLUGINS && parsed.tools.any { it.wasm != null }) {
-                    throw PluginInstallException(PluginErrors.INVALID_MANIFEST, "this build does not accept Wasm plugins")
+                    throw PluginInstallException(PluginErrors.WASM_UNSUPPORTED, "this build does not accept Wasm plugins")
                 }
                 val problems = parsed.validate(appVersion)
                 if (problems.isNotEmpty()) {

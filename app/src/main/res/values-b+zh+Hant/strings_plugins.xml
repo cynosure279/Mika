@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">這個外掛需要更新版本的 Mika。</string>
     <string name="plugins_error_unsafe">安裝包裡有不安全的路徑，已拒絕安裝。</string>
     <string name="plugins_error_too_large">安裝包太大。</string>
+    <string name="plugins_error_wasm_unsupported">這個版本還不接受 Wasm 外掛。</string>
     <string name="plugins_error_missing_manifest">安裝包根目錄沒有 manifest.json。</string>
     <string name="plugins_error_invalid">這個安裝包不是有效的外掛。</string>
     <plurals name="plugins_skill_count">

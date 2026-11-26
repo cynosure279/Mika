@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">Bu eklenti daha yeni bir Mika sürümü gerektirir.</string>
     <string name="plugins_error_unsafe">Paket güvenli olmayan bir yol içeriyor ve reddedildi.</string>
     <string name="plugins_error_too_large">Paket çok büyük.</string>
+    <string name="plugins_error_wasm_unsupported">Bu sürüm henüz Wasm eklentilerini kabul etmiyor.</string>
     <string name="plugins_error_missing_manifest">Paketin kökünde manifest.json yok.</string>
     <string name="plugins_error_invalid">Paket geçerli bir eklenti değil.</string>
     <plurals name="plugins_skill_count">

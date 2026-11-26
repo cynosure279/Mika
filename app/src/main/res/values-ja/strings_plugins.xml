@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">このプラグインには新しいバージョンの Mika が必要です。</string>
     <string name="plugins_error_unsafe">安全でないパスが含まれているため、インストールを拒否しました。</string>
     <string name="plugins_error_too_large">パッケージが大きすぎます。</string>
+    <string name="plugins_error_wasm_unsupported">このバージョンはまだ Wasm プラグインに対応していません。</string>
     <string name="plugins_error_missing_manifest">パッケージのルートに manifest.json がありません。</string>
     <string name="plugins_error_invalid">このパッケージは有効なプラグインではありません。</string>
     <plurals name="plugins_skill_count">

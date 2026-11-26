@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">Este plugin necesita una versión más reciente de Mika.</string>
     <string name="plugins_error_unsafe">El paquete contiene una ruta no segura y fue rechazado.</string>
     <string name="plugins_error_too_large">El paquete es demasiado grande.</string>
+    <string name="plugins_error_wasm_unsupported">Esta versión aún no admite plugins Wasm.</string>
     <string name="plugins_error_missing_manifest">El paquete no tiene manifest.json en su raíz.</string>
     <string name="plugins_error_invalid">El paquete no es un plugin válido.</string>
     <plurals name="plugins_skill_count">

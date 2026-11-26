@@ -238,6 +238,7 @@ private fun installErrorText(e: Throwable): String {
         PluginManifest.ERR_MIN_APP_TOO_HIGH -> stringResource(R.string.plugins_error_too_new)
         PluginErrors.UNSAFE_PATH -> stringResource(R.string.plugins_error_unsafe)
         PluginErrors.TOO_LARGE -> stringResource(R.string.plugins_error_too_large)
+        PluginErrors.WASM_UNSUPPORTED -> stringResource(R.string.plugins_error_wasm_unsupported)
         PluginErrors.MISSING_MANIFEST -> stringResource(R.string.plugins_error_missing_manifest)
         PluginErrors.INVALID_MANIFEST -> stringResource(R.string.plugins_error_invalid)
         else -> stringResource(R.string.plugins_install_failed, e.message ?: code ?: e.javaClass.simpleName)

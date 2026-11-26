@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">This plugin needs a newer version of Mika.</string>
     <string name="plugins_error_unsafe">The package contains an unsafe path and was rejected.</string>
     <string name="plugins_error_too_large">The package is too large.</string>
+    <string name="plugins_error_wasm_unsupported">This version doesn\'t accept Wasm plugins yet.</string>
     <string name="plugins_error_missing_manifest">The package has no manifest.json at its root.</string>
     <string name="plugins_error_invalid">The package is not a valid plugin.</string>
     <plurals name="plugins_skill_count">

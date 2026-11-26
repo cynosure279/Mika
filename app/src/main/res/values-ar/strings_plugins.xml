@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">يحتاج هذا المكوّن الإضافي إلى إصدار أحدث من Mika.</string>
     <string name="plugins_error_unsafe">تحتوي الحزمة على مسار غير آمن وتم رفضها.</string>
     <string name="plugins_error_too_large">الحزمة كبيرة جدًا.</string>
+    <string name="plugins_error_wasm_unsupported">هذا الإصدار لا يقبل مكوّنات Wasm الإضافية بعد.</string>
     <string name="plugins_error_missing_manifest">لا تحتوي الحزمة على manifest.json في جذرها.</string>
     <string name="plugins_error_invalid">الحزمة ليست مكوّنًا إضافيًا صالحًا.</string>
     <plurals name="plugins_skill_count">

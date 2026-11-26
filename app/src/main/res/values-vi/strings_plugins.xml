@@ -19,6 +19,7 @@
     <string name="plugins_error_too_new">Plugin này cần phiên bản Mika mới hơn.</string>
     <string name="plugins_error_unsafe">Gói chứa đường dẫn không an toàn và đã bị từ chối.</string>
     <string name="plugins_error_too_large">Gói quá lớn.</string>
+    <string name="plugins_error_wasm_unsupported">Phiên bản này chưa nhận plugin Wasm.</string>
     <string name="plugins_error_missing_manifest">Gói không có manifest.json ở thư mục gốc.</string>
     <string name="plugins_error_invalid">Gói không phải là plugin hợp lệ.</string>
     <plurals name="plugins_skill_count">
