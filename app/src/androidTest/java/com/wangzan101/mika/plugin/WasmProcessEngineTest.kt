@@ -94,10 +94,21 @@ class WasmProcessEngineTest {
             server.shutdown()
         }
 
-        // 当前宿主不提供插件设置:实现明确拒绝,guest 写设置得到宿主错误
+        // 没在 manifest 里声明的设置项:原生侧先按声明的类型查,找不到就不回连宿主
+        val settingsContext = """{"permissions":["settings.plugin"],"settings":{},"secrets":{},"settingTypes":{"greeting":"string"},"workspace":""}"""
+        val undeclared = engine.call(
+            module,
+            settingsContext,
+            """{"mode":"settings_write","key":"farewell","value":"x"}""",
+            5_000,
+            WasmHost(WasmHostHandler()),
+        )
+        assertTrue(undeclared.output, undeclared.output.contains("\"settings_set\":-3"))
+
+        // 声明过的设置项,但当前宿主不提供插件设置:实现明确拒绝,guest 写设置得到宿主错误
         val refused = engine.call(
             module,
-            """{"permissions":["settings.plugin"],"settings":{},"secrets":{},"settingTypes":{},"workspace":""}""",
+            settingsContext,
             """{"mode":"settings_write","key":"greeting","value":"x"}""",
             5_000,
             WasmHost(WasmHostHandler()),
