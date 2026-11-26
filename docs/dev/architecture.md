@@ -42,7 +42,7 @@
 | `app/`、`core/` | 两个 Gradle 模块 |
 | `companions/` | 不进 APK、单独发布给用户的配套程序:`mika`(电脑端 CLI 与 Agent 技能)、`mika-feishu`(飞书连接器)、`relay`(Go 远程网关) |
 | `plugins/` | 官方插件;`plugins/examples/` 是给插件作者看的示例 |
-| `tools/` | 只给开发用的脚本:翻译检查、MCP 目录生成、沙箱运行环境构建、日志拉取 |
+| `tools/` | 只给开发用的脚本:翻译检查、MCP 目录生成、沙箱运行环境构建、插件 Wasm 引擎原生库构建(`tools/wasm/`)、日志拉取 |
 | `eval/` | 真机评测题 |
 | `docs/` | 用户文档(中英);`docs/dev/` 开发文档;`docs/design/` 设计稿、计划、原型和验收记录 |
 | `openspec/` | OpenSpec 变更记录(工具约定在根目录) |

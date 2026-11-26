@@ -25,7 +25,7 @@ android {
         buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
         // 关于页版本号后的 Beta 标记;出正式版时改成 false
         buildConfigField("boolean", "BETA", "true")
-        // Wasm 插件工具:独立进程隔离已就绪;发布包等真机验收通过后再打开(见 docs/dev/plugin-wasm.md)
+        // Wasm 插件工具:引擎跑在独立进程(崩溃隔离,同一 UID,见「隔离边界」);发布包等真机验收通过后再打开(见 docs/dev/plugin-wasm.md)
         buildConfigField("boolean", "WASM_PLUGINS", "false")
         buildConfigField("boolean", "ADB_LOGS", "false")
     }
