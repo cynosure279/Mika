@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="plugins_title">Plugin</string>
+    <string name="plugins_install">Cài đặt plugin</string>
+    <string name="plugins_installing">Đang cài đặt…</string>
+    <string name="plugins_empty">Chưa có plugin nào</string>
+    <string name="plugins_empty_sub">Cài đặt tệp zip plugin để thêm kỹ năng Mika có thể đọc. Plugin không thể thay đổi cài đặt ứng dụng hoặc đọc dữ liệu khác của bạn.</string>
+    <string name="plugins_enabled">Đã bật</string>
+    <string name="plugins_disabled">Đã tắt</string>
+    <string name="plugins_skills">Kỹ năng</string>
+    <string name="plugins_no_skills">Không có kỹ năng</string>
+    <string name="plugins_permissions">Quyền</string>
+    <string name="plugins_none">Không có</string>
+    <string name="plugins_version">Phiên bản %1$s</string>
+    <string name="plugins_uninstall">Gỡ cài đặt</string>
+    <string name="plugins_uninstall_body">Xóa plugin này và các kỹ năng của nó? Cuộc trò chuyện và bộ nhớ không bị ảnh hưởng.</string>
+    <string name="plugins_install_failed">Cài đặt thất bại: %1$s</string>
+    <string name="plugins_unsupported_in_version">Phiên bản này chỉ hỗ trợ các plugin chứa kỹ năng.</string>
+    <string name="plugins_error_too_new">Plugin này cần phiên bản Mika mới hơn.</string>
+    <string name="plugins_error_unsafe">Gói chứa đường dẫn không an toàn và đã bị từ chối.</string>
+    <string name="plugins_error_too_large">Gói quá lớn.</string>
+    <string name="plugins_error_missing_manifest">Gói không có manifest.json ở thư mục gốc.</string>
+    <string name="plugins_error_invalid">Gói không phải là plugin hợp lệ.</string>
+    <plurals name="plugins_skill_count">
+        <item quantity="other">%1$d kỹ năng</item>
+    </plurals>
+    <plurals name="plugins_count">
+        <item quantity="other">%1$d plugin</item>
+    </plurals>
+    <string name="env_vars_title">Biến môi trường</string>
+    <string name="env_vars_add">Thêm biến</string>
+    <string name="env_vars_name">Tên</string>
+    <string name="env_vars_value">Giá trị</string>
+    <string name="env_vars_empty">Chưa có biến môi trường nào</string>
+    <string name="plugins_disclosure_title">Plugin này có thể làm gì</string>
+    <string name="plugins_disclosure_prompt">Viết lại prompt hệ thống</string>
+    <string name="plugins_disclosure_reads">Có thể đọc cuộc trò chuyện, bộ nhớ và khóa mô hình của bạn</string>
+    <string name="plugins_rules">Quy tắc prompt</string>
+    <string name="plugins_rules_view">Xem</string>
+    <string name="plugins_rules_restore">Khôi phục mặc định</string>
+</resources>

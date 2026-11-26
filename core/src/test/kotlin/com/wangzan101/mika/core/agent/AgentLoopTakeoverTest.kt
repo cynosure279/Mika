@@ -4,12 +4,12 @@ import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.Role
 import com.wangzan101.mika.core.model.StopReason
-import com.wangzan101.mika.core.record.RunEvent
-import com.wangzan101.mika.core.record.RunSink
+import com.wangzan101.mika.core.run.record.RunEvent
+import com.wangzan101.mika.core.run.record.RunSink
 import com.wangzan101.mika.core.tool.FakeScreen
 import com.wangzan101.mika.core.tool.HandBack
 import com.wangzan101.mika.core.tool.HandBackOutcome
-import com.wangzan101.mika.core.verify.Verifier
+import com.wangzan101.mika.core.safety.verify.Verifier
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.TestScope
@@ -109,6 +109,21 @@ class AgentLoopTakeoverTest {
         val verifierPrompt = checker.requests.first().joinToString("\n") { m -> m.parts.filterIsInstance<Part.Text>().joinToString { it.text } }
         assertTrue(verifierPrompt, "hand_to_user(payment) 接管被跳过" in verifierPrompt)
         assertTrue(end.toString(), end is TaskState.Succeeded && !end.verified && end.unconfirmed.isNotEmpty())
+    }
+
+    @Test fun handBackWithRestoreFailureReturnsRecoverableToolError() = runTest {
+        val main = FakeModel(tools(takeover()), finish())
+        val message = "Could not reopen com.chat."
+        val (end, _) = handBack(HandBack(HandBackOutcome.complete, appReturnFailure = message), main)
+
+        com.wangzan101.mika.core.testing.assertAnswered(ANSWER, end)
+        val result = main.takeoverResult()
+        assertEquals("complete", result.s("outcome"))
+        assertEquals("target_app_restore_failed", result.s("error"))
+        assertEquals(message, result.s("message"))
+        assertEquals("false", result.s("ok"))
+        assertEquals("true", result.s("recoverable"))
+        assertEquals("false", result.s("counts_as_failure"))
     }
 
     @Test fun waitingPastTheOldTimeoutKeepsTheSameRunAlive() = runTest {

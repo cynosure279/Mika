@@ -43,6 +43,15 @@
     <string name="plans_notify_each">Setiap kali</string>
     <string name="plans_cooldown_minutes">Menit minimum antar-eksekusi (opsional)</string>
     <string name="plans_when_idle">Jalankan hanya saat Mika tidak sibuk</string>
+    <string name="plans_execution_window">Rentang waktu eksekusi</string>
+    <string name="plans_window_anytime">Kapan saja</string>
+    <string name="plans_window_off_peak">Di luar jam sibuk</string>
+    <string name="plans_window_custom">Kustom</string>
+    <string name="plans_window_off_peak_hint">Jam di luar jam sibuk DeepSeek: hari kerja 00:00–01:00, 04:00–06:00, dan 10:00–24:00 UTC; sepanjang hari pada akhir pekan. Diskon tambahan pada hari libur tidak perlu dipertimbangkan untuk penjadwalan.</string>
+    <string name="plans_window_start">Waktu mulai (HH:mm)</string>
+    <string name="plans_window_end">Waktu selesai (HH:mm atau 24:00)</string>
+    <string name="plans_window_custom_hint">Zona waktu: %1$s. Jika waktu selesai lebih awal dari waktu mulai, rentang melewati tengah malam.</string>
+    <string name="plans_error_window">Masukkan rentang waktu yang valid; waktu mulai dan selesai harus berbeda</string>
     <string name="plans_enabled">Aktif</string>
     <string name="plans_error_content">Masukkan tugas atau pengingat</string>
     <string name="plans_error_content_long">Gunakan maksimal 4.000 karakter, atau 2.000 untuk pengingat</string>

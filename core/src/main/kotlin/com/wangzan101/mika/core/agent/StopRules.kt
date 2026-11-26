@@ -1,7 +1,7 @@
 package com.wangzan101.mika.core.agent
 
 import com.wangzan101.mika.core.net.ProxyFailure
-import com.wangzan101.mika.core.guard.GuardVerdict
+import com.wangzan101.mika.core.safety.guard.GuardVerdict
 import com.wangzan101.mika.core.model.ModelError
 import com.wangzan101.mika.core.tool.Outcome
 import kotlinx.serialization.json.JsonPrimitive
@@ -92,6 +92,10 @@ internal fun userReason(e: ModelError): String = when (e) {
     is ModelError.ContentRefused -> "模型拒绝处理该内容,请调整任务描述或换一个模型。"
     is ModelError.ReasoningEffortRejected ->
         "模型不接受所选的思考强度。服务端回复：${quoted(e.detail)}。请到设置 › 模型,把思考强度改为默认或服务端支持的档位。"
+    is ModelError.ServiceTierRejected ->
+        "OpenAI 不接受所选的响应速度。" +
+            (if (e.detail.isBlank()) "" else "服务端回复：${quoted(e.detail)}。") +
+            "请到设置 › 模型 › 服务商，打开该模型，将响应速度改为默认或其他可用档位。"
     is ModelError.RateLimited -> "模型服务限流,重试后仍然请求太频繁。请稍后再试,或检查账户的调用频率限制。"
     is ModelError.Network -> "连接模型服务失败,重试后仍然不通。请检查网络和 Base URL。"
     is ModelError.Proxy -> when (e.failure) {
@@ -99,7 +103,11 @@ internal fun userReason(e: ModelError): String = when (e) {
             "连不上网络代理,或代理没有转发这个请求,重试后仍然不通。请检查代理是否开着、设置 › 网络代理 里的地址和端口是否正确;不需要代理时把它清空。"
         ProxyFailure.AuthFailed -> "网络代理拒绝了账号或密码(HTTP 407)。请在设置 › 网络代理 里检查代理地址中的用户名和密码。"
     }
-    is ModelError.Server -> "模型服务出错(HTTP ${e.status}),请稍后再试。"
+    is ModelError.Server -> {
+        val detail = safeServerDetail(e.detail)
+        if (detail != null) "模型服务出错(HTTP ${e.status}: $detail),请稍后再试。"
+        else "模型服务出错(HTTP ${e.status}),请稍后再试。"
+    }
     is ModelError.StreamCut ->
         "模型的回复还没传完,连接就在上游被断开了,重试后仍然如此。常见原因是网络不稳,或中转服务、网关的空闲超时太短(模型长时间思考时容易碰上)。请稍后再试。"
     is ModelError.BadResponse -> "${e.message}。请检查 Base URL 和接口类型是否匹配。"
@@ -117,6 +125,10 @@ internal fun userReason(e: ModelError): String = when (e) {
         }
         userReason(e.primary) + "本任务把整条备援链都试过了，全部失败：$trail。"
     }
+    is ModelError.GroupUnavailable ->
+        "模型组「${e.group}」没有可用的模型${if (e.detail.isEmpty()) "" else "(${e.detail})"}。请到设置 › 模型检查组成员是否启用、能力是否符合,或稍后再试。"
+    is ModelError.GroupExhausted ->
+        "模型组「${e.group}」的模型都达到限额了${if (e.detail.isEmpty()) "" else "(${e.detail})"}。请稍后再试或调整组设置。"
 }
 
 /** 链失败记录里每个错误的短标签:认得出的写 HTTP 状态码,其余写故障名。 */
@@ -125,6 +137,18 @@ private fun chainErrorTag(e: ModelError): String = when (e) {
     is ModelError.RateLimited -> " HTTP 429"
     is ModelError.Auth -> " " + RetryPolicy.label(e)
     else -> " ${RetryPolicy.label(e)}"
+}
+
+private fun safeServerDetail(raw: String?): String? {
+    val trimmed = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    if (trimmed.startsWith("<!", ignoreCase = true) ||
+        trimmed.startsWith("<html", ignoreCase = true) ||
+        trimmed.startsWith("<head", ignoreCase = true) ||
+        trimmed.startsWith("<body", ignoreCase = true)
+    ) return null
+    val normalized = trimmed.replace(Regex("""\s+"""), " ")
+    val masked = com.wangzan101.mika.core.run.record.Redactor.text(normalized).trim()
+    return masked.takeIf { it.isNotEmpty() }?.let(::quoted)
 }
 
 /** 引在句中的服务端原话:去掉末尾一个句号(原话自带的),由引它的句子补上自己的「。」;省略号(截短的「…」、「...」)不动。 */

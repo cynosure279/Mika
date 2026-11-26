@@ -15,6 +15,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.R
 import com.wangzan101.mika.ui.theme.MikaIcons
@@ -24,16 +26,18 @@ import com.wangzan101.mika.ui.theme.MikaTheme
 @Composable
 fun CapsuleEdgeContent(side: DockSide, alpha: Float, onReveal: () -> Unit) {
     val colors = MikaTheme.colors
+    val reveal = stringResource(R.string.capsule_edge_reveal)
     Box(Modifier.width(20.dp).padding(vertical = 8.dp).height(40.dp)
         .testTag("capsule-edge").clipToBounds().alpha(alpha)
-        .clickable(role = Role.Button, onClickLabel = stringResource(R.string.capsule_edge_reveal), onClick = onReveal),
+        .clickable(role = Role.Button, onClickLabel = reveal, onClick = onReveal)
+        .semantics { contentDescription = reveal },
         contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val center = Offset(if (side == DockSide.Left) 0f else size.width, size.height / 2)
             drawCircle(colors.glass, radius = size.height / 2, center = center)
             drawCircle(colors.ink2, radius = size.height / 2 - 1.dp.toPx(), center = center, style = Stroke(1.dp.toPx()))
         }
-        Icon(MikaIcons.Chevron, stringResource(R.string.capsule_edge_reveal),
+        Icon(MikaIcons.Chevron, null,
             Modifier.size(12.dp).graphicsLayer { rotationZ = if (side == DockSide.Right) 180f else 0f }, tint = colors.ink)
     }
 }

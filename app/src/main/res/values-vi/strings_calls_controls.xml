@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_dtmf_status_label">Trạng thái cuộc gọi</string>
+    <string name="calls_dtmf_open">Bàn phím</string>
+    <string name="calls_dtmf_title">Bàn phím cuộc gọi</string>
+    <string name="calls_dtmf_close">Đóng</string>
+    <string name="calls_dtmf_batch">Nhập một dãy phím</string>
+    <string name="calls_dtmf_hint">Mỗi phím được gửi ngay lập tức. Hãy làm theo hướng dẫn bằng giọng nói.</string>
+    <string name="calls_dtmf_batch_hint">Nhập tối đa 32 phím, rồi nhấn Gửi.</string>
+    <string name="calls_dtmf_input">0–9, * hoặc #</string>
+    <string name="calls_dtmf_delete">Xóa</string>
+    <string name="calls_dtmf_send">Gửi</string>
+    <string name="calls_dtmf_sending">Đang gửi…</string>
+    <string name="calls_dtmf_sent">Đã gửi các phím; hãy chờ phản hồi</string>
+    <string name="calls_dtmf_failed">Không thể hoàn tất việc gửi. Hãy chờ phản hồi trước khi thao tác tiếp.</string>
+    <string name="calls_dtmf_invalid">Chỉ dùng 0–9, * và #, tối đa 32 phím.</string>
+    <string name="calls_voice_briefing_start">Mô tả tác vụ bằng giọng nói</string>
+    <string name="calls_voice_briefing_note">Hãy nói bằng tiếng Quan Thoại. Để cho phép quay số, hãy nói riêng “%1$s” sau khi mô tả tác vụ.</string>
+    <string name="calls_voice_briefing_stopped">Đã dừng phần mô tả; chưa thực hiện cuộc gọi nào</string>
+    <string name="calls_voice_briefing_authorized">Đã cho phép tác vụ; đang gửi cuộc gọi</string>
+    <string name="calls_voice_briefing_permission_granted">Đã cho phép micrô. Nhấn lại nút giọng nói để bắt đầu.</string>
+    <string name="calls_voice_briefing_permission_denied">Quyền micrô chưa được cấp. Bạn có thể dùng biểu mẫu tác vụ bằng văn bản.</string>
+    <string name="calls_voice_briefing_incomplete">Hãy hoàn tất hoặc xóa hướng dẫn văn bản hiện có trước khi bắt đầu.</string>
+    <string name="calls_voice_briefing_configure">Hãy cấu hình giọng nói thời gian thực trong Cài đặt trước.</string>
+    <string name="calls_owner_ask_title">Người gọi đang chờ câu trả lời của bạn</string>
+    <string name="calls_owner_ask_reply">Trả lời</string>
+    <string name="calls_owner_ask_hint">Câu trả lời của bạn</string>
+    <string name="calls_transcript_owner_unrelayed">Câu trả lời của chủ sở hữu (chưa chuyển tiếp)</string>
+    <string name="calls_owner_ask_channel">Câu hỏi từ cuộc gọi</string>
+    <string name="calls_owner_ask_line">Bên kia trong cuộc gọi hỏi: %1$s\nHãy trả lời tại đây và tôi sẽ chuyển tiếp.</string>
+    <string name="calls_owner_ask_notify_off">Thông báo câu hỏi cuộc gọi đang tắt, nên bạn có thể bỏ lỡ những câu hỏi này. Hãy bật trong Cài đặt hệ thống → Thông báo.</string>
+    <string name="calls_owner_ask_answered">Đã chuyển tiếp tới cuộc gọi.</string>
+    <string name="calls_owner_ask_withdrawn">Cuộc gọi đã kết thúc, nên câu hỏi này đã được rút lại. Không cần trả lời.</string>
+</resources>

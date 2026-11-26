@@ -1,15 +1,26 @@
 package com.wangzan101.mika
 
-import com.wangzan101.mika.record.DetailedTraces
-import com.wangzan101.mika.R
-import com.wangzan101.mika.i18n.ResourceTexts
-import com.wangzan101.mika.i18n.UiText
-import com.wangzan101.mika.i18n.AppLanguage
-import com.wangzan101.mika.i18n.tr
-import com.wangzan101.mika.ui.ChatCopy
 import android.app.Application
 import android.net.Uri
 import android.util.Log
+import com.wangzan101.mika.R
+import com.wangzan101.mika.cap.phone.PhoneServices
+import com.wangzan101.mika.cap.sandbox.AndroidSandbox
+import com.wangzan101.mika.cap.sandbox.AttachmentLimits
+import com.wangzan101.mika.cap.sandbox.Attachments
+import com.wangzan101.mika.cap.sandbox.RuntimePreparer
+import com.wangzan101.mika.cap.sandbox.SandboxDirs
+import com.wangzan101.mika.cap.sandbox.SandboxOwner
+import com.wangzan101.mika.cap.sandbox.SandboxState
+import com.wangzan101.mika.cap.sandbox.ShareExporter
+import com.wangzan101.mika.cap.sandbox.SkillsSync
+import com.wangzan101.mika.cap.sandbox.WorkspaceKey
+import com.wangzan101.mika.cap.web.SiteRegistry
+import com.wangzan101.mika.cap.web.WebFiles
+import com.wangzan101.mika.cap.web.WebOwner
+import com.wangzan101.mika.cap.web.cdp.WebDevtools
+import com.wangzan101.mika.capsule.AppForeground
+import com.wangzan101.mika.capsule.CapsuleController
 import com.wangzan101.mika.chat.AndroidBranchWorkspace
 import com.wangzan101.mika.chat.AutoArchive
 import com.wangzan101.mika.chat.ConversationDeleter
@@ -19,62 +30,57 @@ import com.wangzan101.mika.chat.ProjectDeleter
 import com.wangzan101.mika.chat.ProjectStore
 import com.wangzan101.mika.chat.SharedDraftStore
 import com.wangzan101.mika.chat.WorkspaceResolver
+import com.wangzan101.mika.frontdesk.DeskRegistry
+import com.wangzan101.mika.task.ConfirmationNotifier
+import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.core.cap.sandbox.SandboxStatus
-import com.wangzan101.mika.cap.sandbox.AndroidSandbox
-import com.wangzan101.mika.cap.sandbox.Attachments
-import com.wangzan101.mika.cap.sandbox.WorkspaceKey
-import com.wangzan101.mika.ui.AttachFiles
-import com.wangzan101.mika.cap.sandbox.ShareExporter
-import com.wangzan101.mika.cap.web.WebFiles
-import com.wangzan101.mika.cap.sandbox.RuntimePreparer
-import com.wangzan101.mika.cap.sandbox.SandboxDirs
-import com.wangzan101.mika.cap.sandbox.SandboxState
-import com.wangzan101.mika.cap.sandbox.SkillsSync
-import com.wangzan101.mika.capsule.AppForeground
-import com.wangzan101.mika.capsule.CapsuleController
-import com.wangzan101.mika.confirm.ConfirmationNotifier
+import com.wangzan101.mika.core.run.Outbox
+import com.wangzan101.mika.core.run.RunStore
+import com.wangzan101.mika.core.model.usage.UsageLedger
+import com.wangzan101.mika.core.workspace.SandboxTree
+import com.wangzan101.mika.i18n.AppLanguage
+import com.wangzan101.mika.i18n.ResourceTexts
+import com.wangzan101.mika.i18n.UiText
+import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.memory.AppLearningActions
 import com.wangzan101.mika.memory.MemoryRuntime
+import com.wangzan101.mika.record.DetailedTraces
+import com.wangzan101.mika.knowledge.FileRouteStore
 import com.wangzan101.mika.settings.ApprovalControl
 import com.wangzan101.mika.settings.ApprovalStore
 import com.wangzan101.mika.settings.FeatureFlags
-import com.wangzan101.mika.cap.phone.PhoneServices
-import com.wangzan101.mika.replay.FileRouteStore
 import com.wangzan101.mika.settings.ProviderStore
-import com.wangzan101.mika.core.run.Outbox
-import com.wangzan101.mika.core.run.RunStore
-import com.wangzan101.mika.core.usage.UsageLedger
+import com.wangzan101.mika.settings.proactiveTarget
+import com.wangzan101.mika.settings.proactiveTargeted
+import com.wangzan101.mika.settings.ttsModel
+import com.wangzan101.mika.task.FileChildRunStore
 import com.wangzan101.mika.task.FileOutboxStore
 import com.wangzan101.mika.task.FileRunStateStore
 import com.wangzan101.mika.task.LocalChannel
+import com.wangzan101.mika.task.RemoteTaskHub
+import com.wangzan101.mika.task.ResourceScheduler
 import com.wangzan101.mika.task.RunRecovery
-import com.wangzan101.mika.task.TaskRecovery
-import com.wangzan101.mika.task.TriggerOutcomes
-import com.wangzan101.mika.task.TaskService
 import com.wangzan101.mika.task.TaskCenterState
+import com.wangzan101.mika.task.TaskEnvironment
+import com.wangzan101.mika.task.TaskRecovery
+import com.wangzan101.mika.task.TaskService
+import com.wangzan101.mika.task.TriggerOutcomes
+import com.wangzan101.mika.task.TriggerRuntime
 import com.wangzan101.mika.teach.TeachRuntime
-import com.wangzan101.mika.ui.ChatViewModel
-import com.wangzan101.mika.ui.TaskActions
+import com.wangzan101.mika.chat.ui.AttachFiles
+import com.wangzan101.mika.chat.ui.ChatCopy
+import com.wangzan101.mika.chat.ui.ChatViewModel
+import com.wangzan101.mika.chat.ui.TaskActions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.wangzan101.mika.cap.web.cdp.WebDevtools
-import com.wangzan101.mika.cap.web.WebOwner
-import com.wangzan101.mika.cap.web.SiteRegistry
-import com.wangzan101.mika.cap.sandbox.SandboxOwner
-import com.wangzan101.mika.core.workspace.SandboxTree
-import com.wangzan101.mika.task.TaskEnvironment
-import com.wangzan101.mika.task.ResourceScheduler
-import com.wangzan101.mika.task.RemoteTaskHub
-import com.wangzan101.mika.task.FileChildRunStore
-import com.wangzan101.mika.task.TriggerRuntime
 
 /**
  * App 容器:进程里共用的服务都在这里建一份,经各自的 Owner 接口交给安卓入口(界面、服务、广播、provider),
@@ -84,6 +90,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     MemoryRuntime.Owner, ProviderStore.Owner, FileRouteStore.Owner, TaskRecovery.Owner,
     com.wangzan101.mika.settings.VoiceSettings.Owner {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    /** 比页面长寿的作用域:页面销毁后仍要跑完的收尾(如通话转写写回)放这里。 */
+    val appScope: CoroutineScope get() = scope
 
     /** 手机能力的服务:内置助手、共用的 shell 连接、配对、「去设置」提示。 */
     override val phone: PhoneServices by lazy { PhoneServices(this) }
@@ -110,7 +119,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
 
 
     /** 通话功能：设置页负责开关与凭证；CallRuntime 是本地状态与实时语音的宿主，AndroidPhoneCallPort 是交给模型的工具入口。 */
-    val calls by lazy { com.wangzan101.mika.calls.CallRuntime(this) }
+    private val callRuntime = lazy { com.wangzan101.mika.calls.CallRuntime(this) }
+    val calls by callRuntime
+    internal val runningCalls get() = if (callRuntime.isInitialized()) calls else null
     val callPort by lazy { com.wangzan101.mika.calls.AndroidPhoneCallPort(calls) }
 
     /** Web 控制台读的对话与运行中任务;只读,不参与任务执行。 */
@@ -153,8 +164,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         com.wangzan101.mika.settings.McpServerStore(
             java.io.File(filesDir, "settings"),
             com.wangzan101.mika.settings.KeystoreKeyCipher("mika-mcp-servers"),
-            stdio = com.wangzan101.mika.core.cap.mcp.McpStdioLauncher { workspace, argv ->
-                val process = AndroidSandbox(this, SandboxState.get(this)).openProcess(workspace, argv, null)
+            stdio = com.wangzan101.mika.core.cap.mcp.McpStdioLauncher { workspace, argv, environment ->
+                val process = AndroidSandbox(this, SandboxState.get(this)).openProcess(workspace, argv, null, environment)
                 object : com.wangzan101.mika.core.cap.mcp.McpStdioProcess {
                     override val stdin get() = process.stdin
                     override val stdout get() = process.stdout
@@ -162,6 +173,8 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                     override fun close() = process.close()
                 }
             },
+            catalog = com.wangzan101.mika.settings.McpCatalogAssets.load(this),
+            packageProvisioner = com.wangzan101.mika.mcp.McpPackageManager(AndroidSandbox(this, SandboxState.get(this))),
         )
     }
     /** 已安装的插件:zip 安装、启停与只读技能;任务开始时给技能目录一份固定快照。 */
@@ -198,7 +211,12 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     override val providers: ProviderStore by lazy {
         ProviderStore.create(this, usage, "Mika/${BuildConfig.VERSION_NAME}", usage::providerTokensToday,
             proactiveUsage = usage::proactiveTokensToday, proactiveLimit = { FeatureFlags.get(this).proactiveDailyTokenBudget() },
-            proactiveCalls = usage::proactiveCallsToday)
+            proactiveCalls = usage::proactiveCallsToday, externalConfigReferences = conversations::referencedModelConfigIds).also { store ->
+            voiceSettings.reconcileTtsChoice(store)
+            scope.launch(Dispatchers.Main.immediate) {
+                store.providers.collect { voiceSettings.reconcileTtsChoice(store) }
+            }
+        }
     }
 
     /** 语音转文字的选择:整个进程一份,设置页改了输入框立刻看得到(两份实例互相看不到对方的 set)。 */
@@ -245,7 +263,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             override fun delivered(key: String) = TriggerRuntime.delivered(app, key)
             override fun actionFailed(key: String, reason: String) = TriggerRuntime.actionFailed(app, key, reason)
         }, conversations, scope, records = com.wangzan101.mika.record.RunStore(app).reader(), label = labels::label,
-            appLabel = { com.wangzan101.mika.confirm.ConfirmationNotifier.appLabel(app, it) },
+            appLabel = { com.wangzan101.mika.task.ConfirmationNotifier.appLabel(app, it) },
             languageTag = { com.wangzan101.mika.i18n.AppLanguage.resolved(app).tag },
             scheduledLocalChannel = localChannel(scheduled = true))
     }
@@ -265,13 +283,29 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     /** 对话记录:整个进程一份,任务服务、聊天界面、结果卡片的按钮共用。 */
     val conversations: ConversationStore by lazy { ConversationStore(this) }
 
+    /**
+     * 电话里还没回的请示:问题写进所属会话,主人在会话里或通知里回,先到的算数。
+     * 写会话放在一条单独的 IO 线上,问题和回答按先后落盘。
+     */
+    val ownerQuestions: com.wangzan101.mika.calls.OwnerQuestions by lazy {
+        val io = kotlinx.coroutines.Dispatchers.IO.limitedParallelism(1)
+        com.wangzan101.mika.calls.OwnerQuestions(
+            write = { id, turn -> scope.launch(io) { runCatching { conversations.append(id, turn) } } },
+            askedLine = { question, notified ->
+                tr(R.string.calls_owner_ask_line, question) + if (notified) "" else "\n" + tr(R.string.calls_owner_ask_notify_off)
+            },
+            answeredLine = { tr(R.string.calls_owner_ask_answered) },
+            withdrawnLine = { tr(R.string.calls_owner_ask_withdrawn) },
+        )
+    }
+
     /** 项目定义:整个进程一份。 */
     val projects: ProjectStore by lazy { ProjectStore(this) }
 
     /** 对话编号到工作区的解析器(不依赖 [chat] 避免循环 lazy)。 */
     val workspaceResolver: WorkspaceResolver by lazy { WorkspaceResolver(conversations, projects) }
 
-    /** 最近一次系统分享尚未发送的草稿和它的私有图片副本。 */
+    /** 系统分享尚未发送的草稿和它的私有附件副本。 */
     val sharedDrafts: SharedDraftStore by lazy { SharedDraftStore(java.io.File(filesDir, "shared-drafts")) }
 
     /** 用户自己打开的终端(按工作区):只从界面进,不交给任何任务,也不写运行记录。 */
@@ -297,6 +331,18 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             },
         )
     }
+
+    private val deskRegistry = lazy { DeskRegistry(this) }
+
+    /** 每条会话一个常驻前台:聊天页、语音通话等入口从这里拿同一个前台、它的工具执行器和背景。 */
+    val desks: DeskRegistry by deskRegistry
+
+    /**
+     * 给任务服务问的:运行 runKey 以 end 收尾时,是不是有前台正跟着这次运行、会把结局说出来(见 [DeskRegistry.reportsEnding]);
+     * 是的话任务不再自己发「任务完成」。一个前台都还没建过时不为这一问去建。
+     */
+    val deskReportsEnding: (runKey: String, end: TaskState) -> Boolean =
+        { runKey, end -> deskRegistry.isInitialized() && desks.reportsEnding(runKey, end) }
 
     /** 删对话(侧栏长按):停掉它的当前任务并删工作区(同项目对话保留共享工作区),保留定时任务。 */
     val conversationDeleter: ConversationDeleter by lazy {
@@ -415,12 +461,23 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
     internal suspend fun speak(
         text: String,
         synthesize: suspend (String) -> Unit = { words ->
-            com.wangzan101.mika.media.readAloud(
-                words,
-                voiceSettings,
-                model = { choice, caps -> ProviderStore.get(this).ttsModel(choice, caps) },
-                play = { voicePlayer.play(it.bytes, it.mime) },
-            )
+            val voiceModels = com.wangzan101.mika.voice.model.VoiceModelEnvironment.get(this)
+            if (voiceModels.tts.migrated) {
+                com.wangzan101.mika.media.readAloudMigrated(
+                    words,
+                    voiceSettings,
+                    this,
+                    voiceModels.tts,
+                    play = { model, requests, streaming -> voicePlayer.playRequests(model, requests, streaming) },
+                )
+            } else {
+                com.wangzan101.mika.media.readAloud(
+                    words,
+                    voiceSettings,
+                    model = { choice, caps -> ProviderStore.get(this).ttsModel(choice, caps) },
+                    play = { model, requests, streaming -> voicePlayer.playRequests(model, requests, streaming) },
+                )
+            }
         },
     ) = synthesize(text)
 
@@ -502,6 +559,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                 override fun togglePipSoundIn(conversationId: String) { taskState.run(conversationId)?.togglePipSound() }
             },
             conversations,
+            mainModels = com.wangzan101.mika.chat.ui.ProviderMainModelCatalog(providers),
+            // 通话里在等主人回话时,这个对话里的下一句就是回话
+            ownerAnswer = { id, text -> ownerQuestions.answerIn(id, text) },
             followUps = followUpQueue.changes,
             serviceBusy = taskState.busy,
             appLabel = { ConfirmationNotifier.appLabel(app, it) },
@@ -517,6 +577,7 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             activeConversations = taskState.activeConversations,
             runGoal = { taskState.run(it)?.goal },
             runState = { taskState.run(it)?.state },
+            runStage = { taskState.run(it)?.takeoverStage },
             runNotes = memory.notes,
             learning = AppLearningActions(app, memory),
             memoryItems = memory.items(),
@@ -537,7 +598,10 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
                 val sandbox = AndroidSandbox(app, SandboxState.get(app))
                 val dirs = SandboxDirs(app)
                 val key = workspaceResolver.resolve(id)
-                Attachments.importInto(app, uris.map(Uri::parse), dirs.workspace(key), dirs.gate, dirs.tree, sandbox::freeBytes) { sandbox.workspaceBytes(key) }
+                val flags = FeatureFlags.get(app)
+                Attachments.importInto(app, uris.map(Uri::parse), dirs.workspace(key), dirs.gate, dirs.tree,
+                    freeBytes = sandbox::freeBytes, workspaceBytes = { sandbox.workspaceBytes(key) },
+                    limits = AttachmentLimits(flags.attachmentMaxBytes(), flags.workspaceMaxBytes()))
             },
             describeAttachments = { uris -> AttachFiles.describe(app, uris) },
             deletionImpact = conversationDeleter::impact,
@@ -548,9 +612,11 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             // 标题后面加当前界面语言的「分支」后缀;源标题太长时先截短,后缀留着
             branchTitle = { base -> ChatCopy.branchTitle(base, tr(R.string.chat_branch_title_suffix)) },
             sharedDrafts = sharedDrafts,
-            sharedDraftUri = { name ->
-                sharedDrafts.imageFile(name)?.let { file ->
-                    androidx.core.content.FileProvider.getUriForFile(app, com.wangzan101.mika.chat.AttachFilesProvider.authority(app.packageName), file).toString()
+            sharedDraftUri = { attachment ->
+                sharedDrafts.attachmentFile(attachment.fileName)?.let { file ->
+                    androidx.core.content.FileProvider.getUriForFile(
+                        app, com.wangzan101.mika.chat.AttachFilesProvider.authority(app.packageName), file, attachment.name,
+                    ).toString()
                 }.orEmpty()
             },
             teaching = { teach.blocksTasks() },
@@ -565,19 +631,51 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
             speakText = { text -> speak(text) },
             stopVoice = { voicePlayer.stop() },
             voiceFailed = voicePlayer::fail,
-            personaStore = if (FeatureFlags.get(this).persona()) personas else null,
             projectStore = projects,
             projectDeletionImpact = projectDeleter::impact,
             removeProject = { pid ->
-                conversations.list(includeArchived = true).filter { it.projectId == pid }.forEach { followUpQueue.dropConversation(it.id) }
+                projectDeleter.memberConversationIds(pid).forEach(followUpQueue::dropConversation)
                 projectDeleter.delete(pid)
             },
             workspaceResolver = workspaceResolver,
+            // 聊天走前台:和通话共用这条会话的前台与账本;没配思考模型时为 null,发出去会引导去设置
+            desk = com.wangzan101.mika.chat.ui.DeskChatDeps(
+                desk = { id -> desks.desk(id) },
+                executor = { id, words -> desks.executor(id, words) },
+                brain = { id, mainOverride ->
+                    com.wangzan101.mika.frontdesk.deskModel(app,
+                        com.wangzan101.mika.core.model.ModelSession.of(id), mainOverride)?.let { model ->
+                        com.wangzan101.mika.core.frontdesk.LlmBrain(
+                            model,
+                            com.wangzan101.mika.core.frontdesk.DeskPrompt.user(
+                                spoken = false, persona = com.wangzan101.mika.frontdesk.deskPersona(app),
+                            ),
+                            com.wangzan101.mika.core.frontdesk.DeskTools.specs(com.wangzan101.mika.core.frontdesk.DeskToolSet.User)
+                                .map(com.wangzan101.mika.core.frontdesk.LlmBrain::toolSpec),
+                            background = desks.background(id),
+                            log = { Log.w("MikaDesk", it) },
+                        )
+                    }
+                },
+                // 前台接的新对话不经任务那边起标题,这里按第一句话起一次;轻量模型在前,主模型兜底,用量记在这条对话上
+                title = { id, first ->
+                    kotlinx.coroutines.withContext(conversations.meter(id)) {
+                        com.wangzan101.mika.chat.ConversationTitler.ensure(conversations, id, first, {
+                            val session = com.wangzan101.mika.core.model.ModelSession.of(id)
+                            val models = tasks.modelSnapshot(session = session, context = this@MikaApp,
+                                mainOverride = conversations.settings(id).main)
+                            listOfNotNull(models.light, models.main)
+                        }, language = AppLanguage.resolved(this@MikaApp).tag)
+                    }
+                },
+            ),
         )
     }
 
     override fun onCreate() {
         super.onCreate()
+        // One-time legacy voice migration before any migrated consumer is initialized; a failure retains legacy behavior.
+        runCatching { migrateLegacyVoice() }
         // 上次进程在复制或绑定分享草稿途中退出时留下的临时文件;目录至多保留一份有效草稿。
         runCatching { sharedDrafts.cleanup() }
         scope.launch(Dispatchers.IO) {
@@ -670,7 +768,22 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         }
     }
 
-    /** 用户重新打开 Mika:补上退出时略过的启动工作(见 [com.wangzan101.mika.quit.MikaQuit])。 */
+    /** One-time legacy voice migration; builds the read-only snapshot without initializing [calls]. */
+    private fun migrateLegacyVoice() {
+        val environment = com.wangzan101.mika.voice.model.VoiceModelEnvironment.get(this)
+        val source = com.wangzan101.mika.voice.model.LegacyVoiceSnapshotSource {
+            val profileStore = com.wangzan101.mika.calls.CallVoiceProfileStore.create(this)
+            val activeProfileId = com.wangzan101.mika.calls.CallSettings.create(this).state.value.activeVoiceProfileId
+            com.wangzan101.mika.voice.model.LegacyVoiceSnapshot(
+                speech = speech.legacySnapshot(),
+                tts = voiceSettings.legacySnapshot(),
+                realtime = profileStore.legacySnapshot(activeProfileId),
+            )
+        }
+        environment.migrateLegacy(source)
+    }
+
+    /** 用户重新打开 Mika:补上退出时略过的启动工作(见 [com.wangzan101.mika.MikaQuit])。 */
     fun resumeAfterQuit() {
         runRecovery.recover()
         RuntimePreparer.ensure(this)

@@ -1,6 +1,6 @@
 package com.wangzan101.mika.core.cap.phone
 
-import com.wangzan101.mika.core.uistate.PlacePace
+import com.wangzan101.mika.core.screen.uistate.PlacePace
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -118,6 +118,16 @@ class AppPacingTest {
         p.userAnswered()
         repeat(3) { p.noteAction("com.slow", 0, newScreen = true, tempo = AppTempo.CAREFUL, capped = true) }
         assertFalse(p.capReached("com.slow", capped = true))
+    }
+
+    /** 默认不限屏数:读、汇总一类的任务和没人在旁边的任务在限制浏览快慢的 App 里也能做完,只是停得更久。 */
+    @Test fun carefulAppsHaveNoScreenBudgetByDefault() {
+        val p = AppPacing.human(Random(1))
+        assertEquals(null, p.screenCap)
+        repeat(200) { p.noteAction("com.slow", 0, newScreen = true, tempo = AppTempo.CAREFUL, capped = true) }
+        assertEquals(200, p.screensIn("com.slow"))
+        assertFalse(p.capReached("com.slow", capped = true))
+        assertTrue(p.waitBefore(0, 500) > 0)
     }
 
     @Test fun offNeverWaitsNorCaps() {

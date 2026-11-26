@@ -165,6 +165,36 @@ class FileTriggerStoreTest {
         assertEquals(ConditionNotify.EachTimeMet, FileTriggerStore(file).get("price")!!.notifyWhen)
     }
 
+    @Test fun executionWindowsSurviveEditsAndReopenWithoutChangingLegacySchema() {
+        val file = Files.createTempDirectory("trigger-window").resolve("triggers.json").toFile()
+        val store = FileTriggerStore(file)
+        val original = TriggerDefinition("windowed", "thread", "check", 1_000)
+        store.upsert(original)
+        val primary = file.readText()
+        val edited = original.copy(
+            executionWindowZone = "Asia/Shanghai",
+            executionWindows = listOf(com.wangzan101.mika.core.trigger.ExecutionWindow(22 * 60, 2 * 60)),
+        )
+
+        assertTrue(store.edit(edited))
+        assertEquals(primary, file.readText())
+        assertEquals(edited, FileTriggerStore(file).get(original.id))
+        assertEquals(false, file.readText().contains("executionWindow"))
+        Json.decodeFromString<TriggerSnapshot>(file.readText())
+    }
+
+    @Test fun damagedExecutionWindowExtensionDoesNotDamageMainPlans() {
+        val file = Files.createTempDirectory("trigger-window").resolve("triggers.json").toFile()
+        FileTriggerStore(file).upsert(TriggerDefinition("windowed", "thread", "check", 1_000))
+        val sidecar = File(file.parentFile, file.name + ".conditions")
+        sidecar.writeText("""{"states":{"windowed":{"executionWindowZone":"not/a zone","executionWindows":[{"startMinute":1320,"endMinute":120,"days":[]}]}}}""")
+
+        val restored = FileTriggerStore(file).get("windowed")!!
+        assertEquals("windowed", restored.id)
+        assertTrue(restored.executionWindows.isEmpty())
+        assertEquals(false, File(file.parentFile, file.name + ".corrupt").exists())
+    }
+
     @Test fun damagedConditionSidecarDoesNotDamageMainPlans() {
         val file = Files.createTempDirectory("trigger-test").resolve("triggers.json").toFile()
         FileTriggerStore(file).upsert(TriggerDefinition("fixed", "thread", "提醒", 1_000, reminderText = "喝水"))

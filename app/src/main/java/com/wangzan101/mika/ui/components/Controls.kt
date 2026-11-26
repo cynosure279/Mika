@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -72,8 +73,11 @@ fun MikaSwitch(
     val c = MikaTheme.colors
     val reduce = MikaTheme.reduceMotion
     val position by animateFloatAsState(if (checked) 1f else 0f, MikaMotion.switch(reduce), label = "switch")
-    val track by animateColorAsState(if (checked) c.accent else c.greySoft, MikaMotion.switch(reduce), label = "switch-track")
-    val thumb = c.thumb
+    // 简约列表里打开是黑色(深色下反过来:浅色底、深色圆钮),不用强调色
+    val plain = LocalPlainList.current
+    val on = if (plain) c.ink else c.accent
+    val track by animateColorAsState(if (checked) on else c.greySoft, MikaMotion.switch(reduce), label = "switch-track")
+    val thumb = if (plain && c.isDark && checked) c.surface else c.thumb
     val ring = c.floatShadow.copy(alpha = 0.12f)
     Box(
         modifier
@@ -104,6 +108,11 @@ enum class PillTone { Ok, Warn, Neutral, Accent }
 @Composable
 fun StatusPill(text: String, tone: PillTone = PillTone.Neutral, modifier: Modifier = Modifier) {
     val c = MikaTheme.colors
+    // 简约列表:状态写成灰字,只有要你处理的用橙色
+    if (LocalPlainList.current) {
+        Text(text, modifier, style = MikaType.Value, color = if (tone == PillTone.Warn) c.warn else c.ink3, maxLines = 1)
+        return
+    }
     val (bg, fg) = when (tone) {
         PillTone.Ok -> c.okSoft to c.ok
         PillTone.Warn -> c.warnSoft to c.warn
@@ -139,6 +148,7 @@ fun MikaButton(
     kind: ButtonKind = ButtonKind.Primary,
     size: ButtonSize = ButtonSize.Large,
     enabled: Boolean = true,
+    maxLines: Int = 1,
 ) {
     val c = MikaTheme.colors
     val shape = size.shape
@@ -154,11 +164,13 @@ fun MikaButton(
             .clip(shape)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .alpha(if (enabled) 1f else 0.45f)
-            .height(size.height)
-            .padding(horizontal = size.padding),
+            .then(
+                if (maxLines == 1) Modifier.height(size.height).padding(horizontal = size.padding)
+                else Modifier.heightIn(min = size.height).padding(horizontal = size.padding, vertical = 4.dp),
+            ),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = size.text, color = fg, textAlign = TextAlign.Center, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text, style = size.text, color = fg, textAlign = TextAlign.Center, maxLines = maxLines, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -256,6 +268,7 @@ fun TopBar(
     subtitle: String? = null,
     subtitleColor: Color = Color.Unspecified,
     background: Color = MikaTheme.colors.bg,
+    titleModifier: Modifier = Modifier,
 ) {
     val c = MikaTheme.colors
     Box(Modifier.fillMaxWidth().pageBackground(background).windowInsetsPadding(WindowInsets.statusBars)) {
@@ -265,7 +278,8 @@ fun TopBar(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (left != null) BarIconButton(left, leftLabel, onLeft, badge = leftBadge) else Spacer(Modifier.size(MikaSize.IconButton))
-            Column(Modifier.weight(1f).padding(horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.weight(1f).padding(horizontal = 4.dp).then(titleModifier), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center) {
                 Text(title, style = MikaType.Title, color = c.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (!subtitle.isNullOrEmpty()) {
                     Text(

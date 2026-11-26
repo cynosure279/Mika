@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_self_operate">Cho phép Mika thao tác trên màn hình của chính nó</string>
+    <string name="settings_self_operate_sub">Vẫn hỏi trước khi mở liên kết trong trình duyệt của bạn.</string>
+    <string name="settings_pip_operate">Thao tác trực tiếp trên khung xem nhỏ</string>
+    <string name="settings_pip_operate_sub">Nhấn và vuốt trong cửa sổ nhỏ để điều khiển màn hình</string>
+    <string name="settings_external_schedule">Cho phép script tạo tác vụ theo lịch</string>
+    <string name="settings_external_schedule_sub">Ứng dụng khác có thể gửi tác vụ qua broadcast, có giới hạn tốc độ và được đánh dấu là do script tạo.</string>
+    <string name="self_notify_channel">Hành động của Mika</string>
+    <string name="self_notify_channel_desc">Những gì Mika mở hoặc yêu cầu bạn xem</string>
+    <string name="self_notify_open">Xem</string>
+    <string name="self_screen_notice">Mika muốn cho bạn xem %1$s</string>
+    <string name="self_file_notice">Mika có một tệp muốn cho bạn xem</string>
+    <string name="self_file_failed">Không thể mở tệp đó</string>
+    <string name="self_consent_open">Mika muốn mở trang này trong trình duyệt của bạn. Cho phép?\n%1$s</string>
+    <string name="self_consent_search">Mika muốn tìm kiếm “%1$s” trong trình duyệt của bạn. Cho phép?</string>
+    <string name="self_consent_login">Mika muốn mở %1$s để bạn đăng nhập. Cho phép?</string>
+    <string name="self_consent_replace">Việc này sẽ thay thế trang bạn đang mở.</string>
+    <string name="self_consent_allow">Mở</string>
+    <string name="self_consent_deny">Không mở</string>
+    <string name="self_browser_notice">Nhấn để mở %1$s trong trình duyệt của bạn</string>
+    <string name="self_browser_failed">Không thể mở trang đó</string>
+</resources>

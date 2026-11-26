@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_helper_setup_title">Trợ lý âm thanh Mika</string>
+    <string name="calls_helper_setup_intro">Android xử lý cuộc gọi thông thường. Mika dùng trợ lý âm thanh để nghe và nói trong cuộc gọi AI. Gỡ lỗi không dây cho phép điện thoại này khởi động hoặc khôi phục trợ lý mà không cần máy tính. Kết nối Wi-Fi để ghép nối; giọng nói AI trực tiếp cũng cần kết nối internet.</string>
+    <string name="calls_helper_unavailable">Không thể thiết lập trợ lý âm thanh trên thiết bị này.</string>
+    <string name="calls_helper_unavailable_reason">Android không cung cấp cài đặt cần thiết để khởi động trợ lý tại đây. Cuộc gọi thông thường vẫn hoạt động qua ứng dụng điện thoại của bạn.</string>
+    <string name="calls_helper_ready">Đã kết nối trợ lý âm thanh</string>
+    <string name="calls_helper_usb_running">Trợ lý âm thanh đang chạy · khởi động bằng USB</string>
+    <string name="calls_helper_usb_stopped">Trợ lý âm thanh khởi động bằng USB đã dừng.</string>
+    <string name="calls_helper_wireless_recovery">Ghép nối một lần trên điện thoại này để khởi động lại trợ lý mà không cần máy tính nếu nó dừng. Kết nối Wi-Fi để thiết lập.</string>
+    <string name="calls_helper_wireless_unavailable">Gỡ lỗi không dây không khả dụng trên điện thoại này.</string>
+    <string name="calls_helper_setup_wireless">Thiết lập khôi phục không dây</string>
+    <string name="calls_helper_hide_usb">Ẩn phương án dự phòng qua máy tính</string>
+    <string name="calls_helper_show_usb">Phương án dự phòng qua máy tính</string>
+    <string name="calls_helper_usb_fallback">Nếu thiết lập không dây không khả dụng và bạn có máy tính, hãy cắm cáp USB và chạy lệnh này trên máy tính. Bạn có thể cần chạy lại sau khi cập nhật hoặc khởi động lại.</string>
+    <string name="calls_helper_wireless_reconnect">Nếu trợ lý dừng, hãy kết nối Wi-Fi và bật Gỡ lỗi không dây nếu Android đã tắt nó. Chỉ ghép nối lại khi được yêu cầu.</string>
+    <string name="calls_helper_wireless_debugging_body">Kết nối Wi-Fi và bật Gỡ lỗi không dây trong Tùy chọn nhà phát triển. Nhấn Cho phép nếu Android hỏi. Sau đó quay lại Mika để tiếp tục tới bước mã ghép nối.</string>
+    <string name="calls_helper_usb_debugging_body">Trong Tùy chọn nhà phát triển, bật Gỡ lỗi USB và xác nhận. Bạn không cần cắm cáp cho thiết lập không dây. Để nguyên các cài đặt khác.</string>
+    <string name="calls_helper_usb_debugging_brief">Không cần cáp cho thiết lập không dây</string>
+    <string name="calls_helper_connect_body">Sau khi ghép nối, Mika kết nối tới trợ lý âm thanh trên điện thoại này.</string>
+    <string name="calls_helper_wifi_needed">Kết nối Wi-Fi để khởi động hoặc khôi phục trợ lý âm thanh qua Gỡ lỗi không dây.</string>
+    <string name="calls_helper_repair_needed">Ghép nối không khả dụng. Hãy ghép nối lại từ điện thoại này.</string>
+    <string name="calls_helper_name">Trợ lý âm thanh</string>
+    <string name="calls_helper_disconnected">Kết nối để bật âm thanh hai chiều cho cuộc gọi AI</string>
+    <string name="calls_helper_manage">Quản lý</string>
+    <string name="calls_helper_set_up">Thiết lập</string>
+    <string name="calls_helper_pairing_done">Đã kết nối trợ lý âm thanh. Bạn có thể quay lại Mika.</string>
+    <string name="calls_helper_pairing_problem">Quay lại Mika để xem cách kết nối lại.</string>
+</resources>

@@ -43,6 +43,15 @@
     <string name="plans_notify_each">매번</string>
     <string name="plans_cooldown_minutes">실행 사이 최소 간격(분, 선택 사항)</string>
     <string name="plans_when_idle">Mika가 유휴 상태일 때만 실행</string>
+    <string name="plans_execution_window">실행 시간대</string>
+    <string name="plans_window_anytime">언제든지</string>
+    <string name="plans_window_off_peak">비혼잡 시간대</string>
+    <string name="plans_window_custom">사용자 지정</string>
+    <string name="plans_window_off_peak_hint">DeepSeek 비혼잡 시간대: 평일 00:00–01:00, 04:00–06:00, 10:00–24:00 UTC이며 주말에는 종일 적용됩니다. 일정을 설정할 때 공휴일 추가 할인을 고려할 필요는 없습니다.</string>
+    <string name="plans_window_start">시작 시간(HH:mm)</string>
+    <string name="plans_window_end">종료 시간(HH:mm 또는 24:00)</string>
+    <string name="plans_window_custom_hint">시간대: %1$s. 종료 시간이 시작 시간보다 이르면 실행 시간대가 자정을 넘깁니다.</string>
+    <string name="plans_error_window">올바른 실행 시간대를 입력하세요. 시작 시간과 종료 시간은 달라야 합니다</string>
     <string name="plans_enabled">사용</string>
     <string name="plans_error_content">작업 또는 알림 내용을 입력하세요</string>
     <string name="plans_error_content_long">작업은 4,000자, 알림은 2,000자까지 입력할 수 있어요</string>

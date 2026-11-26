@@ -43,6 +43,15 @@
     <string name="plans_notify_each">هر بار</string>
     <string name="plans_cooldown_minutes">حداقل فاصلهٔ بین اجراها به دقیقه (اختیاری)</string>
     <string name="plans_when_idle">فقط زمانی اجرا شود که میکا مشغول نیست</string>
+    <string name="plans_execution_window">بازهٔ اجرا</string>
+    <string name="plans_window_anytime">در هر زمان</string>
+    <string name="plans_window_off_peak">ساعات غیر اوج</string>
+    <string name="plans_window_custom">سفارشی</string>
+    <string name="plans_window_off_peak_hint">ساعات غیر اوج DeepSeek: روزهای هفته 00:00–01:00، 04:00–06:00 و 10:00–24:00 UTC؛ آخر هفته‌ها تمام روز. برای زمان‌بندی نیازی به در نظر گرفتن تخفیف‌های بیشتر تعطیلات نیست.</string>
+    <string name="plans_window_start">آغاز بازه (HH:mm)</string>
+    <string name="plans_window_end">پایان بازه (HH:mm یا 24:00)</string>
+    <string name="plans_window_custom_hint">منطقهٔ زمانی: %1$s. اگر زمان پایان زودتر از زمان آغاز باشد، بازه از نیمه‌شب می‌گذرد.</string>
+    <string name="plans_error_window">یک بازهٔ معتبر وارد کنید؛ زمان آغاز و پایان باید متفاوت باشند</string>
     <string name="plans_enabled">فعال</string>
     <string name="plans_error_content">یک کار یا یادآوری وارد کنید</string>
     <string name="plans_error_content_long">حداکثر ۴۰۰۰ نویسه یا برای یادآوری حداکثر ۲۰۰۰ نویسه وارد کنید</string>

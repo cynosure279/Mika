@@ -1,7 +1,7 @@
 package com.wangzan101.mika.wechat
 
 import com.wangzan101.mika.core.run.ChannelPeer
-import com.wangzan101.mika.core.wechat.WechatAccount
+import com.wangzan101.mika.core.cap.wechat.WechatAccount
 import com.wangzan101.mika.settings.KeyCipher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -218,6 +218,15 @@ class WechatStore(
         )
         saveState(next)
         state = next
+    }
+
+    /** 机主结果推送的投递目标:已启用、有账号、机主的回复令牌与已有线程都在才返回;缺一项就没有可投递的出口,也不为此新建线程。 */
+    @Synchronized fun boundOwnerPeer(): ChannelPeer? {
+        val current = account ?: return null
+        if (!state.enabled) return null
+        if (state.contextTokens[current.ownerId].isNullOrBlank()) return null
+        val thread = state.threads[current.ownerId] ?: return null
+        return ChannelPeer(WechatChannel.ID, current.ownerId, thread)
     }
 
     private fun readState(): WechatState = if (stateFile.isFile) runCatching {

@@ -1,7 +1,7 @@
 package com.wangzan101.mika.core.agent
 
-import com.wangzan101.mika.core.gate.ConfirmationRequest
-import com.wangzan101.mika.core.verify.AnswerSource
+import com.wangzan101.mika.core.safety.gate.ConfirmationRequest
+import com.wangzan101.mika.core.safety.verify.AnswerSource
 
 /** 按首轮清单的顺序编号（从 1 开始）；仅包含模型已用证据确认的目标。 */
 data class GoalChecklist(val items: List<String>, val confirmed: Set<Int>, val stale: Boolean)
@@ -39,11 +39,13 @@ sealed interface TaskState {
      * [reason] 是模型给这次调用写的用意(调用参数里的 reason);没写时为 null。
      * [narration] 是模型随这次调用写的话(进度说明,不是回答);界面上「在做什么」先用它,没有再用 [reason]。
      * [preview] 是当前模型请求已流出的可见文字，尚未确认是最终答复还是工具进度。
+     * [mcpConnector] 是此刻正在调用的外部 MCP 连接器(配置里的名字);只在调用进行期间非空。
      */
     data class Running(
         val step: Int, val note: String, val tool: String? = null, val progress: RunProgress? = null, val reason: String? = null,
         val narration: String? = null,
         val preview: String? = null,
+        val mcpConnector: String? = null,
     ) : TaskState
     /** 一个能力的前置条件此刻不满足,停在这里等(见 [GateReason]);条件满足或用户点了继续后恢复 Running。 */
     data class Held(val reason: GateReason) : TaskState

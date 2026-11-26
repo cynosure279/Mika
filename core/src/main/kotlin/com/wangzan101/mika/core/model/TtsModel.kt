@@ -1,5 +1,6 @@
 package com.wangzan101.mika.core.model
 
+import kotlinx.coroutines.flow.Flow
 import java.io.ByteArrayOutputStream
 import java.util.Base64
 
@@ -12,6 +13,19 @@ interface TtsModel {
 
     /** 失败时抛 [ModelError] 或 [TtsError]。 */
     suspend fun synthesize(request: TtsRequest): TtsResponse
+}
+
+/** 支持按音频块交付的声音模型。[synthesize] 仍可用于保存完整音频。 */
+interface StreamingTtsModel : TtsModel {
+    /** 收集时发起请求。每次合成交付 PCM 分块或一份完整音频，取消收集时释放连接。 */
+    fun streamAudio(request: TtsRequest): Flow<TtsAudioPart>
+}
+
+sealed interface TtsAudioPart {
+    /** PCM16LE 的完整交错帧。同一次合成的采样率、声道数固定。 */
+    data class Pcm(val bytes: ByteArray, val sampleRate: Int, val channels: Int) : TtsAudioPart
+
+    data class Complete(val response: TtsResponse) : TtsAudioPart
 }
 
 /**
@@ -72,6 +86,30 @@ internal fun audioMimeOrBad(bytes: ByteArray, declared: String?): String {
     }
     return declared?.substringBefore(';')?.takeIf { it.startsWith("audio/") }
         ?: throw TtsError.BadAudio("response is not a known audio format")
+}
+
+/** 完整收到 RIFF/WAVE 后，将流式响应的未知长度写回，以便 Android 按文件播放。 */
+internal fun finalizeStreamingWavHeader(bytes: ByteArray) {
+    if (bytes.size < 12 || ascii(bytes, 0, 4) != "RIFF" || ascii(bytes, 8, 4) != "WAVE") return
+    fun sizeAt(offset: Int): Long =
+        (0..3).fold(0L) { size, i -> size or ((bytes[offset + i].toLong() and 0xff) shl (8 * i)) }
+    fun putSize(offset: Int, size: Int) {
+        for (i in 0..3) bytes[offset + i] = (size ushr (8 * i)).toByte()
+    }
+
+    var offset = 12
+    while (offset <= bytes.size - 8) {
+        val length = sizeAt(offset + 4)
+        val start = offset + 8
+        if (ascii(bytes, offset, 4) == "data") {
+            if (length == 0xffff_ffffL) putSize(offset + 4, bytes.size - start)
+            if (sizeAt(4) == 0xffff_ffffL) putSize(4, bytes.size - 8)
+            return
+        }
+        val next = start + length + (length and 1L)
+        if (next > bytes.size) return
+        offset = next.toInt()
+    }
 }
 
 /** 原始 16 位单声道 PCM 包成 WAV；Gemini TTS 常见这种返回。 */

@@ -6,12 +6,12 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Log
-import com.wangzan101.mika.core.adb.AdbIdentity
-import com.wangzan101.mika.core.adb.AdbIdentitySource
-import com.wangzan101.mika.core.adb.AdbKeyStore
-import com.wangzan101.mika.core.adb.AdbTls
-import com.wangzan101.mika.core.adb.KeyingMaterialExporter
-import com.wangzan101.mika.core.adb.WrappedKeyFile
+import com.wangzan101.mika.core.device.adb.AdbIdentity
+import com.wangzan101.mika.core.device.adb.AdbIdentitySource
+import com.wangzan101.mika.core.device.adb.AdbKeyStore
+import com.wangzan101.mika.core.device.adb.AdbTls
+import com.wangzan101.mika.core.device.adb.KeyingMaterialExporter
+import com.wangzan101.mika.core.device.adb.WrappedKeyFile
 import java.io.File
 import java.security.KeyStore
 import javax.crypto.KeyGenerator
@@ -25,7 +25,9 @@ object AndroidAdb {
     private const val TAG = "MikaAdbKey"
 
     // 设备端导出时不带 context;TLS 1.3 里空 context 与不带 context 的结果相同(RFC 8446 §7.5)
+    // 平台导出接口要 Android 12;内置 shell 本身也只在 12 起启用
     val exporter = KeyingMaterialExporter { socket, label, length ->
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) throw SSLException("keying material export needs Android 12")
         SSLSockets.exportKeyingMaterial(socket, label, ByteArray(0), length) ?: throw SSLException("keying material export failed")
     }
 
@@ -36,7 +38,7 @@ object AndroidAdb {
         source ?: AdbIdentitySource(keyStore(context), { "mika@${Build.MODEL}" }) { msg, e -> Log.w(TAG, msg, e) }.also { source = it }
     }
 
-    /** 连接用的身份;存着的钥匙读不出时抛 [com.wangzan101.mika.core.adb.AdbKeyUnreadableException]。 */
+    /** 连接用的身份;存着的钥匙读不出时抛 [com.wangzan101.mika.core.device.adb.AdbKeyUnreadableException]。 */
     fun identity(context: Context): AdbIdentity = identities(context).forConnect()
 
     /** 配对用的身份:存着的钥匙读不出时换一把新的(见 [AdbIdentitySource.forPairing])。 */

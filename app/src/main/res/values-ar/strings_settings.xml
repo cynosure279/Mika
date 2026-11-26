@@ -186,7 +186,7 @@
     <string name="skin_accent_follow">لون التمييز من الصورة</string>
     <string name="skin_accent_follow_sub">يستخدم اللون الرئيسي في الصورة بدل لون التمييز أعلاه، إن وُجد</string>
     <string name="settings_self_config">السماح لـ Mika بتغيير إعداداتها</string>
-    <string name="settings_self_config_sub">عند التفعيل، تحصل المهام على أداة لقراءة هذه التفضيلات وتغييرها (السرعة والكتم والكبسولة والمظهر ولون التمييز وإبقاء الشاشة قيد التشغيل). لا تشمل النماذج أو مفاتيح API أو شبكة الحاوية أو أي شيء يحذف البيانات.</string>
+    <string name="settings_self_config_sub">يغيّر التفضيلات المدرجة فقط؛ لا يمس النماذج أو المفاتيح أو الشبكة أو حذف البيانات.</string>
     <string name="settings_step_limit">حد الخطوات لكل مهمة</string>
     <string name="settings_step_limit_sub">يعني الإيقاف عدم وجود حد. عند بلوغ الحد، تتوقف المهمة وتوضح أين توقفت.</string>
     <string name="settings_step_limit_off">بلا حد</string>
@@ -226,6 +226,58 @@
     <string name="mcp_servers_status_fail">فشل الاتصال: %1$s</string>
     <string name="mcp_servers_refresh_all">اختبار الكل</string>
     <string name="mcp_servers_allowlist">الأدوات المسموح بها (مفصولة بفواصل، فارغ = الكل)</string>
+    <string name="mcp_category_all">الكل</string>
+    <string name="mcp_category_ai">الذكاء الاصطناعي</string>
+    <string name="mcp_category_data">البيانات</string>
+    <string name="mcp_category_dev">أدوات المطوّرين</string>
+    <string name="mcp_category_comm">التواصل</string>
+    <string name="mcp_category_prod">الإنتاجية</string>
+    <string name="mcp_category_design">التصميم والوسائط</string>
+    <string name="mcp_category_cloud">السحابة</string>
+    <string name="mcp_category_web">البحث والويب</string>
+    <string name="mcp_category_maps">الخرائط</string>
+    <string name="mcp_category_local">على هذا الجهاز</string>
+    <string name="mcp_catalog_title">خدمات MCP</string>
+    <string name="mcp_catalog_search_hint">البحث في الخدمات</string>
+    <string name="mcp_catalog_no_results">لا توجد خدمات مطابقة</string>
+    <string name="mcp_catalog_no_results_sub">جرّب كلمة أو فئة أخرى، أو أعد خادمًا مخصصًا.</string>
+    <string name="mcp_catalog_custom">خادم MCP مخصص</string>
+    <string name="mcp_catalog_browse">تصفح كتالوج الخدمات</string>
+    <string name="mcp_catalog_custom_server">خادم مخصص</string>
+    <string name="mcp_connect_auth_oauth">سجّل الدخول بحسابك</string>
+    <string name="mcp_connect_auth_fields">مفتاح API</string>
+    <string name="mcp_connect_auth_none">لا يتطلب تسجيل الدخول</string>
+    <string name="mcp_connect_auth_stdio">يعمل على هذا الجهاز</string>
+    <string name="mcp_connect_authorize">سجّل الدخول واتصل</string>
+    <string name="mcp_connect_connect">اتصال</string>
+    <string name="mcp_connect_connecting">جارٍ الاتصال…</string>
+    <string name="mcp_connect_cancel">إلغاء</string>
+    <string name="mcp_connect_retry">إعادة المحاولة</string>
+    <string name="mcp_connect_success_title">متصل</string>
+    <string name="mcp_connect_success_tools">%1$d أداة متاحة</string>
+    <string name="mcp_connect_done">تم</string>
+    <string name="mcp_connect_view_tools">عرض الأدوات</string>
+    <string name="mcp_connect_data_note">تُرسل طلباتك وبياناتك إلى هذه الخدمة.</string>
+    <string name="mcp_connect_package_title">التنزيل مطلوب</string>
+    <string name="mcp_connect_package_body">لاستخدام هذا الخادم، سيُنزّل Mika هذه الحزمة ويخزّنها على الجهاز:\n%1$s %2$s\nمن %3$s</string>
+    <string name="mcp_connect_package_confirm">تنزيل واتصال</string>
+    <string name="mcp_connect_help">الحصول على مفتاح API</string>
+    <string name="mcp_connect_official">الوثائق الرسمية</string>
+    <string name="mcp_connect_about">حول هذه الخدمة</string>
+    <string name="mcp_manage_test">اختبار الآن</string>
+    <string name="mcp_manage_reauthorize">تسجيل الدخول مجددًا</string>
+    <string name="mcp_manage_replace">استبدال بيانات الاعتماد</string>
+    <string name="mcp_manage_replace_hint">اترك الحقل فارغًا للاحتفاظ بالقيمة الحالية.</string>
+    <string name="mcp_manage_edit">تعديل التفاصيل</string>
+    <string name="mcp_manage_delete_note">الحذف يزيل هذا الخادم وبيانات الاعتماد المحفوظة من Mika، لكنه لا يلغي الوصول الذي منحته في الموقع الرسمي للخدمة.</string>
+    <string name="mcp_custom_headers">ترويسات الطلب</string>
+    <string name="mcp_custom_header_name">اسم الترويسة</string>
+    <string name="mcp_custom_header_value">قيمة الترويسة</string>
+    <string name="mcp_custom_add_header">إضافة ترويسة</string>
+    <string name="mcp_custom_advanced">متقدم</string>
+    <string name="mcp_custom_timeout">مهلة الاتصال (بالثواني)</string>
+    <string name="mcp_custom_preview">طول معاينة النتيجة</string>
+    <string name="mcp_custom_budget">ميزانية التكلفة لكل مهمة</string>
     <string name="settings_show_task_cost">عرض تكلفة المهمة</string>
     <string name="settings_show_task_cost_sub">تقدير رسوم DeepSeek API للمهام الجديدة باليوان الصيني.</string>
     <string name="quit_title">إنهاء Mika تمامًا</string>
@@ -269,5 +321,36 @@
         <item quantity="few">%1$d دقائق</item>
         <item quantity="many">%1$d دقيقة</item>
         <item quantity="other">%1$d دقيقة</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">الحد الزمني لبيئة الحوسبة لكل مهمة</string>
+    <string name="settings_sandbox_budget_sub">إجمالي الوقت الذي قد تعمل فيه أوامر البيئة خلال مهمة واحدة (تثبيت الاعتماديات، البناء وما شابه). الافتراضي 30 دقيقة؛ ويسري التغيير من المهمة التالية.</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
+        <item quantity="zero">%1$d دقيقة</item>
+        <item quantity="one">دقيقة واحدة (%1$d)</item>
+        <item quantity="two">دقيقتان (%1$d)</item>
+        <item quantity="few">%1$d دقائق</item>
+        <item quantity="many">%1$d دقيقة</item>
+        <item quantity="other">%1$d دقيقة</item>
+    </plurals>
+    <string name="settings_attachment_file_limit">حد الملف الواحد عند الرفع</string>
+    <string name="settings_attachment_file_limit_sub">أكبر حجم لملف واحد يُقبل من مرفقات المحادثة واستيراد ملفات الجهاز؛ صور WeChat وملفات الكمبيوتر تبقى بحدود ثابتة. الافتراضي 200 MB.</string>
+    <plurals name="settings_attachment_file_limit_mb_n">
+        <item quantity="zero">%1$d MB</item>
+        <item quantity="one">%1$d MB</item>
+        <item quantity="two">%1$d MB</item>
+        <item quantity="few">%1$d MB</item>
+        <item quantity="many">%1$d MB</item>
+        <item quantity="other">%1$d MB</item>
+    </plurals>
+    <string name="settings_workspace_size_limit">حد مساحة العمل الواحدة</string>
+    <string name="settings_workspace_size_limit_sub">مساحة التخزين لمرفقات المحادثة والملفات المستوردة من الجهاز. الافتراضي 4 GB.</string>
+    <plurals name="settings_workspace_size_limit_gb_n">
+        <item quantity="zero">%1$d GB</item>
+        <item quantity="one">%1$d GB</item>
+        <item quantity="two">%1$d GB</item>
+        <item quantity="few">%1$d GB</item>
+        <item quantity="many">%1$d GB</item>
+        <item quantity="other">%1$d GB</item>
     </plurals>
 </resources>

@@ -25,7 +25,7 @@ import com.wangzan101.mika.cap.web.WebSites
 import com.wangzan101.mika.cap.web.WebTab
 import com.wangzan101.mika.core.cap.web.ExternalLink
 import com.wangzan101.mika.core.cap.web.WebUrlPolicy
-import com.wangzan101.mika.core.uistate.PageDialog
+import com.wangzan101.mika.core.screen.uistate.PageDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -301,6 +301,9 @@ class UserBrowser private constructor(private val app: Context) {
     }
 
     /** 系统返回键:网页能后退就后退,不能时开着弹窗就关掉弹窗,否则关掉当前标签。没有打开的网页时返回 false。 */
+    /** 当前标签还能不能在自己里面后退。 */
+    fun canGoBackInTab(): Boolean = tab?.view?.canGoBack() == true
+
     fun systemBack(): Boolean {
         val v = tab?.view ?: return false
         if (v.canGoBack()) v.goBack() else if (opener != null) closePopup() else closeActiveTab()

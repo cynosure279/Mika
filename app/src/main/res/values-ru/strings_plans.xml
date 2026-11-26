@@ -43,6 +43,15 @@
     <string name="plans_notify_each">Каждый раз</string>
     <string name="plans_cooldown_minutes">Минимум минут между запусками (необязательно)</string>
     <string name="plans_when_idle">Запускать только когда Mika свободна</string>
+    <string name="plans_execution_window">Период выполнения</string>
+    <string name="plans_window_anytime">В любое время</string>
+    <string name="plans_window_off_peak">Вне пиковых часов</string>
+    <string name="plans_window_custom">Настраиваемый</string>
+    <string name="plans_window_off_peak_hint">Часы DeepSeek вне пиковой нагрузки: по будням 00:00–01:00, 04:00–06:00 и 10:00–24:00 UTC; в выходные — круглосуточно. Дополнительные праздничные скидки не нужно учитывать при планировании.</string>
+    <string name="plans_window_start">Начало периода (HH:mm)</string>
+    <string name="plans_window_end">Конец периода (HH:mm или 24:00)</string>
+    <string name="plans_window_custom_hint">Часовой пояс: %1$s. Если время окончания раньше времени начала, период переходит через полночь.</string>
+    <string name="plans_error_window">Введите корректный период; время начала и окончания должно различаться</string>
     <string name="plans_enabled">Включена</string>
     <string name="plans_error_content">Введите задачу или напоминание</string>
     <string name="plans_error_content_long">Не более 4 000 символов, для напоминания — 2 000</string>

@@ -183,6 +183,7 @@
     <string name="attach_recent">最近の写真</string>
     <string name="attach_recent_partial">Mika にアクセスを許可した写真</string>
     <string name="attach_all">すべての写真</string>
+    <string name="attach_more">その他</string>
     <string name="attach_change">アクセスを変更</string>
     <string name="attach_no_photos">写真はまだありません</string>
     <string name="attach_need_access">ここで写真を選ぶには、Mika に写真へのアクセスを許可してください</string>
@@ -231,7 +232,7 @@
     <string name="chat_branch_retry">ここから聞き直す</string>
     <string name="chat_branch_attachments_readd">添付ファイルは追加し直してください</string>
     <string name="chat_attach_unavailable">追加できませんでした: %1$s。ファイルが存在し、サイズ制限内であることを確認してください。</string>
-    <string name="chat_attach_too_large">%1$s: 200 MiB の上限を超えています</string>
+    <string name="chat_attach_too_large">%1$s: %2$s の上限を超えています</string>
     <string name="chat_attach_low_device_space">%1$s: 端末の空き容量が不足しています。空き容量を増やしてから再試行してください</string>
     <string name="chat_attach_workspace_limit">%1$s: ワークスペースのストレージが上限に達しました。ワークスペースのファイルを削除してから再試行してください</string>
     <string name="chat_attach_io_error">%1$s: 読み取りまたはコピーできません。ファイルが利用可能か確認してから再試行してください</string>
@@ -253,6 +254,8 @@
     <string name="pip_closed_hint">このタスクでは閉じました。右下の「画面を表示」をタップするか、サイドメニューの「バックグラウンドの画面」を開いてください。</string>
     <string name="chat_conversation_tokens">この会話: %1$s</string>
     <string name="chat_conversation_tokens_partial">この会話: %1$s 以上</string>
+    <string name="chat_current_model">現在のモデル</string>
+    <string name="chat_usage_view_details">トークン使用量を表示</string>
     <string name="chat_task_cost_estimate">約 %1$s</string>
     <string name="chat_task_cost_partial">%1$s（一部）</string>
     <string name="chat_task_cost_unavailable">費用を見積もれません</string>
@@ -285,7 +288,7 @@
     <string name="chat_example_schedule_title">毎日のリマインダーを設定</string>
     <string name="chat_example_pdf">送った PDF を短い要約にまとめて</string>
     <string name="chat_example_schedule">毎朝 8 時に今日の天気を確認するようリマインドして</string>
-    <string name="chat_empty_value">一言で伝えれば、アプリを操作し、ウェブを見て、用事を片づけます。</string>
+    <string name="chat_empty_value">ひとこと言えば、スマホの操作は任せて</string>
     <string name="saved_task_save">タスクとして保存</string>
     <string name="task_field_add">入力項目を追加</string>
     <string name="task_field_name">項目名</string>
@@ -298,6 +301,39 @@
     <string name="chat_audio">Audio</string>
     <string name="chat_audio_play">Play</string>
     <string name="chat_audio_stop">Stop</string>
+    <string name="plus_sub_album">写真から選択、複数可</string>
+    <string name="plus_sub_files">文書、PDF、圧縮ファイル</string>
+    <string name="plus_sub_device">このスマホのフォルダーを参照</string>
+    <string name="plus_clipboard">クリップボード</string>
+    <string name="plus_sub_clipboard">コピーした内容を貼り付け</string>
+    <string name="plus_sub_teach">一度見せれば Mika が覚えます</string>
+    <string name="plus_sub_skills">このターンで使うスキルを選ぶ</string>
+    <string name="plus_sub_tasks">保存したタスクを入力欄に入れる</string>
+    <string name="plus_sub_browser">内蔵ブラウザー</string>
+    <string name="plus_skills_empty">個人スキルはまだありません。やり遂げたタスクから Mika が覚えたスキルがここに表示されます。</string>
+    <string name="plus_clipboard_empty">クリップボードに貼り付けられる文字がありません</string>
+    <string name="plus_skill_directive">「%1$s」スキルを使う：</string>
+    <string name="plus_reuse">よく使う</string>
+    <string name="plus_reuse_hint">フレーズ · リスト · フロー</string>
+    <string name="plus_reuse_phrases">よく使うフレーズ</string>
+    <string name="drawer_calls">AI 電話</string>
+    <!-- 空对话滚动条里的灵感示例;点了填进输入框 -->
+    <string name="chat_idea_maps">一番近いカフェまでナビして</string>
+    <string name="chat_idea_camera">カメラを開いて写真を撮って</string>
+    <string name="chat_idea_sms">母に「家に着いたよ」とSMSして</string>
+    <string name="chat_idea_news">今日のテックニュースを検索して</string>
+    <string name="chat_idea_dark">ダークモードをオンにして</string>
+    <string name="chat_idea_music">リラックスできる音楽を流して</string>
+    <string name="chat_idea_email">最新のメールの内容を教えて</string>
+    <string name="chat_idea_screenshot">最近のスクリーンショットを探して</string>
+    <string name="chat_idea_meeting">明日15時に会議の予定を入れて</string>
+    <!-- 空对话推广卡上的一句话说明;完整提示词点了才填进输入框 -->
+    <string name="chat_example_github_star_blurb">オープンソースの Mika を応援</string>
+    <string name="chat_example_follow_blurb">作者をフォローしてチャットに参加</string>
+    <string name="chat_example_group_summary_blurb">今日の未読をひとことでまとめる</string>
+    <string name="chat_example_share_title">Mika を友だちにシェア</string>
+    <string name="chat_example_share_blurb">役立ちそうな友だちに紹介</string>
+    <string name="chat_example_share">Mika のプロジェクトリンク https://github.com/wangzan101/mika を友だちにシェアして、スマホを代わりに操作してくれると伝えて</string>
     <string name="chat_video">動画</string>
     <string name="chat_video_play">再生</string>
 </resources>

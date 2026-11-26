@@ -20,6 +20,7 @@
     <string name="language_arabic" translatable="false">العربية</string>
     <string name="language_persian" translatable="false">فارسی</string>
     <string name="language_turkish" translatable="false">Türkçe</string>
+    <string name="language_vietnamese" translatable="false">Tiếng Việt</string>
     <string name="settings_language_appearance">Language &amp; appearance</string>
     <string name="settings_personal_start">Open Personal Assistant on launch</string>
     <string name="settings_personal_start_sub">Use Personal Assistant as your first screen</string>
@@ -182,7 +183,7 @@
     <string name="skin_accent_follow">Accent color from the image</string>
     <string name="skin_accent_follow_sub">Uses the main color in the image instead of the accent color above, when it has one</string>
     <string name="settings_self_config">Let Mika change its own settings</string>
-    <string name="settings_self_config_sub">When on, tasks get one tool to read and change these preferences (pace, mute, capsule, appearance, accent color, screen-on). Models, API keys, container network and anything that deletes data are never included</string>
+    <string name="settings_self_config_sub">Can only change the listed preferences; never models, keys, network access or deleting data.</string>
     <string name="settings_step_limit">Step limit per task</string>
     <string name="settings_step_limit_sub">Off means no limit. When the limit is reached, the task stops and says where it stopped.</string>
     <string name="settings_step_limit_off">No limit</string>
@@ -222,6 +223,58 @@
     <string name="mcp_servers_status_fail">Connection failed: %1$s</string>
     <string name="mcp_servers_refresh_all">Test all</string>
     <string name="mcp_servers_allowlist">Allowed tools (comma separated, empty = all)</string>
+    <string name="mcp_category_all">All</string>
+    <string name="mcp_category_ai">AI</string>
+    <string name="mcp_category_data">Data</string>
+    <string name="mcp_category_dev">Developer tools</string>
+    <string name="mcp_category_comm">Communication</string>
+    <string name="mcp_category_prod">Productivity</string>
+    <string name="mcp_category_design">Design &amp; media</string>
+    <string name="mcp_category_cloud">Cloud</string>
+    <string name="mcp_category_web">Search &amp; web</string>
+    <string name="mcp_category_maps">Maps</string>
+    <string name="mcp_category_local">On this device</string>
+    <string name="mcp_catalog_title">MCP services</string>
+    <string name="mcp_catalog_search_hint">Search services</string>
+    <string name="mcp_catalog_no_results">No matching services</string>
+    <string name="mcp_catalog_no_results_sub">Try another keyword or category, or set up a custom server.</string>
+    <string name="mcp_catalog_custom">Custom MCP server</string>
+    <string name="mcp_catalog_browse">Browse service catalog</string>
+    <string name="mcp_catalog_custom_server">Custom server</string>
+    <string name="mcp_connect_auth_oauth">Sign in with your account</string>
+    <string name="mcp_connect_auth_fields">API key</string>
+    <string name="mcp_connect_auth_none">No sign-in required</string>
+    <string name="mcp_connect_auth_stdio">Runs on this device</string>
+    <string name="mcp_connect_authorize">Sign in and connect</string>
+    <string name="mcp_connect_connect">Connect</string>
+    <string name="mcp_connect_connecting">Connecting…</string>
+    <string name="mcp_connect_cancel">Cancel</string>
+    <string name="mcp_connect_retry">Retry</string>
+    <string name="mcp_connect_success_title">Connected</string>
+    <string name="mcp_connect_success_tools">%1$d tools available</string>
+    <string name="mcp_connect_done">Done</string>
+    <string name="mcp_connect_view_tools">View tools</string>
+    <string name="mcp_connect_data_note">Your requests and data are sent to this service.</string>
+    <string name="mcp_connect_package_title">Download required</string>
+    <string name="mcp_connect_package_body">To use this server, Mika will download and cache this package on the device:\n%1$s %2$s\nfrom %3$s</string>
+    <string name="mcp_connect_package_confirm">Download and connect</string>
+    <string name="mcp_connect_help">Get an API key</string>
+    <string name="mcp_connect_official">Official documentation</string>
+    <string name="mcp_connect_about">About this service</string>
+    <string name="mcp_manage_test">Test now</string>
+    <string name="mcp_manage_reauthorize">Sign in again</string>
+    <string name="mcp_manage_replace">Replace credentials</string>
+    <string name="mcp_manage_replace_hint">Leave a field blank to keep the current value.</string>
+    <string name="mcp_manage_edit">Edit details</string>
+    <string name="mcp_manage_delete_note">Deleting removes this server and its saved credentials from Mika. It does not revoke access you granted on the service\'s own site.</string>
+    <string name="mcp_custom_headers">Request headers</string>
+    <string name="mcp_custom_header_name">Header name</string>
+    <string name="mcp_custom_header_value">Header value</string>
+    <string name="mcp_custom_add_header">Add header</string>
+    <string name="mcp_custom_advanced">Advanced</string>
+    <string name="mcp_custom_timeout">Connection timeout (seconds)</string>
+    <string name="mcp_custom_preview">Result preview length</string>
+    <string name="mcp_custom_budget">Per-task cost budget</string>
     <string name="settings_show_task_cost">Show task cost</string>
     <string name="settings_show_task_cost_sub">Estimate DeepSeek API charges in Chinese yuan for new tasks.</string>
     <string name="quit_title">Quit Mika completely</string>
@@ -257,5 +310,24 @@
     <plurals name="settings_trigger_run_minutes_n">
         <item quantity="one">%1$d minute</item>
         <item quantity="other">%1$d minutes</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">Sandbox time limit per task</string>
+    <string name="settings_sandbox_budget_sub">Total time sandbox commands may run in one task (installing dependencies, builds and the like). Default is 30 minutes; a change applies to the next task.</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
+        <item quantity="one">%1$d minute</item>
+        <item quantity="other">%1$d minutes</item>
+    </plurals>
+    <string name="settings_attachment_file_limit">Per-file upload limit</string>
+    <string name="settings_attachment_file_limit_sub">Largest single file accepted from chat attachments and device file imports. WeChat images and computer-link files keep their fixed limits. Default is 200 MB.</string>
+    <plurals name="settings_attachment_file_limit_mb_n">
+        <item quantity="one">%1$d MB</item>
+        <item quantity="other">%1$d MB</item>
+    </plurals>
+    <string name="settings_workspace_size_limit">Per-workspace storage limit</string>
+    <string name="settings_workspace_size_limit_sub">Storage room for chat attachments and device file imports. Default is 4 GB.</string>
+    <plurals name="settings_workspace_size_limit_gb_n">
+        <item quantity="one">%1$d GB</item>
+        <item quantity="other">%1$d GB</item>
     </plurals>
 </resources>

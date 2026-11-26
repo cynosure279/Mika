@@ -8,6 +8,7 @@
     <string name="export_format">Biçim</string>
     <string name="export_format_markdown">Markdown</string>
     <string name="export_format_json">JSON</string>
+    <string name="export_format_html">HTML</string>
     <string name="export_include_tool_steps">Araç adımları</string>
     <string name="export_include_attachments">Ekler</string>
     <string name="export_include_screens">Ekran görüntüleri</string>
@@ -16,6 +17,8 @@
     <string name="export_redact_pii">Telefon numaralarını, e-postaları ve yolları da gizle</string>
     <string name="export_bundle_note">Ekler veya ekran görüntüleri dahil, bu yüzden dosya bir zip.</string>
     <string name="export_button">Dışa aktar</string>
+    <string name="export_preview">Önizleme</string>
+    <string name="export_preview_truncated">Önizleme kısaltıldı; dışa aktarılan dosya içeriğin tamamını içerir.</string>
     <string name="export_cancel">İptal</string>
     <string name="export_close">Kapat</string>
     <string name="export_preparing">Hazırlanıyor…</string>

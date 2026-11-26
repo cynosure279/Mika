@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="report_title">Báo cáo tác vụ</string>
+    <string name="report_entry_hint">Kết quả · Chi tiết · Ảnh chụp màn hình</string>
+    <string name="report_no_answer">Không có câu trả lời cuối cùng nào được lưu cho tác vụ này.</string>
+    <string name="report_screens">Ảnh chụp màn hình chính</string>
+    <string name="report_view_step">Bước %1$d · Mở phát lại</string>
+    <string name="report_local_note">Lưu cục bộ cùng bản ghi lần chạy. Ảnh chụp màn hình có thể chứa nội dung trang; chỉ 30 lần chạy gần nhất được giữ lại.</string>
+    <string name="playback_title">Phát lại thao tác</string>
+    <string name="playback_empty">Không có ảnh chụp màn hình nào được ghi cho tác vụ này.</string>
+    <string name="playback_legacy">Bản ghi cũ: chỉ có ảnh chụp màn hình, không có dấu hiệu hành động.</string>
+    <string name="playback_approximate">Mũi tên chỉ hướng cuộn, không phải điểm chạm chính xác.</string>
+    <string name="playback_marks">Vòng tròn đỏ: nhấn · Mũi tên: vuốt</string>
+    <string name="playback_progress">Tiến trình phát lại</string>
+    <string name="playback_pause">Tạm dừng</string>
+    <string name="playback_play">Phát</string>
+    <string name="playback_previous">Trước</string>
+    <string name="playback_next">Tiếp</string>
+    <string name="playback_image">Ảnh chụp màn hình tác vụ đã ghi</string>
+    <string name="playback_missing">Ảnh chụp màn hình không khả dụng</string>
+    <string name="report_export">Xuất</string>
+    <string name="report_copy_markdown">Sao chép dạng Markdown</string>
+    <string name="report_copy_text">Sao chép dạng văn bản thuần</string>
+    <string name="report_share">Chia sẻ báo cáo</string>
+    <string name="report_share_text">Văn bản thuần</string>
+    <string name="report_share_txt">Tệp TXT</string>
+    <string name="report_share_md">Tệp Markdown</string>
+    <string name="report_share_docx">Tệp Word</string>
+    <string name="report_share_failed">Không chia sẻ được. Hãy thử lại, hoặc xuất báo cáo trước.</string>
+    <string name="report_share_too_long">Báo cáo quá dài để chia sẻ dạng văn bản. Hãy chia sẻ dưới dạng tệp TXT, Markdown hoặc Word.</string>
+    <string name="report_copied">Đã sao chép báo cáo</string>
+    <string name="report_saved">Đã lưu báo cáo</string>
+    <string name="report_save_failed">Không lưu được. Hãy kiểm tra bản ghi và đích đến, rồi thử lại.</string>
+    <string name="report_close">Đóng</string>
+    <string name="report_final_page">Trang cuối cùng được ghi</string>
+    <string name="playback_stage_start">Bắt đầu</string>
+    <string name="playback_stage_input">Nhập và tìm kiếm</string>
+    <string name="playback_skipped">Đã bỏ qua các khung hình không khả dụng: %1$d.</string>
+    <string name="playback_no_mark">Không có dấu hiệu hành động nào được ghi cho thao tác này.</string>
+    <string name="playback_error_unknown">Lỗi: không ghi lại lý do cụ thể.</string>
+    <string name="playback_result">Kết quả thao tác</string>
+    <string name="playback_element_click">Vòng tròn cho thấy vị trí phần tử ước tính, không phải điểm chạm thực tế.</string>
+</resources>

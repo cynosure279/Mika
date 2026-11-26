@@ -7,6 +7,7 @@
     <string name="export_format">格式</string>
     <string name="export_format_markdown">Markdown</string>
     <string name="export_format_json">JSON</string>
+    <string name="export_format_html">HTML</string>
     <string name="export_include_tool_steps">工具步驟</string>
     <string name="export_include_attachments">附件</string>
     <string name="export_include_screens">螢幕截圖</string>
@@ -15,6 +16,8 @@
     <string name="export_redact_pii">同時隱藏手機號碼、電子郵件和路徑</string>
     <string name="export_bundle_note">包含附件或螢幕截圖，將匯出為 zip。</string>
     <string name="export_button">匯出</string>
+    <string name="export_preview">預覽</string>
+    <string name="export_preview_truncated">預覽已截斷；匯出檔案包含完整內容。</string>
     <string name="export_cancel">取消</string>
     <string name="export_close">關閉</string>
     <string name="export_preparing">正在準備…</string>

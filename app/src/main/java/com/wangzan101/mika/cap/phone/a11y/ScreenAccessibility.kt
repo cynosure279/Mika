@@ -3,16 +3,18 @@ package com.wangzan101.mika.cap.phone.a11y
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
+import android.app.Notification
 import android.content.Intent
 import android.graphics.Bitmap
-import android.util.Log
 import android.graphics.Path
-import android.app.Notification
 import android.os.Build
+import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
-import com.wangzan101.mika.core.uistate.ScreenEvent
+import com.wangzan101.mika.calls.onCallerLabelEvent
+import com.wangzan101.mika.core.screen.uistate.ScreenEvent
+import kotlin.coroutines.resume
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,7 +24,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 
 /** Mika 的无障碍服务:操作和事件转给当前已连接实例,任务持有旧实例时也能在重连后恢复。 */
 open class ScreenAccessibility : AccessibilityService() {
@@ -69,6 +70,8 @@ open class ScreenAccessibility : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (instance.value !== this) return
+        // 只数主屏上的用户交互,不留文字等内容;回锁义务据此判断用户有没有接着用手机
+        if (event.eventType in MAIN_INTERACTIONS && displayOf(event) == Display.DEFAULT_DISPLAY) mainInteractions.incrementAndGet()
         if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) windowChanges.tryEmit(Unit)
         if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED || event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             windowGeneration.incrementAndGet()
@@ -80,6 +83,7 @@ open class ScreenAccessibility : AccessibilityService() {
                 app.phone.smsLogin.privateLoginActive && event.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED)) return
         val access = app?.appAccess?.current()
         if (access != null && access.denial(event.packageName?.toString()) != null) return
+        app?.runningCalls?.onCallerLabelEvent(this, event)
         if (app != null && app.teachReady && app.teach.wantsEvents()) {
             val displayId = displayOf(event)
             if (displayId != Display.INVALID_DISPLAY) {
@@ -98,7 +102,8 @@ open class ScreenAccessibility : AccessibilityService() {
         val displayId = displayOf(event)
         if (displayId == Display.INVALID_DISPLAY) return
         // API 33 以下系统会在回调返回后回收事件对象,订阅方异步读取前先复制一份
-        events.tryEmit(DisplayEvent(displayId, AccessibilityEvent(event)))
+        val copy = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) AccessibilityEvent(event) else @Suppress("DEPRECATION") AccessibilityEvent.obtain(event)
+        events.tryEmit(DisplayEvent(displayId, copy))
     }
 
     override fun onInterrupt() = Unit
@@ -128,18 +133,13 @@ open class ScreenAccessibility : AccessibilityService() {
         return dispatch(displayId, (0 until count).map { i -> GestureDescription.StrokeDescription(at, i * (holdMs + gapMs), holdMs.coerceAtLeast(1)) })
     }
 
-    /** 无障碍的「返回」全局动作:按键注入到虚拟屏失效时的兜底。作用在服务当前聚焦的屏上,只记结果、不记按键内容。 */
-    fun performGlobalBack(): Boolean {
-        val service = instance.value ?: return false
-        val ok = service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
-        Log.i(TAG, "performGlobalBack ok=$ok")
-        return ok
-    }
-
     private suspend fun dispatch(displayId: Int, strokes: List<GestureDescription.StrokeDescription>): Boolean {
         val service = instance.value ?: return false
-        val gesture = GestureDescription.Builder()
-            .setDisplayId(displayId)
+        // 手势指定屏要 Android 11;更早只能在主屏上做
+        val builder = GestureDescription.Builder()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) builder.setDisplayId(displayId)
+        else if (displayId != Display.DEFAULT_DISPLAY) return false
+        val gesture = builder
             .apply { strokes.forEach(::addStroke) }
             .build()
         suspend fun send(): Boolean = suspendCancellableCoroutine { cont ->
@@ -255,6 +255,17 @@ open class ScreenAccessibility : AccessibilityService() {
 
         /** 窗口每加上、拿掉、换页一次就加一(任何屏上的都算);只用来判断「窗口自上次以来变没变」,值本身没有含义。 */
         fun windowGeneration(): Long = windowGeneration.get()
+
+        /** 主屏上用户动过手的次数(点击、长按、滚动、改字、触摸开始);不留事件内容,只数次数。 */
+        private val mainInteractions = java.util.concurrent.atomic.AtomicLong()
+        private val MAIN_INTERACTIONS = setOf(
+            AccessibilityEvent.TYPE_VIEW_CLICKED, AccessibilityEvent.TYPE_VIEW_LONG_CLICKED,
+            AccessibilityEvent.TYPE_VIEW_SCROLLED, AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
+            AccessibilityEvent.TYPE_TOUCH_INTERACTION_START,
+        )
+
+        /** 主屏交互的当前计数;只用来判断「自上次以来用户动没动过主屏」,值本身没有含义。 */
+        fun mainInteractionCount(): Long = mainInteractions.get()
         private val notifications = MutableSharedFlow<ScreenEvent>(
             extraBufferCapacity = EVENT_BUFFER,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,

@@ -7,6 +7,7 @@
     <string name="export_format">التنسيق</string>
     <string name="export_format_markdown">Markdown</string>
     <string name="export_format_json">JSON</string>
+    <string name="export_format_html">HTML</string>
     <string name="export_include_tool_steps">خطوات الأدوات</string>
     <string name="export_include_attachments">المرفقات</string>
     <string name="export_include_screens">لقطات الشاشة</string>
@@ -15,6 +16,8 @@
     <string name="export_redact_pii">إخفاء أرقام الهاتف والبريد والمسارات أيضًا</string>
     <string name="export_bundle_note">تتضمن المرفقات أو لقطات الشاشة، لذا سيكون الملف zip.</string>
     <string name="export_button">تصدير</string>
+    <string name="export_preview">معاينة</string>
+    <string name="export_preview_truncated">تم اقتطاع المعاينة؛ الملف المصدَّر يحتوي على المحتوى الكامل.</string>
     <string name="export_cancel">إلغاء</string>
     <string name="export_close">إغلاق</string>
     <string name="export_preparing">جارٍ التحضير…</string>

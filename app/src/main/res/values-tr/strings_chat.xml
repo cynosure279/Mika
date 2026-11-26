@@ -49,6 +49,7 @@
     <string name="chat_paused">Duraklatıldı</string>
     <string name="chat_queued">Sıraya alındı</string>
     <plurals name="chat_earlier_steps">
+        <item quantity="one">%1$d önceki adım</item>
         <item quantity="other">%1$d önceki adım</item>
     </plurals>
     <string name="chat_background_note">Arka planda çalışıyor — telefonunuzu kullanmaya devam edin. Büyütmek için küçük görünüme dokunun.</string>
@@ -95,6 +96,7 @@
     <string name="drawer_delete_body">\“%1$s\” ve içindeki dosyalar silinecek.</string>
     <string name="drawer_delete_running">Çalışan görevi durdurulacak.</string>
     <plurals name="drawer_delete_schedules">
+        <item quantity="one">Bu sohbetteki %1$d zamanlanmış görev korunacak.</item>
         <item quantity="other">Bu sohbetteki %1$d zamanlanmış görev korunacak.</item>
     </plurals>
     <string name="drawer_select">Seç</string>
@@ -103,21 +105,27 @@
     <string name="drawer_select_none">Temizle</string>
     <string name="drawer_delete_many_title">Seçilen sohbetler silinsin mi?</string>
     <plurals name="drawer_delete_many_body">
+        <item quantity="one">%1$d sohbet ve içlerindeki dosyalar silinecek.</item>
         <item quantity="other">%1$d sohbet ve içlerindeki dosyalar silinecek.</item>
     </plurals>
     <plurals name="drawer_delete_many_running">
+        <item quantity="one">%1$d çalışan görev durdurulacak.</item>
         <item quantity="other">%1$d çalışan görev durdurulacak.</item>
     </plurals>
     <plurals name="drawer_delete_many_schedules">
+        <item quantity="one">İçlerindeki %1$d zamanlanmış görev korunacak.</item>
         <item quantity="other">İçlerindeki %1$d zamanlanmış görev korunacak.</item>
     </plurals>
     <plurals name="drawer_delete_progress">
+        <item quantity="one">%1$d sohbet siliniyor…</item>
         <item quantity="other">%1$d sohbet siliniyor…</item>
     </plurals>
     <plurals name="drawer_delete_done">
+        <item quantity="one">%1$d sohbet silindi.</item>
         <item quantity="other">%1$d sohbet silindi.</item>
     </plurals>
     <plurals name="drawer_delete_partial">
+        <item quantity="one">%1$d sohbet silindi, %2$d başarısız oldu.</item>
         <item quantity="other">%1$d sohbet silindi, %2$d başarısız oldu.</item>
     </plurals>
     <string name="drawer_actions">Sohbet seçenekleri</string>
@@ -136,6 +144,7 @@
     <string name="drawer_archive_earlier">Daha önce</string>
     <string name="drawer_archived_today">Bugün arşivlendi</string>
     <plurals name="drawer_archived_days_ago">
+        <item quantity="one">%1$d gün önce arşivlendi</item>
         <item quantity="other">%1$d gün önce arşivlendi</item>
     </plurals>
     <string name="drawer_search_filter_all">Tümü</string>
@@ -160,6 +169,7 @@
     <string name="steer_next">Mevcut görev sona erdi; sonraki olarak sıraya alındı</string>
     <string name="steer_cancelled">İptal edildi</string>
     <plurals name="chat_steps_done">
+        <item quantity="one">%1$d adım</item>
         <item quantity="other">%1$d adım</item>
     </plurals>
     <string name="step_viewed">%1$s görüntülendi</string>
@@ -172,6 +182,7 @@
     <string name="step_number">Adım %1$d</string>
     <string name="source_label">Kaynak</string>
     <plurals name="screenshots">
+        <item quantity="one">%1$d ekran görüntüsü</item>
         <item quantity="other">%1$d ekran görüntüsü</item>
     </plurals>
     <string name="attach_add">Ek ekle</string>
@@ -183,6 +194,7 @@
     <string name="attach_recent">Son fotoğraflar</string>
     <string name="attach_recent_partial">Mika\'nın erişmesine izin verdiğiniz fotoğraflar</string>
     <string name="attach_all">Tüm fotoğraflar</string>
+    <string name="attach_more">Daha fazla</string>
     <string name="attach_change">Erişimi değiştir</string>
     <string name="attach_no_photos">Henüz fotoğraf yok</string>
     <string name="attach_need_access">Buradan fotoğraf seçmek için Mika\'nın fotoğraflarınıza erişmesine izin verin</string>
@@ -200,6 +212,7 @@
     <string name="attach_photos_and_files">Fotoğraflar ve dosyalar</string>
     <string name="attach_photo">Fotoğraf</string>
     <plurals name="attach_n_photos">
+        <item quantity="one">%1$d fotoğraf</item>
         <item quantity="other">%1$d fotoğraf</item>
     </plurals>
     <string name="attach_file_and_more">%1$s ve %2$d dosya daha</string>
@@ -231,7 +244,7 @@
     <string name="chat_branch_retry">Buradan tekrar sor</string>
     <string name="chat_branch_attachments_readd">Eklemek istediğiniz ekleri yeniden ekleyin</string>
     <string name="chat_attach_unavailable">Eklenemedi: %1$s. Dosyaların mevcut olduğunu ve boyut sınırı içinde olduğunu kontrol edin.</string>
-    <string name="chat_attach_too_large">%1$s: 200 MiB sınırını aşıyor</string>
+    <string name="chat_attach_too_large">%1$s: %2$s sınırını aşıyor</string>
     <string name="chat_attach_low_device_space">%1$s: yetersiz cihaz depolaması; alan boşaltıp tekrar deneyin</string>
     <string name="chat_attach_workspace_limit">%1$s: çalışma alanı depolama sınırına ulaşıldı; çalışma alanı dosyalarını kaldırıp tekrar deneyin</string>
     <string name="chat_attach_io_error">%1$s: dosya okunamadı veya kopyalanamadı; mevcut olduğunu kontrol edip tekrar deneyin</string>
@@ -253,6 +266,8 @@
     <string name="pip_closed_hint">Bu görev için kapatıldı. Sağ alttaki \“Ekranı göster\”e dokunun veya yan menüden \“Arka plan ekranları\”nı açın.</string>
     <string name="chat_conversation_tokens">Bu sohbet: %1$s</string>
     <string name="chat_conversation_tokens_partial">Bu sohbet: en az %1$s</string>
+    <string name="chat_current_model">Güncel model</string>
+    <string name="chat_usage_view_details">Token kullanımını görüntüle</string>
     <string name="chat_task_cost_estimate">Tahmini %1$s</string>
     <string name="chat_task_cost_partial">%1$s (kısmi)</string>
     <string name="chat_task_cost_unavailable">Maliyet kullanılamıyor</string>
@@ -272,9 +287,11 @@
     <string name="voice_placeholder_queue">Sonraki görevi söyleyin…</string>
     <string name="steer_received_paused">Anlaşıldı — görev devam ettiğinde kullanılacak</string>
     <plurals name="drawer_archive_many_done">
+        <item quantity="one">%1$d sohbet arşivlendi</item>
         <item quantity="other">%1$d sohbet arşivlendi</item>
     </plurals>
     <plurals name="drawer_archive_many_skipped">
+        <item quantity="one">%1$d arşivlenmedi</item>
         <item quantity="other">%1$d arşivlenmedi</item>
     </plurals>
     <string name="chat_example_github_star_title">Bir GitHub projesine yıldız ver</string>
@@ -285,7 +302,7 @@
     <string name="chat_example_schedule_title">Günlük bir hatırlatıcı kur</string>
     <string name="chat_example_pdf">Gönderdiğiniz PDF\'i kısa bir özete dönüştürün.</string>
     <string name="chat_example_schedule">Her sabah 8\'de hava durumunu kontrol etmemi hatırlat.</string>
-    <string name="chat_empty_value">Tek cümle yeter — uygulamalarınızı çalıştırır, web\'de gezinir ve işi bitiririm.</string>
+    <string name="chat_empty_value">Bir cümle söyle, telefonda gerisini ben hallederim</string>
     <string name="saved_task_save">Görev olarak kaydet</string>
     <string name="task_field_add">Doldurulacak alan ekle</string>
     <string name="task_field_name">Alan adı</string>
@@ -298,6 +315,39 @@
     <string name="chat_audio">Ses</string>
     <string name="chat_audio_play">Oynat</string>
     <string name="chat_audio_stop">Durdur</string>
+    <string name="plus_sub_album">Fotoğraflarından seç, birden fazla olabilir</string>
+    <string name="plus_sub_files">Belgeler, PDF dosyaları, arşivler</string>
+    <string name="plus_sub_device">Bu telefondaki klasörlere göz at</string>
+    <string name="plus_clipboard">Pano</string>
+    <string name="plus_sub_clipboard">Kopyaladığın şeyi yapıştır</string>
+    <string name="plus_sub_teach">Bir kez göster, Mika öğrensin</string>
+    <string name="plus_sub_skills">Bu tur için bir beceri seç</string>
+    <string name="plus_sub_tasks">Kayıtlı görevi giriş alanına doldur</string>
+    <string name="plus_sub_browser">Yerleşik tarayıcı</string>
+    <string name="plus_skills_empty">Henüz kişisel beceri yok. Mika\'nın tamamlanan görevlerden öğrendiği beceriler burada görünür.</string>
+    <string name="plus_clipboard_empty">Panodan yapıştırılacak metin yok</string>
+    <string name="plus_skill_directive">“%1$s” becerisini kullan: </string>
+    <string name="plus_reuse">Kayıtlılar</string>
+    <string name="plus_reuse_hint">İfadeler · listeler · akışlar</string>
+    <string name="plus_reuse_phrases">Kayıtlı ifadeler</string>
+    <string name="drawer_calls">AI aramaları</string>
+    <!-- 空对话滚动条里的灵感示例;点了填进输入框 -->
+    <string name="chat_idea_maps">En yakın kafeye yol tarifi ver</string>
+    <string name="chat_idea_camera">Kamerayı aç ve bir fotoğraf çek</string>
+    <string name="chat_idea_sms">Anneme mesaj at: eve vardım</string>
+    <string name="chat_idea_news">Bugünün teknoloji haberlerini ara</string>
+    <string name="chat_idea_dark">Karanlık modu aç</string>
+    <string name="chat_idea_music">Rahatlatıcı bir müzik çal</string>
+    <string name="chat_idea_email">Son e-postalarım ne diyor?</string>
+    <string name="chat_idea_screenshot">En son ekran görüntümü bul</string>
+    <string name="chat_idea_meeting">Yarın saat 15.00\'e bir toplantı ekle</string>
+    <!-- 空对话推广卡上的一句话说明;完整提示词点了才填进输入框 -->
+    <string name="chat_example_github_star_blurb">Açık kaynak Mika projesini destekle</string>
+    <string name="chat_example_follow_blurb">Geliştiriciyi takip et, sohbete katıl</string>
+    <string name="chat_example_group_summary_blurb">Bugünün okunmamışlarını tek satırda özetle</string>
+    <string name="chat_example_share_title">Mika\'yı bir arkadaşınla paylaş</string>
+    <string name="chat_example_share_blurb">İşine yarayacak birine öner</string>
+    <string name="chat_example_share">Mika proje bağlantısını https://github.com/wangzan101/mika bir arkadaşınla paylaş ve telefonu onun yerine kullanabildiğini söyle.</string>
     <string name="chat_video">Video</string>
     <string name="chat_video_play">Play</string>
 </resources>

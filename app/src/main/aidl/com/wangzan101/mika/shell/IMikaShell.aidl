@@ -147,6 +147,12 @@ interface IMikaShell {
     // 把工作区里的一个文件分享给一个包:ACTION_SEND + EXTRA_STREAM,content URI 已授权可读;只打开分享页,不发出。
     int startShareFile(int displayId, String packageName, String uri, String mime, String text) = 62;
 
+    // 原地改变 Mika 虚拟屏尺寸并替换接收画面的 Surface，保留屏上的任务。
+    boolean resizeDisplay(int displayId, in Surface surface, int width, int height, int dpi) = 62;
+
+    // 找同一份 App 的任务,优先指定屏、再主屏、再其他屏。返回 [taskId, displayId],无任务为空,读取失败为 null。
+    @nullable int[] findTaskForPackage(String packageName, int userId, int displayId) = 63;
+
     // 沿用早先定下的销毁事务号;AIDL 要求要么全部方法编号要么都不编号
     void destroy() = 16777114;
 }

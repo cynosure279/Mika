@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.collectAsState
@@ -71,7 +72,7 @@ object SkinImage {
         target.parentFile?.mkdirs()
         val tmp = File(target.parentFile, "$FILE.tmp")
         val written = try {
-            tmp.outputStream().use { bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSY, 85, it) }
+            tmp.outputStream().use { bitmap.compress(lossyWebp(), 85, it) }
         } catch (e: IOException) {
             false
         } finally {
@@ -197,3 +198,8 @@ fun rememberSkinBackdrop(): SkinBackdrop? {
     backdrop.scrim = bg.copy(alpha = spec.scrim / 100f)
     return backdrop
 }
+
+// WEBP_LOSSY 从 Android 11 起才有;更早的系统里旧的 WEBP 在质量低于 100 时就是有损压缩
+private fun lossyWebp(): Bitmap.CompressFormat =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) Bitmap.CompressFormat.WEBP_LOSSY
+    else @Suppress("DEPRECATION") Bitmap.CompressFormat.WEBP

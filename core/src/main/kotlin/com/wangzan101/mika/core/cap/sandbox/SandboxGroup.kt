@@ -2,9 +2,9 @@ package com.wangzan101.mika.core.cap.sandbox
 
 import com.wangzan101.mika.core.model.ModelError
 import com.wangzan101.mika.core.tool.Entry
-import com.wangzan101.mika.core.observation.ObsKind
-import com.wangzan101.mika.core.observation.Observation
-import com.wangzan101.mika.core.observation.Place
+import com.wangzan101.mika.core.screen.observation.ObsKind
+import com.wangzan101.mika.core.screen.observation.Observation
+import com.wangzan101.mika.core.screen.observation.Place
 import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.tool.AgentTool
 import com.wangzan101.mika.core.tool.Args
@@ -231,7 +231,7 @@ internal object ListFolderFiles : SandboxTool {
     override val def = ToolDef("list_folder_files", Prompts.tool("list_folder_files"), mapOf(
         "path" to str("Directory path from a previous listing; omit to list user-granted folders."),
     ), emptyList())
-    override fun offered(ctx: ToolContext) = ctx.sandboxAvailable() && ctx.sandboxRunner?.foldersAvailable == true
+    override fun available(ctx: ToolContext) = ctx.sandboxRunner?.foldersAvailable == true
     override suspend fun execute(a: Args, ctx: ToolContext) = ctx.sandboxRunner!!.run { _, _ ->
         withContext(Dispatchers.IO) { listFolders(a) }
     }

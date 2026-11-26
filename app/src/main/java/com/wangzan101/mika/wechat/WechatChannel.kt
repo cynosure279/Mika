@@ -8,11 +8,11 @@ import com.wangzan101.mika.core.run.ChannelInputSink
 import com.wangzan101.mika.core.run.ChannelPeer
 import com.wangzan101.mika.core.run.Delivery
 import com.wangzan101.mika.core.run.SendOutcome
-import com.wangzan101.mika.core.wechat.WechatApi
-import com.wangzan101.mika.core.wechat.WechatApiException
-import com.wangzan101.mika.core.wechat.WechatAccount
-import com.wangzan101.mika.core.wechat.WechatUserContent
-import com.wangzan101.mika.core.wechat.WechatUpdates
+import com.wangzan101.mika.core.cap.wechat.WechatApi
+import com.wangzan101.mika.core.cap.wechat.WechatApiException
+import com.wangzan101.mika.core.cap.wechat.WechatAccount
+import com.wangzan101.mika.core.cap.wechat.WechatUserContent
+import com.wangzan101.mika.core.cap.wechat.WechatUpdates
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -61,6 +61,8 @@ class WechatChannel(
         return withContext(Dispatchers.IO) {
             val started = System.nanoTime()
             val outcome = try {
+                // 与图片路径同款复查:排队到真正调 API 之间暂停或换绑,旧投递不能发出。
+                if (!store.accepts(peer, account)) return@withContext SendOutcome.Failed
                 api.sendText(account, peer.peerId, delivery.id, text, store.contextToken(peer.peerId))
                 SendOutcome.Delivered
             } catch (e: CancellationException) {

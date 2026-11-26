@@ -43,6 +43,15 @@
     <string name="plans_notify_each">毎回</string>
     <string name="plans_cooldown_minutes">実行間隔の最小分数（任意）</string>
     <string name="plans_when_idle">Mika がアイドル状態の時だけ実行</string>
+    <string name="plans_execution_window">実行時間帯</string>
+    <string name="plans_window_anytime">いつでも</string>
+    <string name="plans_window_off_peak">オフピーク</string>
+    <string name="plans_window_custom">カスタム</string>
+    <string name="plans_window_off_peak_hint">DeepSeek のオフピーク時間帯: 平日 00:00–01:00、04:00–06:00、10:00–24:00 UTC。週末は終日。スケジュールを設定する際に、祝日の追加割引を考慮する必要はありません。</string>
+    <string name="plans_window_start">開始時刻（HH:mm）</string>
+    <string name="plans_window_end">終了時刻（HH:mm または 24:00）</string>
+    <string name="plans_window_custom_hint">タイムゾーン: %1$s。終了時刻が開始時刻より早い場合、時間帯は日付をまたぎます。</string>
+    <string name="plans_error_window">有効な時間帯を入力してください。開始時刻と終了時刻は異なる必要があります</string>
     <string name="plans_enabled">有効</string>
     <string name="plans_error_content">タスクまたはリマインダーを入力してください</string>
     <string name="plans_error_content_long">タスクは 4,000 文字、リマインダーは 2,000 文字以内で入力してください</string>

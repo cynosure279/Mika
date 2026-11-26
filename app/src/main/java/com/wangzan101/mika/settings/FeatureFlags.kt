@@ -3,7 +3,6 @@ package com.wangzan101.mika.settings
 import android.content.Context
 import android.content.SharedPreferences
 import com.wangzan101.mika.capsule.CapsuleCardScale
-import com.wangzan101.mika.BuildConfig
 import com.wangzan101.mika.capsule.CapsuleDock
 import com.wangzan101.mika.capsule.CardDocking
 import com.wangzan101.mika.capsule.CapsuleIdleOpacity
@@ -11,10 +10,10 @@ import com.wangzan101.mika.capsule.CapsuleMode
 import com.wangzan101.mika.capsule.DockSide
 import com.wangzan101.mika.core.agent.SpeedFlags
 import com.wangzan101.mika.core.cap.phone.OperatingPace
-import com.wangzan101.mika.core.knowledge.GuideCatalog
+import com.wangzan101.mika.core.learn.knowledge.GuideCatalog
 import com.wangzan101.mika.chat.AutoArchive
-import com.wangzan101.mika.core.usage.ProactiveBudget
-import com.wangzan101.mika.core.usage.TokenBudgetLimits
+import com.wangzan101.mika.core.model.usage.ProactiveBudget
+import com.wangzan101.mika.core.model.usage.TokenBudgetLimits
 import com.wangzan101.mika.task.ParallelCapability
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -82,6 +81,46 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         prefs.edit().putInt(TRIGGER_RUN_LIMIT, minutes?.takeIf { it in TRIGGER_RUN_MINUTES } ?: 0).commit()
     }
 
+    /**
+     * 一个任务里沙箱命令累计最多跑多少分钟(装依赖、编译这类活容易超);只认 [SANDBOX_BUDGET_MINUTES] 里的几档,
+     * 没设或存了别的值按默认(与 [SANDBOX_BUDGET_MS] 一致)算,下一个任务起生效。
+     */
+    fun sandboxBudgetMinutes(): Int =
+        prefs.getInt(SANDBOX_BUDGET_LIMIT, 0).takeIf { it in SANDBOX_BUDGET_MINUTES } ?: DEFAULT_SANDBOX_BUDGET_MINUTES
+
+    fun setSandboxBudgetMinutes(minutes: Int) {
+        prefs.edit().putInt(SANDBOX_BUDGET_LIMIT, minutes.takeIf { it in SANDBOX_BUDGET_MINUTES } ?: 0).commit()
+    }
+
+    /**
+     * 单个上传文件(聊天附件、微信图片、电脑发任务带的文件)最大多少 MB;只认 [ATTACHMENT_FILE_LIMIT_MB] 里的几档,
+     * 没设或存了别的值按默认(与 Attachments.MAX_BYTES 一致)算,改完下一次导入生效。
+     */
+    fun attachmentMaxMb(): Int =
+        prefs.getInt(ATTACHMENT_FILE_LIMIT, 0).takeIf { it in ATTACHMENT_FILE_LIMIT_MB } ?: DEFAULT_ATTACHMENT_FILE_LIMIT_MB
+
+    fun attachmentMaxBytes(): Long = attachmentMaxMb().toLong() shl 20
+
+    fun setAttachmentMaxMb(mb: Int) {
+        prefs.edit().putInt(ATTACHMENT_FILE_LIMIT, mb.takeIf { it in ATTACHMENT_FILE_LIMIT_MB } ?: 0).commit()
+    }
+
+    /**
+     * 一个工作区(对话沙箱目录)最多占多少 GB;只认 [WORKSPACE_LIMIT_GB] 里的几档,
+     * 没设或存了别的值按默认(与 Attachments.WORKSPACE_MAX 一致)算。
+     */
+    fun workspaceMaxGb(): Int =
+        prefs.getInt(WORKSPACE_LIMIT, 0).takeIf { it in WORKSPACE_LIMIT_GB } ?: DEFAULT_WORKSPACE_LIMIT_GB
+
+    fun workspaceMaxBytes(): Long = workspaceMaxGb().toLong() shl 30
+
+    /** 聊天附件与设备文件导入共用的体积档位,每次取用都是当前设置。 */
+    fun attachmentLimits() = com.wangzan101.mika.cap.sandbox.AttachmentLimits(attachmentMaxBytes(), workspaceMaxBytes())
+
+    fun setWorkspaceMaxGb(gb: Int) {
+        prefs.edit().putInt(WORKSPACE_LIMIT, gb.takeIf { it in WORKSPACE_LIMIT_GB } ?: 0).commit()
+    }
+
     /** 每个任务允许已报告的输入加输出 Token 总量;null 表示不限制,下次任务起生效。 */
     fun taskTokenBudget(): Long? = prefs.getLong(TASK_TOKEN_BUDGET, 0L).takeIf(TokenBudgetLimits::valid)
 
@@ -104,6 +143,11 @@ class FeatureFlags(private val prefs: SharedPreferences) {
     fun setKeepScreenOn(on: Boolean) {
         prefs.edit().putBoolean(KEEP_SCREEN_ON, on).commit()
     }
+
+    /** Hide this activity in Recents; changing it is synchronized with the system by RecentsExclusion. */
+    fun excludeFromRecents(): Boolean = prefs.getBoolean(EXCLUDE_FROM_RECENTS, false)
+
+    fun setExcludeFromRecents(on: Boolean): Boolean = prefs.edit().putBoolean(EXCLUDE_FROM_RECENTS, on).commit()
 
     fun showTaskCost(): Boolean = prefs.getBoolean(SHOW_TASK_COST, false)
 
@@ -302,8 +346,8 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }.distinctUntilChanged()
 
-    /** 人格:调试版默认可见,发布版默认关;合并前再决定默认值。 */
-    fun persona(): Boolean = prefs.getBoolean(PERSONA, BuildConfig.DEBUG)
+    /** 人格:默认开。开关留着,出问题时能整体关掉(关掉后界面不显示入口,任务也不读对话上的绑定)。 */
+    fun persona(): Boolean = prefs.getBoolean(PERSONA, true)
 
     fun setPersona(on: Boolean) {
         prefs.edit().putBoolean(PERSONA, on).commit()
@@ -386,7 +430,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
     }.distinctUntilChanged()
 
     /**
-     * 用户点了「完全退出」,要到下次打开 Mika 的界面为止([com.wangzan101.mika.quit.MikaQuit])。
+     * 用户点了「完全退出」,要到下次打开 Mika 的界面为止([com.wangzan101.mika.MikaQuit])。
      * 在这期间进程可能被无障碍服务重新拉起:胶囊不画、后台服务不补起、自动恢复也不做,直到用户自己打开 App。
      */
     fun quitRequested(): Boolean = prefs.getBoolean(QUIT_REQUESTED, false)
@@ -432,6 +476,18 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         const val MAX_TASK_STEP_LIMIT = 500
         /** 定时任务最长运行时间可选的几档(分钟)。 */
         val TRIGGER_RUN_MINUTES = listOf(15, 30, 60, 120)
+        /** 每任务沙箱命令累计时长可选的几档(分钟)。 */
+        val SANDBOX_BUDGET_MINUTES = listOf(30, 60, 120, 240)
+        /** 每任务沙箱命令累计时长没设(或存了档位外的值)时按这个算,与 core 的 [SANDBOX_BUDGET_MS] 一致。 */
+        val DEFAULT_SANDBOX_BUDGET_MINUTES = (com.wangzan101.mika.core.cap.sandbox.SANDBOX_BUDGET_MS / 60_000L).toInt()
+        /** 单个上传文件体积可选的几档(MB)。 */
+        val ATTACHMENT_FILE_LIMIT_MB = listOf(200, 512, 1024, 2048)
+        /** 单文件上限没设(或存了档位外的值)时按这个算,与 Attachments.MAX_BYTES 一致。 */
+        val DEFAULT_ATTACHMENT_FILE_LIMIT_MB = (com.wangzan101.mika.cap.sandbox.Attachments.MAX_BYTES shr 20).toInt()
+        /** 单个工作区空间可选的几档(GB)。 */
+        val WORKSPACE_LIMIT_GB = listOf(4, 8, 16, 32)
+        /** 工作区上限没设(或存了档位外的值)时按这个算,与 Attachments.WORKSPACE_MAX 一致。 */
+        val DEFAULT_WORKSPACE_LIMIT_GB = (com.wangzan101.mika.cap.sandbox.Attachments.WORKSPACE_MAX shr 30).toInt()
         private const val SPEED_FLAGS = "speed_flags"
         /**
          * 提速开关默认值的升级,按先后各做一次(键记下做过没有):v2 打开分级读屏、连续操作、按需看图;
@@ -447,9 +503,13 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val PARALLEL_MAX = "parallel_max"
         private const val TASK_STEP_LIMIT = "task_step_limit"
         private const val TRIGGER_RUN_LIMIT = "trigger_run_limit_minutes"
+        private const val SANDBOX_BUDGET_LIMIT = "sandbox_budget_limit_minutes"
+        private const val ATTACHMENT_FILE_LIMIT = "attachment_file_limit_mb"
+        private const val WORKSPACE_LIMIT = "workspace_limit_gb"
         private const val TASK_TOKEN_BUDGET = "task_token_budget"
         private const val PROACTIVE_DAILY_TOKEN_BUDGET = "proactive_daily_token_budget"
         private const val KEEP_SCREEN_ON = "keep_screen_on"
+        private const val EXCLUDE_FROM_RECENTS = "exclude_from_recents"
         private const val SHOW_TASK_COST = "show_task_cost"
         private const val MUTE_TARGET = "mute_target"
         private const val OPERATING_PACE = "operating_pace"

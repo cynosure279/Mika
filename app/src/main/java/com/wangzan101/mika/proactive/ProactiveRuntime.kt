@@ -32,18 +32,19 @@ import com.wangzan101.mika.core.proactive.NoticeSource
 import com.wangzan101.mika.core.proactive.NoticeTalk
 import com.wangzan101.mika.core.proactive.TriageConsent
 import com.wangzan101.mika.core.proactive.TriageTarget
-import com.wangzan101.mika.core.shell.ShellCommandRunner
+import com.wangzan101.mika.core.device.shell.ShellCommandRunner
 import com.wangzan101.mika.i18n.AppLanguage
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.settings.FeatureFlags
 import com.wangzan101.mika.settings.KeystoreKeyCipher
-import com.wangzan101.mika.ui.classifierLanguage
+import com.wangzan101.mika.settings.ui.classifierLanguage
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,6 +63,7 @@ import kotlinx.coroutines.sync.withLock
  * 服务商和模型与确认过的不一样时,什么都不发。
  *
  * 熄屏或锁屏时不读:看到锁着就记下时间并请系统解绑监听;解锁后请系统重绑,连上时把锁屏之后发出、还在通知栏里的补上。
+ * 请了重绑却没连上(系统自己没绑上监听,那个请求对它无效)时,让系统重新登记一次,见 [ListenerReconnect]。
  * 锁屏状态由 [ProactiveLockWatch] 看:广播只当「该重新看一眼」,状态每次从系统读;熄屏时不定时做任何事,不让手机为这个功能醒。
  * 所有处理都在一条串行的协程上做,系统回调只是把事情丢过去。
  */
@@ -148,7 +150,7 @@ class ProactiveRuntime(
         digest = { _learnDigest.value },
         journalStore = NoticeJournalFile(app.filesDir, KeystoreKeyCipher(NoticeJournalFile.KEY_ALIAS)),
         digestStore = DigestFile(app.filesDir, KeystoreKeyCipher(DigestFile.KEY_ALIAS)),
-        appLabel = { com.wangzan101.mika.confirm.ConfirmationNotifier.appLabel(app, it) },
+        appLabel = { com.wangzan101.mika.task.ConfirmationNotifier.appLabel(app, it) },
         contactStore = ContactPoolFile(app.filesDir, KeystoreKeyCipher(ContactPoolFile.KEY_ALIAS)),
         purges = prefs,
         log = { Log.i(TAG, it) },
@@ -176,6 +178,8 @@ class ProactiveRuntime(
     /** 在跑(功能开着,且不在「完全退出」期间)时才有的看守:锁屏广播与状态收集。 */
     private var watching: Job? = null
     private var receiver: BroadcastReceiver? = null
+    /** 请过重绑之后等着看连上没有的那一下(见 [reconnectLater])。 */
+    private var reconnecting: Job? = null
 
     /** 总开关:入口在设置首页,每个版本都看得到、关得掉。 */
     private fun wanted(): Boolean = flags.proactive()
@@ -327,7 +331,7 @@ class ProactiveRuntime(
         if (!tasksMayReadNotices(_enabled.value && FeatureFlags.get(app).proactive(), _learnDigest.value, _learnLevel.value)) return null
         return object : NoticeSource {
             override val zone: java.time.ZoneId get() = java.time.ZoneId.systemDefault()
-            override fun appLabel(packageName: String) = com.wangzan101.mika.confirm.ConfirmationNotifier.appLabel(app, packageName)
+            override fun appLabel(packageName: String) = com.wangzan101.mika.task.ConfirmationNotifier.appLabel(app, packageName)
             // 等太久、存着的那份读不出、任务跑着的时候被关掉:null,工具报读不出来(不是「什么都没收到」)
             override suspend fun read(fromMs: Long, toMs: Long): NoticeView? =
                 kotlinx.coroutines.withTimeoutOrNull(NOTICES_WAIT_MS) {
@@ -494,6 +498,8 @@ class ProactiveRuntime(
     }
 
     private fun end() {
+        reconnecting?.cancel()
+        reconnecting = null
         watching?.cancel()
         watching = null
         lock.stop()
@@ -510,9 +516,31 @@ class ProactiveRuntime(
         for (a in actions) when (a) {
             is ProactiveLockPolicy.Action.PersistLockedAt -> prefs.lastLockedAtMs = a.atMs
             ProactiveLockPolicy.Action.Unbind -> unbind()
-            ProactiveLockPolicy.Action.Rebind -> runCatching { NotificationListenerService.requestRebind(component) }
-                .onFailure { Log.i(TAG, "rebind refused: ${it.javaClass.simpleName}") }
+            ProactiveLockPolicy.Action.Rebind -> {
+                runCatching { NotificationListenerService.requestRebind(component) }
+                    .onFailure { Log.i(TAG, "rebind refused: ${it.javaClass.simpleName}") }
+                reconnectLater()
+            }
             ProactiveLockPolicy.Action.CatchUp -> catchUp()
+        }
+    }
+
+    /**
+     * 请过重绑之后过一会儿再看:还是没连上,多半是系统自己没绑上(见 [ListenerReconnect]),那个请求对它无效,
+     * 换成先按组件名解绑、再重绑。每次请重绑只补这一次;再不行等下一次解锁或打开 Mika。
+     */
+    private fun reconnectLater() {
+        reconnecting?.cancel()
+        reconnecting = scope.launch {
+            delay(ListenerReconnect.WAIT_MS)
+            val step = ListenerReconnect.next(watching != null, readLocked(), connected.value, authorized(), Build.VERSION.SDK_INT)
+            // 第二个条件和 [ListenerReconnect.next] 里的是同一个,这里再写一遍只为让编译期的版本检查看得见
+            if (step != ListenerReconnect.Step.Reregister || Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return@launch
+            runCatching {
+                NotificationListenerService.requestUnbind(component)
+                NotificationListenerService.requestRebind(component)
+            }.onSuccess { Log.i(TAG, "listener not bound after rebind, asked the system to register it again") }
+                .onFailure { Log.i(TAG, "re-register refused: ${it.javaClass.simpleName}") }
         }
     }
 
@@ -637,7 +665,7 @@ class ProactiveRuntime(
 
     /** App 名按包名从系统读(不用通知里的字);时间是当天的只写几点几分。 */
     private fun talkItem(h: com.wangzan101.mika.core.proactive.NoticeHint, now: Long) = NoticeTalk.Item(
-        app = com.wangzan101.mika.confirm.ConfirmationNotifier.appLabel(app, h.packageName),
+        app = com.wangzan101.mika.task.ConfirmationNotifier.appLabel(app, h.packageName),
         time = DateUtils.formatSameDayTime(h.postedAtMs, now, java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).toString(),
         title = h.title, text = h.text, reason = h.reason,
     )

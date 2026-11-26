@@ -1,12 +1,16 @@
 package com.wangzan101.mika.task
 
 import android.content.Context
+import com.wangzan101.mika.core.model.decision.DecisionModel
 import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.model.ModelSession
-import com.wangzan101.mika.settings.ProviderStore
 import com.wangzan101.mika.settings.DecisionSettings
-import com.wangzan101.mika.core.decision.DecisionModel
+import com.wangzan101.mika.settings.ModelChoice
+import com.wangzan101.mika.settings.ProviderStore
+import com.wangzan101.mika.settings.lightFallbackChain
+import com.wangzan101.mika.settings.modelFor
+import com.wangzan101.mika.settings.visionFallbackChain
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -44,6 +48,31 @@ class TaskEnvironment {
     fun decisionModel(context: Context): DecisionModel? =
         if (modelFactory !== defaultModelFactory && decisionModelFactory === defaultDecisionModelFactory) null
         else decisionModelFactory(context)
+
+    /**
+     * 任务开始唯一的模型快照。默认来源按对话覆盖解析；替换主模型的测试/评测完全不触真实 ProviderStore，
+     * 只使用显式注入的其余工厂，避免默认工厂偷偷回调设置里的服务商。
+     */
+    fun modelSnapshot(context: Context, session: ModelSession, mainOverride: ModelChoice? = null): TaskModelSnapshot {
+        if (modelFactory !== defaultModelFactory) {
+            return TaskModelSnapshot(
+                main = modelFactory(context, session),
+                light = if (lightModelFactory !== defaultLightModelFactory) lightModelFactory(context, session) else null,
+                vision = if (visionModelFactory !== defaultVisionModelFactory) visionModelFactory(context, session) else null,
+                lightFallbacks = if (lightFallbackFactory !== defaultLightFallbackFactory) lightFallbackFactory(context, session).toList() else emptyList(),
+                visionFallbacks = if (visionFallbackFactory !== defaultVisionFallbackFactory) visionFallbackFactory(context, session).toList() else emptyList(),
+                routeLightSeparately = true,
+                conversationChoice = mainOverride,
+            )
+        }
+        val captured = TaskModelSnapshot.capture(ProviderStore.get(context), session, mainOverride)
+        return captured.copy(
+            light = if (lightModelFactory !== defaultLightModelFactory) lightModelFactory(context, session) else captured.light,
+            vision = if (visionModelFactory !== defaultVisionModelFactory) visionModelFactory(context, session) else captured.vision,
+            lightFallbacks = if (lightFallbackFactory !== defaultLightFallbackFactory) lightFallbackFactory(context, session).toList() else captured.lightFallbacks,
+            visionFallbacks = if (visionFallbackFactory !== defaultVisionFallbackFactory) visionFallbackFactory(context, session).toList() else captured.visionFallbacks,
+        )
+    }
 
     /** 评测跑器用的钩子;产品里全是默认值。 */
     val evalHooks = EvalHooks()

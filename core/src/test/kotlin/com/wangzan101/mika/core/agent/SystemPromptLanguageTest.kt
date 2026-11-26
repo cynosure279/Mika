@@ -31,9 +31,33 @@ class SystemPromptLanguageTest {
     @Test
     fun testLanguageDirectiveSystemOrEmpty() {
         val dirNull = SystemPrompt.languageDirective(null)
+        val dirBlank = SystemPrompt.languageDirective("  ")
         val dirSystem = SystemPrompt.languageDirective("system")
         assertTrue(dirNull.contains("Always mirror the language of the user's prompt"))
+        assertTrue(dirBlank.contains("Always mirror the language of the user's prompt"))
         assertTrue(dirSystem.contains("Always mirror the language of the user's prompt"))
+    }
+
+    @Test
+    fun allLocalesUseTheirDirectiveAndUnsupportedOnesMirrorThePrompt() {
+        val expected = mapOf(
+            "en" to "final replies in English",
+            "zh-Hans" to "所有思考过程",
+            "zh-Hant" to "所有思考过程",
+            "ja" to "日本語",
+            "ko" to "한국어",
+            "es" to "español",
+            "pt" to "português",
+            "ru" to "русском",
+            "ar" to "العربية",
+            "fa" to "فارسی",
+            "id" to "bahasa Indonesia",
+            "tr" to "Türkçe",
+        )
+        for ((tag, text) in expected) assertTrue(tag, SystemPrompt.languageDirective(tag).contains(text))
+        for (tag in listOf("vi", "und", "not-a-language")) {
+            assertTrue(tag, SystemPrompt.languageDirective(tag).contains("Always mirror the language of the user's prompt"))
+        }
     }
 
     @Test

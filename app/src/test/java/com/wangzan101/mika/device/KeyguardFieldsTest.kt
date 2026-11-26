@@ -15,6 +15,20 @@ class KeyguardFieldsTest {
             "com.android.keyguard.PasswordTextView", true, false, false))
     }
 
+    @Test fun stockAndroid17PinEntryTextViewUsesTheDigitPad() {
+        val id = "com.android.systemui:id/pinEntry"
+        assertTrue(KeyguardFields.matches(CredentialKind.Pin, id,
+            "android.widget.TextView", true, false, false, untyped = true, digitPad = true))
+        assertFalse(KeyguardFields.matches(CredentialKind.Password, id,
+            "android.widget.TextView", true, false, false, untyped = true, digitPad = true))
+        assertFalse(KeyguardFields.matches(CredentialKind.Pin, id,
+            "android.widget.TextView", true, false, false, untyped = false, digitPad = true))
+        assertFalse(KeyguardFields.matches(CredentialKind.Pin, id,
+            "android.widget.TextView", true, false, false, untyped = true, digitPad = false))
+        assertFalse(KeyguardFields.matches(CredentialKind.Pin, "com.android.systemui:id/unknown",
+            "android.widget.TextView", true, false, false, untyped = true, digitPad = true))
+    }
+
     @Test fun editablePasswordAndPinHaveDistinctTypes() {
         assertTrue(KeyguardFields.matches(CredentialKind.Password, "com.android.systemui:id/passwordEntry", "android.widget.EditText", true, true, false))
         assertTrue(KeyguardFields.matches(CredentialKind.Pin, "com.android.systemui:id/pinEntry", "android.widget.EditText", true, true, true))

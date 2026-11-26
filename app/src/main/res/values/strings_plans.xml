@@ -43,6 +43,15 @@
     <string name="plans_notify_each">Every time</string>
     <string name="plans_cooldown_minutes">Minimum minutes between runs (optional)</string>
     <string name="plans_when_idle">Run only while Mika is idle</string>
+    <string name="plans_execution_window">Execution window</string>
+    <string name="plans_window_anytime">Any time</string>
+    <string name="plans_window_off_peak">Off-peak</string>
+    <string name="plans_window_custom">Custom</string>
+    <string name="plans_window_off_peak_hint">DeepSeek off-peak: weekdays 00:00–01:00, 04:00–06:00 and 10:00–24:00 UTC; weekends all day. Extra holiday discounts are not required for scheduling.</string>
+    <string name="plans_window_start">Window start (HH:mm)</string>
+    <string name="plans_window_end">Window end (HH:mm or 24:00)</string>
+    <string name="plans_window_custom_hint">Time zone: %1$s. An earlier end time means the window crosses midnight.</string>
+    <string name="plans_error_window">Enter a valid window; start and end must differ</string>
     <string name="plans_enabled">Enabled</string>
     <string name="plans_error_content">Enter a task or reminder</string>
     <string name="plans_error_content_long">Use at most 4,000 characters, or 2,000 for a reminder</string>

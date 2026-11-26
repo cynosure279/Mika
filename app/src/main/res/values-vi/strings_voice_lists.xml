@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="voice_list_title">Danh sách mô hình</string>
+    <string name="voice_list_idle">Lấy mọi mô hình tài khoản này có thể dùng từ nhà cung cấp</string>
+    <string name="voice_list_running">Đang lấy…</string>
+    <string name="voice_list_done">%1$d mô hình từ nhà cung cấp</string>
+    <string name="voice_list_done_voices">%1$d mô hình và %2$d giọng nói từ nhà cung cấp</string>
+    <string name="voice_list_failed">Không thể lấy: %1$s</string>
+    <string name="voice_list_failed_note">Các mô hình tích hợp bên dưới vẫn hoạt động, và bạn có thể thêm mô hình bằng ID của nó.</string>
+    <string name="voice_list_none">Nhà cung cấp này không có danh sách mô hình công khai. Các mô hình tích hợp ở bên dưới; thêm mô hình khác bằng ID của nó.</string>
+    <string name="voice_other_models">Mô hình khác · %1$d</string>
+    <string name="voice_other_models_sub">Nhà cung cấp không nói rõ những mô hình này làm gì. Hãy thử một mô hình trước khi tin dùng.</string>
+    <string name="voice_add_model_id">Thêm mô hình bằng ID</string>
+    <string name="voice_model_id">ID mô hình</string>
+    <string name="voice_add">Thêm</string>
+    <string name="voice_enter_voice_id">Nhập ID giọng nói</string>
+    <string name="voice_voice_id">ID giọng nói</string>
+    <string name="voice_list_refresh">Làm mới</string>
+</resources>

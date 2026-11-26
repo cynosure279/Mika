@@ -43,6 +43,15 @@
     <string name="plans_notify_each">في كل مرة</string>
     <string name="plans_cooldown_minutes">الحد الأدنى للدقائق بين عمليتي تشغيل (اختياري)</string>
     <string name="plans_when_idle">التشغيل فقط عندما تكون Mika غير مشغولة</string>
+    <string name="plans_execution_window">فترة التنفيذ</string>
+    <string name="plans_window_anytime">في أي وقت</string>
+    <string name="plans_window_off_peak">خارج أوقات الذروة</string>
+    <string name="plans_window_custom">مخصص</string>
+    <string name="plans_window_off_peak_hint">فترات DeepSeek خارج أوقات الذروة: أيام الأسبوع 00:00–01:00 و04:00–06:00 و10:00–24:00 UTC؛ وطوال اليوم في عطلات نهاية الأسبوع. لا يلزم الاعتماد على خصومات العطلات الإضافية عند الجدولة.</string>
+    <string name="plans_window_start">بداية الفترة (HH:mm)</string>
+    <string name="plans_window_end">نهاية الفترة (HH:mm أو 24:00)</string>
+    <string name="plans_window_custom_hint">المنطقة الزمنية: %1$s. إذا كانت نهاية الفترة أسبق من بدايتها، فهذا يعني أنها تمتد إلى ما بعد منتصف الليل.</string>
+    <string name="plans_error_window">أدخل فترة صالحة؛ يجب أن يختلف وقت البداية عن وقت النهاية</string>
     <string name="plans_enabled">مفعّلة</string>
     <string name="plans_error_content">أدخل مهمة أو تذكيرًا</string>
     <string name="plans_error_content_long">استخدم 4,000 حرف كحد أقصى، أو 2,000 للتذكير</string>

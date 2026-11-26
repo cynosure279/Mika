@@ -13,23 +13,26 @@ import com.wangzan101.mika.core.model.ModelProtocol
 import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.model.ModelSession
+import com.wangzan101.mika.core.model.OpenAiServiceTier
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.Role
 import com.wangzan101.mika.core.model.StopReason
 import com.wangzan101.mika.core.model.ToolSpec
+import com.wangzan101.mika.core.model.TtsCapabilities
 import com.wangzan101.mika.core.model.Usage
 import com.wangzan101.mika.core.search.GoogleGroundingSearch
 import com.wangzan101.mika.core.search.WebSearchResult
-import com.wangzan101.mika.core.usage.ProactiveBudget
-import com.wangzan101.mika.core.usage.UsageKey
-import com.wangzan101.mika.core.usage.UsageLedger
-import com.wangzan101.mika.core.usage.UsagePurpose
-import com.wangzan101.mika.core.usage.UsageSource
+import com.wangzan101.mika.core.model.usage.ProactiveBudget
+import com.wangzan101.mika.core.model.usage.UsageKey
+import com.wangzan101.mika.core.model.usage.UsageLedger
+import com.wangzan101.mika.core.model.usage.UsagePurpose
+import com.wangzan101.mika.core.model.usage.UsageSource
 import kotlinx.coroutines.test.runTest
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -65,6 +68,45 @@ class ProviderStoreTest {
     )
 
     private val none = Capabilities(toolCalls = false, vision = false, contextTokens = 64_000, reasoning = false)
+
+    @Test fun openAiServiceTiersSurviveReloadAndApplyPerProviderAndModel() {
+        val s = store()
+        val base = "https://api.openai.com/v1"
+        val api = s.connect("OpenAI", ProviderConfig.Kind.OpenAiResponses, base, "api-key",
+            listOf(ListedModel("gpt-x"), ListedModel("gpt-y")))
+        val plan = s.connect("ChatGPT", ProviderConfig.Kind.ChatGpt, base, null, listOf(ListedModel("gpt-x")))
+        assertTrue(s.use(ModelRole.Main, api.id, "gpt-x", none))
+        assertTrue(s.use(ModelRole.Light, plan.id, "gpt-x", none))
+        assertTrue(s.use(ModelRole.Vision, api.id, "gpt-y", none))
+        assertTrue(s.setModelServiceTier(api.id, "gpt-x", OpenAiServiceTier.Fast))
+        assertTrue(s.setModelServiceTier(plan.id, "gpt-x", OpenAiServiceTier.Ultrafast))
+
+        val reloaded = store()
+        reloaded.modelFor(ModelRole.Main)
+        reloaded.modelForRoleConfig(ModelRole.Light, reloaded.configFor(ModelRole.Light)!!.id)
+        reloaded.modelFor(ModelRole.Vision)
+        assertEquals(listOf(OpenAiServiceTier.Fast, OpenAiServiceTier.Ultrafast, null), setups.map { it.serviceTier })
+
+        assertTrue(reloaded.setModelServiceTier(api.id, "gpt-x", null))
+        store().modelFor(ModelRole.Main)
+        assertNull(setups.last().serviceTier)
+    }
+
+    @Test fun openAiServiceTierDoesNotApplyToThirdPartyEndpoints() {
+        val s = store()
+        val base = "https://api.openai.com/v1"
+        val thirdPartyEndpoint = ModelEndpoint(ModelProtocol.Responses, "https://other.test/v1")
+        val custom = s.connect("Custom", ProviderConfig.Kind.OpenAiResponses, thirdPartyEndpoint.baseUrl, null, emptyList())
+        assertFalse(s.setModelServiceTier(custom.id, "gpt-x", OpenAiServiceTier.Fast))
+
+        val direct = s.connect("OpenAI", ProviderConfig.Kind.OpenAiResponses, base, "api-key", emptyList())
+        assertTrue(s.use(ModelRole.Main, direct.id, "gpt-x", none))
+        assertTrue(s.setModelServiceTier(direct.id, "gpt-x", OpenAiServiceTier.Fast))
+        s.rememberModels(direct.id, listOf(ListedModel("gpt-x", endpoint = thirdPartyEndpoint)))
+        assertFalse(s.provider(direct.id)!!.supportsServiceTier("gpt-x"))
+        s.modelFor(ModelRole.Main)
+        assertNull(setups.last().serviceTier)
+    }
 
     /** 存一条配置并让它当主模型(没人用的配置会被清掉)。 */
     private fun ProviderStore.saveAsMain(c: ProviderConfig, apiKey: String?) {
@@ -130,12 +172,15 @@ class ProviderStoreTest {
                 val m = s.modelForConfig(c.id)!!
                 val reply = m.complete("s", listOf(Message(Role.User, listOf(Part.Text("hi")), Author.Mika)), emptyList())
                 assertEquals("hi", reply.parts.filterIsInstance<Part.Text>().joinToString("") { it.text })
-                assertEquals("Bearer sk-bad", server.takeRequest().getHeader("Authorization"))
-                assertEquals("Bearer sk-good", server.takeRequest().getHeader("Authorization"))
-                // 坏 key 已标耗尽:池里只剩好 key 可用,轮询不会再选回坏 key
+                // 轮询位置跨注册保留(#757):先后两棒各用一把,不假设哪把先跑
+                val first = server.takeRequest().getHeader("Authorization")
+                val second = server.takeRequest().getHeader("Authorization")
+                assertNotEquals(first, second)
+                assertEquals(setOf("Bearer sk-bad", "Bearer sk-good"), setOf(first, second))
+                // 401 的那把已标耗尽:池里只剩接手的那把可用,轮询不会再选回去
                 assertEquals(2, KeyPoolManager.shared.keyCount(pid))
                 assertEquals(1, KeyPoolManager.shared.activeKeyCount(pid))
-                assertEquals("sk-good", KeyPoolManager.shared.getActiveKey(pid))
+                assertEquals(second?.removePrefix("Bearer "), KeyPoolManager.shared.getActiveKey(pid))
             } finally {
                 KeyPoolManager.shared.reset(pid)
             }
@@ -250,6 +295,58 @@ class ProviderStoreTest {
 
     private fun connected(s: ProviderStore, name: String = "P", key: String = "k") =
         s.connect(name, ProviderConfig.Kind.OpenAiCompat, "https://${name.lowercase()}.test/v1", key, listOf(ListedModel("m1"), ListedModel("m2")))
+
+    @Test fun overlappingLegacyRolesSurviveRestartAndRefreshUntilTheUserChooses() {
+        val s = store()
+        val provider = connected(s)
+        assertTrue(s.use(ModelRole.Main, provider.id, "m1", none))
+        assertTrue(s.use(ModelRole.Vision, provider.id, "m2", none))
+        val existing = File(tmp.root, "providers.json")
+        val stored = existing.readText()
+        val entryStart = "\"id\":\"${provider.id}\",\"name\""
+        assertTrue(entryStart in stored)
+        existing.writeText(stored.replace(entryStart, "\"ttsModels\":[\"m1\"],$entryStart"))
+
+        val reopened = store()
+        // 旧 ttsModels 字段仍作为遗留数据可读;不再按它过滤运行时的用途
+        assertEquals(setOf("m1"), reopened.provider(provider.id)?.ttsModels)
+        reopened.rememberModels(provider.id, listOf(ListedModel("m1"), ListedModel("m2")))
+        assertEquals("m1", reopened.configFor(ModelRole.Main)?.model)
+        assertEquals("m2", reopened.configFor(ModelRole.Vision)?.model)
+        assertEquals(reopened.roles.value, store().roles.value)
+    }
+
+    @Test fun ttsAdapterBuildsForAnyNonBlankModel() {
+        val s = store()
+        val p = connected(s)
+        val choice = VoiceChoice(p.id, " manual-tts ", TtsProtocol.OpenAiSpeech)
+        val capabilities = TtsCapabilities()
+        // 不再要求模型标为 TTS;模型名去空格后直接建
+        assertEquals("manual-tts", s.ttsModel(choice, capabilities)?.name)
+        assertEquals("m1", s.ttsModel(choice.copy(model = "m1"), capabilities)?.name)
+    }
+
+    /** 地址读回来不合法(手改过的文件):不建朗读模型、不抛,试听和朗读按没选处理。 */
+    @Test fun ttsAdapterIsNullForAnInvalidBaseUrl() {
+        val s = store()
+        val p = connected(s)
+        val file = File(tmp.root, "providers.json")
+        file.writeText(file.readText().replace("https://p.test/v1", "not a url"))
+        val reopened = store()
+        assertEquals("not a url", reopened.provider(p.id)?.baseUrl)
+        assertNull(reopened.ttsModel(VoiceChoice(p.id, "tts-1", TtsProtocol.OpenAiSpeech), TtsCapabilities()))
+        assertNull(reopened.ttsModel(VoiceChoice(p.id, "tts-1", TtsProtocol.GeminiTts), TtsCapabilities()))
+    }
+
+    /** 文件里已有的空手填名读入时丢掉。 */
+    @Test fun blankTypedModelsAreDroppedOnRead() {
+        val s = store()
+        val p = connected(s)
+        s.markTyped(p.id, "manual-tts")
+        val file = File(tmp.root, "providers.json")
+        file.writeText(file.readText().replace("\"typedModels\":[\"manual-tts\"]", "\"typedModels\":[\"\",\" \",\"manual-tts\"]"))
+        assertEquals(setOf("manual-tts"), store().provider(p.id)?.typedModels)
+    }
 
     @Test fun keyChangeInvalidatesAllowanceForOnlyThatProvider() {
         val store = store()
@@ -441,7 +538,7 @@ class ProviderStoreTest {
         // 不再有「主模型能看图就兼任看图」的隐含规则
         assertNull(s.configFor(ModelRole.Vision))
         val m = s.modelFor(ModelRole.Main)
-        assertEquals("套上计量后能力照旧", cfg("a", vision = true).capabilities, m?.capabilities)
+        assertEquals("套上计量后能力照旧(临时:每 16 轮折一次)", cfg("a", vision = true).capabilities.copy(compactionEveryRounds = TEMP_COMPACTION_EVERY_ROUNDS), m?.capabilities)
         assertEquals("a" to "sk-a", built.single().first.id to built.single().second)
     }
 

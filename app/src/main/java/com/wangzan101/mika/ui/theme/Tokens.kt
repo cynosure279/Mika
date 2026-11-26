@@ -7,6 +7,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/** 词标「Mika」统一用这个字重:比标题轻一档,顶栏、侧栏、回答头看起来是同一个名字。 */
+val WordmarkWeight = FontWeight.Medium
+
 /** 字号与字重。只定大小、字重、行高,颜色由用的地方给。 */
 object MikaType {
     /** 大标题:空状态、欢迎页。 */
@@ -69,6 +72,8 @@ object MikaRadius {
     val Button = 14.dp
     val Card = 16.dp
     val Bubble = 20.dp
+    /** 聊天里用户、回答气泡的圆角。 */
+    val ChatBubble = 16.dp
     /** 大卡片、对话框、底部弹窗。 */
     val Sheet = 24.dp
 }
@@ -82,9 +87,11 @@ object MikaShapes {
     /** 底部弹窗:上面两个角圆、下面直角。 */
     val SheetTop = RoundedCornerShape(topStart = MikaRadius.Bubble, topEnd = MikaRadius.Bubble)
     /** 用户消息气泡:右下角是尾角。 */
-    val UserBubble = RoundedCornerShape(MikaRadius.Bubble, MikaRadius.Bubble, MikaRadius.BubbleTail, MikaRadius.Bubble)
+    val UserBubble = RoundedCornerShape(MikaRadius.ChatBubble, MikaRadius.ChatBubble, MikaRadius.BubbleTail, MikaRadius.ChatBubble)
     /** Mika 的回答:左下角是尾角,和用户气泡对称。 */
-    val AnswerBubble = RoundedCornerShape(MikaRadius.Bubble, MikaRadius.Bubble, MikaRadius.Bubble, MikaRadius.BubbleTail)
+    val AnswerBubble = RoundedCornerShape(MikaRadius.ChatBubble, MikaRadius.ChatBubble, MikaRadius.ChatBubble, MikaRadius.BubbleTail)
+    /** Mika 连发时后面那几条:和上一条相连的左上角也收小。 */
+    val AnswerBubbleJoined = RoundedCornerShape(MikaRadius.BubbleTail, MikaRadius.ChatBubble, MikaRadius.ChatBubble, MikaRadius.BubbleTail)
     val Button = RoundedCornerShape(MikaRadius.Button)
     val Tile = RoundedCornerShape(MikaRadius.Tile)
     /** 输入栏外壳:固定圆角,多行时圆角不变(不像 [Pill] 那样随高度变圆)。 */

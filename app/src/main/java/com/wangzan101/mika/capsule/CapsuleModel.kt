@@ -4,13 +4,13 @@ import com.wangzan101.mika.R
 import com.wangzan101.mika.cap.web.KeptPage
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.i18n.trPlural
-import com.wangzan101.mika.confirm.ConfirmationCopy
-import com.wangzan101.mika.ui.StatusCopy
+import com.wangzan101.mika.task.ConfirmationCopy
+import com.wangzan101.mika.settings.ui.StatusCopy
 import com.wangzan101.mika.core.agent.RunProgress
 import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.takeover.Takeover
 import com.wangzan101.mika.task.SteerNote
-import com.wangzan101.mika.ui.Exchange
+import com.wangzan101.mika.chat.ui.Exchange
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -398,8 +398,9 @@ class CapsuleModel(private val reasonLabel: (String) -> String? = { null }) {
         val CONTINUING: String get() = tr(R.string.capsule_continuing)
         val KEPT: String get() = tr(R.string.kept_capsule)
 
-        /** 此刻在做什么:回放、批量执行写进度;否则先用模型随调用写的话,再用调用里的用意,都没有用固定说法。 */
+        /** 此刻在做什么:正在调 MCP 先说哪个连接器;回放、批量执行写进度;否则先用模型随调用写的话,再用调用里的用意,都没有用固定说法。 */
         fun runningText(s: TaskState.Running): String {
+            s.mcpConnector?.let { return StatusCopy.callingMcp(it) }
             s.progress?.let { return progressText(it) }
             val said = listOfNotNull(s.narration, s.reason).map(::oneLine).firstOrNull { it.isNotEmpty() }
             return said ?: if (s.step == 0) PREPARING else THINKING

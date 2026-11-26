@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="jev_title">Mô hình quyết định</string>
+    <string name="jev_row_sub">Lựa chọn ý định và tuyến đường tùy chọn</string>
+    <string name="jev_enabled">Dùng mô hình quyết định</string>
+    <string name="jev_privacy">Khi bật, yêu cầu của bạn, ngữ cảnh cuộc trò chuyện gần đây và các tuyến đường ứng viên được gửi tới nhà cung cấp đã cấu hình để đánh giá ý định và chọn tuyến đường. Nếu thất bại, Mika dùng mô hình hiện có. Cài đặt mô hình chính, thị giác và nhẹ vẫn riêng biệt.</string>
+    <string name="jev_provider">Nhà cung cấp</string>
+    <string name="jev_endpoint">Endpoint</string>
+    <string name="jev_model">ID mô hình</string>
+    <string name="jev_endpoint_note">Nhập URL endpoint SystemOne đầy đủ. HTTPS là bắt buộc trừ dịch vụ HTTP cục bộ. Khóa API được lưu mã hóa trên thiết bị này.</string>
+    <string name="jev_google_endpoint_note">Dùng Gemini Developer API (generativelanguage.googleapis.com) với mô hình gemini-decision-1. Dùng khóa API Gemini hiện có của bạn từ Cài đặt › Mô hình nếu để nguyên. $0,10/1M token đầu vào, $0 đầu ra, tối đa 1.000 câu hỏi, ngữ cảnh 256K. Khóa API được lưu mã hóa trên thiết bị này.</string>
+    <string name="jev_invalid">Nhập endpoint và ID mô hình hợp lệ. Bật hoặc kiểm tra cũng cần khóa API.</string>
+    <string name="jev_aiplatform_unsupported">Endpoint Google Cloud AI Platform (aiplatform.googleapis.com) không được hỗ trợ. Dùng Gemini Developer API (generativelanguage.googleapis.com) với khóa API Gemini.</string>
+    <string name="jev_apply_note">Lưu để áp dụng công tắc và cài đặt kết nối cho tác vụ mới.</string>
+    <string name="jev_test">Kiểm tra kết nối</string>
+    <string name="jev_test_note">Kiểm tra chỉ gửi một lời chào cố định và hai lựa chọn tới endpoint này. Nó không gửi cuộc trò chuyện, màn hình hoặc bộ nhớ của bạn, không lưu thay đổi, và không bật dịch vụ.</string>
+    <string name="jev_test_success">Kết nối hoạt động; lựa chọn tổng hợp đã đúng.</string>
+    <string name="jev_test_failed">Kiểm tra thất bại. Kiểm tra endpoint, mô hình, khóa API và mạng.</string>
+    <string name="jev_saved">Đã lưu. Tác vụ mới sẽ dùng các cài đặt này.</string>
+    <string name="jev_save_failed">Không thể lưu. Cài đặt đã lưu trước đó của bạn không thay đổi.</string>
+</resources>

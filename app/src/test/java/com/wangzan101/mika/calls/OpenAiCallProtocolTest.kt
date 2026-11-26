@@ -60,7 +60,7 @@ class OpenAiCallProtocolTest {
                 val connection = async(Dispatchers.IO) {
                     VolcRealtimeClient(http, OpenAiCallProtocol.ENDPOINT).connect(
                         VolcRealtimeCredentials(apiKey = "test-only"),
-                        VolcRealtimeConfig("hello", "marin", "gpt-realtime", true, CallVoiceProtocol.OPENAI_REALTIME))
+                        VolcRealtimeConfig("hello", "marin", "gpt-realtime", true, protocol = CallVoiceProtocol.OPENAI_REALTIME))
                 }
                 val peer = socket.await()
                 val update = messages.receive()
@@ -81,6 +81,22 @@ class OpenAiCallProtocolTest {
                 assertTrue(session.setMuted(false))
                 assertTrue(session.sendGreeting("hello"))
                 assertEquals("response.create", messages.receive()["type"]!!.jsonPrimitive.content)
+                // 给模型的提示:一条 system 文字项再请它回话,不是「照念」
+                assertTrue(session.sendCue("[提示] 主人回复：七点"))
+                val cue = messages.receive()
+                assertEquals("conversation.item.create", cue["type"]!!.jsonPrimitive.content)
+                val cueItem = cue["item"]!!.jsonObject
+                assertEquals("message", cueItem["type"]!!.jsonPrimitive.content)
+                assertEquals("system", cueItem["role"]!!.jsonPrimitive.content)
+                val cueContent = cueItem["content"]!!.jsonArray.single().jsonObject
+                assertEquals("input_text", cueContent["type"]!!.jsonPrimitive.content)
+                assertEquals("[提示] 主人回复：七点", cueContent["text"]!!.jsonPrimitive.content)
+                val respond = messages.receive()
+                assertEquals("response.create", respond["type"]!!.jsonPrimitive.content)
+                assertFalse(respond.toString().contains("verbatim"))
+                // 只当背景:加一条 system 文字项,不请它开口(下一条就是音频)
+                assertTrue(session.sendContext("[提示] 任务已完成"))
+                assertEquals("system", messages.receive()["item"]!!.jsonObject["role"]!!.jsonPrimitive.content)
                 assertTrue(session.sendPcm16(ByteArray(640)))
                 assertEquals(960, Base64.getDecoder().decode(messages.receive()["audio"]!!.jsonPrimitive.content).size)
                 peer.send("""{"type":"input_audio_buffer.speech_started","item_id":"u"}""")

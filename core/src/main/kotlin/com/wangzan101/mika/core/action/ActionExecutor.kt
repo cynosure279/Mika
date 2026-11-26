@@ -1,23 +1,24 @@
 package com.wangzan101.mika.core.action
 
 import com.wangzan101.mika.core.tool.Risk
-import com.wangzan101.mika.core.gate.ConfirmationGate
-import com.wangzan101.mika.core.gate.Irreversible
-import com.wangzan101.mika.core.guard.DIAGNOSTIC_VERBS
-import com.wangzan101.mika.core.guard.GuardVerdict
-import com.wangzan101.mika.core.guard.OperationGuards
-import com.wangzan101.mika.core.guard.PAGE_READ_VERBS
-import com.wangzan101.mika.core.guard.GuardScope
-import com.wangzan101.mika.core.guard.elementsHash
-import com.wangzan101.mika.core.guard.resultFingerprint
+import com.wangzan101.mika.core.safety.gate.ConfirmationGate
+import com.wangzan101.mika.core.safety.gate.Irreversible
+import com.wangzan101.mika.core.safety.gate.TargetAppRestoreFailed
+import com.wangzan101.mika.core.safety.guard.DIAGNOSTIC_VERBS
+import com.wangzan101.mika.core.safety.guard.GuardVerdict
+import com.wangzan101.mika.core.safety.guard.OperationGuards
+import com.wangzan101.mika.core.safety.guard.PAGE_READ_VERBS
+import com.wangzan101.mika.core.safety.guard.GuardScope
+import com.wangzan101.mika.core.safety.guard.elementsHash
+import com.wangzan101.mika.core.safety.guard.resultFingerprint
 import com.wangzan101.mika.core.model.Part
-import com.wangzan101.mika.core.record.Redactor
-import com.wangzan101.mika.core.record.RunEvent
-import com.wangzan101.mika.core.replay.Anchors
-import com.wangzan101.mika.core.replay.effectiveWrite
-import com.wangzan101.mika.core.uistate.Described
-import com.wangzan101.mika.core.uistate.ScreenSnapshot
-import com.wangzan101.mika.core.uistate.interfaces
+import com.wangzan101.mika.core.run.record.Redactor
+import com.wangzan101.mika.core.run.record.RunEvent
+import com.wangzan101.mika.core.learn.replay.Anchors
+import com.wangzan101.mika.core.learn.replay.effectiveWrite
+import com.wangzan101.mika.core.screen.uistate.Described
+import com.wangzan101.mika.core.screen.uistate.ScreenSnapshot
+import com.wangzan101.mika.core.screen.uistate.interfaces
 import com.wangzan101.mika.core.tool.ActionPass
 import com.wangzan101.mika.core.tool.ToolDispatcher
 import com.wangzan101.mika.core.tool.ToolExecution
@@ -34,7 +35,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import com.wangzan101.mika.core.tool.SubActions
-import com.wangzan101.mika.core.guard.OffScreenGuard
+import com.wangzan101.mika.core.safety.guard.OffScreenGuard
 import com.wangzan101.mika.core.run.RunProvenance
 import com.wangzan101.mika.core.run.SKIPPED_FOR_NEW_MESSAGE
 import com.wangzan101.mika.core.run.waitOrSteer
@@ -76,6 +77,20 @@ class ActionExecutor(
 
     /** [reads]:页面脚本一次调用里的读单独计数的范围(来源要求隔离时);那里的动作仍按任务计。 */
     private suspend fun run(call: Part.ToolCall, origin: Origin, followUp: FollowUp, reads: GuardScope?): ActionOutcome {
+        val control = tools.manualControl ?: return runAutomatic(call, origin, followUp, reads)
+        return try { control.plan(tools) { runAutomatic(call, origin, followUp, reads) } }
+        catch (e: com.wangzan101.mika.core.run.ManualControl.Interrupted) {
+            val content = buildJsonObject {
+                put("ok", false); put("error", com.wangzan101.mika.core.run.ManualControl.CHANGED)
+                put("message", e.message); put("executed", false)
+            }
+            if (origin.policy.recordsRefusal) followUp.refused(content)
+            recorder.result(origin.step, call.name, tools.verb(call.name), content, content, null, null, 0, origin.policy.source, call.id)
+            ActionOutcome.Refused(com.wangzan101.mika.core.run.ManualControl.CHANGED, content, emptyList())
+        }
+    }
+
+    private suspend fun runAutomatic(call: Part.ToolCall, origin: Origin, followUp: FollowUp, reads: GuardScope?): ActionOutcome {
         val args = parseArgs(call.argsJson)
         // 不动屏幕的工具(沙箱一类):不进屏幕守卫,由各自的守卫另管
         val offScreen = tools.offScreen(call.name)
@@ -88,7 +103,7 @@ class ActionExecutor(
         tools.aim(call.name, args)
         try {
             return aimed(call, origin, followUp, reads, args, offScreen, verb)
-        } catch (e: com.wangzan101.mika.core.access.AppAccessDenied) {
+        } catch (e: com.wangzan101.mika.core.device.access.AppAccessDenied) {
             val content = buildJsonObject {
                 put("ok", false); put("error", e.code); put("message", e.message); put("retryable", false)
                 e.packageName?.let { put("package", it) }
@@ -126,7 +141,22 @@ class ActionExecutor(
         if (guards.stop != null) return refuse("guard_stopped", origin, before)
         if (policy.stopOnGuardWarning && before.isNotEmpty()) return refuse("guard_warning", origin, before)
         val writing = tools.writesScreen(call.name)
-        if (writing && !policy.gatedByCaller) gate()
+        if (writing && !policy.gatedByCaller) try {
+            gate()
+        } catch (_: com.wangzan101.mika.core.safety.gate.ScreenRecoveryRequired) {
+            // 等关卡时锁过屏:这一步按的是锁屏前的屏幕,不做;让模型重读现在的屏幕再决定
+            val notice = ToolExecution(buildJsonObject {
+                put("ok", false); put("error", "screen_changed_during_lock"); put("executed", false)
+                put("message", "The phone locked and was unlocked while the task was running. This pending action was not executed. Read the current screen and verify whether the previous action already completed before taking another action.")
+            })
+            return ran(Step(call, args, origin, before, writing = false, offScreen, verb, null, followUp, reads, preset = notice))
+        } catch (e: TargetAppRestoreFailed) {
+            val failure = ToolExecution(buildJsonObject {
+                put("ok", false); put("error", TargetAppRestoreFailed.CODE); put("message", e.message)
+                put("package", e.packageName); put("executed", false); put("recoverable", true); put("counts_as_failure", false)
+            })
+            return ran(Step(call, args, origin, before, writing = false, offScreen, verb, null, followUp, reads, preset = failure))
+        }
         // 没有可用的同意就不执行,也不计入失败熔断
         var d = decision.judge(call.name, args, origin)
         // 不在屏上、工具声明要问的一步(会改动东西的 root 命令):调用方问得到人就当场问,同意了按这次同意再判一次;
@@ -172,7 +202,13 @@ class ActionExecutor(
         site?.let(tools::outwardStart)
         var done = false
         try {
-            val outcome = if (policy.actionCapMs == null) ran(step) else withContext(NonCancellable) { ran(step) }
+            val outcome = if (policy.actionCapMs == null) ran(step) else {
+                // 先在可取消区取得执行权，再保护脚本动作与记录；不能在 NonCancellable 内等人工交回。
+                suspend fun finishAction() = withContext(NonCancellable) { ran(step) }
+                tools.withScreenControl(call.name, successful = {
+                    it is ActionOutcome.Ran && it.exec.content["ok"] != JsonPrimitive(false)
+                }) { finishAction() }
+            }
             if (screenPaced && outcome is ActionOutcome.Ran) tools.afterWrite(call.name, outcome.exec.content)
             if (site != null && outcome is ActionOutcome.Ran && outcome.exec.content["ok"] != JsonPrimitive(false)) {
                 done = true

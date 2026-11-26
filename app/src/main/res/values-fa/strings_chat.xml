@@ -161,6 +161,7 @@
     <string name="attach_recent">عکس‌های اخیر</string>
     <string name="attach_recent_partial">عکس‌هایی که اجازهٔ دسترسی به آن‌ها را به میکا داده‌اید</string>
     <string name="attach_all">همهٔ عکس‌ها</string>
+    <string name="attach_more">بیشتر</string>
     <string name="attach_change">تغییر دسترسی</string>
     <string name="attach_no_photos">هنوز عکسی وجود ندارد</string>
     <string name="attach_need_access">برای انتخاب عکس در اینجا، به میکا اجازهٔ دسترسی به عکس‌ها را بدهید</string>
@@ -224,6 +225,8 @@
     <string name="pip_closed_hint">نمای این کار بسته شد. روی «نمایش صفحه» در پایین سمت راست بزنید، یا «صفحه‌های پس‌زمینه» را در منوی کناری باز کنید.</string>
     <string name="chat_conversation_tokens">این گفتگو: %1$s</string>
     <string name="chat_conversation_tokens_partial">این گفتگو: حداقل %1$s</string>
+    <string name="chat_current_model">مدل فعلی</string>
+    <string name="chat_usage_view_details">مشاهده مصرف توکن</string>
     <string name="follow_up_steer">هدایت کار</string>
     <string name="follow_up_queue">قرار دادن در صف</string>
     <string name="follow_up_steer_hint">مرحلهٔ بعد کار فعلی را بر اساس پیام شما تنظیم می‌کند</string>
@@ -273,7 +276,7 @@
     <string name="recommendations_unreadable">کارهای پیشنهادی ذخیره‌شده خوانده نشدند، بنابراین فعلاً قابل تغییر نیستند.</string>
     <string name="share_draft_replace_body">این محتوای به‌اشتراک‌گذاشته‌شده جایگزین پیش‌نویس فعلی شما می‌شود.</string>
     <string name="chat_attach_unavailable">افزودن ممکن نشد: %1$s. بررسی کنید فایل‌ها در دسترس و در محدودهٔ حجم باشند.</string>
-    <string name="chat_attach_too_large">%1$s: از محدودیت 200 MiB بیشتر است</string>
+    <string name="chat_attach_too_large">%1$s: از محدودیت %2$s بیشتر است</string>
     <string name="chat_attach_low_device_space">%1$s: فضای ذخیره‌سازی گوشی کافی نیست؛ فضا را آزاد کنید و دوباره تلاش کنید</string>
     <string name="chat_attach_workspace_limit">%1$s: فضای ذخیره‌سازی محیط کار به سقف رسیده است؛ فایل‌های محیط کار را پاک کنید و دوباره تلاش کنید</string>
     <string name="chat_attach_io_error">%1$s: خواندن یا کپی کردن ممکن نیست؛ بررسی کنید فایل در دسترس باشد و دوباره تلاش کنید</string>
@@ -299,7 +302,7 @@
     <string name="chat_example_schedule_title">تنظیم یادآور روزانه</string>
     <string name="chat_example_pdf">PDFای که میفرستم را در یک خلاصه کوتاه جمعبندی کن</string>
     <string name="chat_example_schedule">هر روز صبح ساعت ۸ یادم بینداز هوا را چک کنم</string>
-    <string name="chat_empty_value">یک جمله بگو تا اپ‌هایت را اجرا کنم، وب بگردم و کارت را تمام کنم.</string>
+    <string name="chat_empty_value">یک جمله بگو، بقیه‌اش با من روی گوشی</string>
     <string name="saved_task_save">ذخیره به‌عنوان کار</string>
     <string name="task_field_add">افزودن فیلد</string>
     <string name="task_field_name">نام فیلد</string>
@@ -312,6 +315,39 @@
     <string name="chat_audio">Audio</string>
     <string name="chat_audio_play">Play</string>
     <string name="chat_audio_stop">Stop</string>
+    <string name="plus_sub_album">از عکس‌ها انتخاب کن، چندتا هم می‌شود</string>
+    <string name="plus_sub_files">سند، PDF، آرشیو</string>
+    <string name="plus_sub_device">پوشه‌های این گوشی را بگرد</string>
+    <string name="plus_clipboard">تخته‌شمار</string>
+    <string name="plus_sub_clipboard">آنچه تازه کپی کردی را بچسبان</string>
+    <string name="plus_sub_teach">یک بار نشان بده تا Mika یاد بگیرد</string>
+    <string name="plus_sub_skills">یک مهارت برای این نوبت انتخاب کن</string>
+    <string name="plus_sub_tasks">کار ذخیره‌شده را در کادر ورودی پر کن</string>
+    <string name="plus_sub_browser">مرورگر داخلی</string>
+    <string name="plus_skills_empty">هنوز مهارت شخصی نداری. مهارت‌هایی که Mika از کارهای انجام‌شده یاد می‌گیرد اینجا نمایش داده می‌شوند.</string>
+    <string name="plus_clipboard_empty">متنی برای چسباندن از تخته‌شمار نیست</string>
+    <string name="plus_skill_directive">از مهارت «%1$s» استفاده کن: </string>
+    <string name="plus_reuse">ذخیره‌شده‌ها</string>
+    <string name="plus_reuse_hint">عبارت · فهرست · روند</string>
+    <string name="plus_reuse_phrases">عبارت‌های ذخیره‌شده</string>
+    <string name="drawer_calls">تماس هوش مصنوعی</string>
+    <!-- 空对话滚动条里的灵感示例;点了填进输入框 -->
+    <string name="chat_idea_maps">مسیر نزدیک‌ترین کافه را نشان بده</string>
+    <string name="chat_idea_camera">دوربین را باز کن و عکس بگیر</string>
+    <string name="chat_idea_sms">به مامان پیام بده: رسیدم خانه</string>
+    <string name="chat_idea_news">اخبار فناوری امروز را جست‌وجو کن</string>
+    <string name="chat_idea_dark">حالت تاریک را روشن کن</string>
+    <string name="chat_idea_music">یک موسیقی آرام پخش کن</string>
+    <string name="chat_idea_email">آخرین ایمیل‌هایم چه می‌گویند؟</string>
+    <string name="chat_idea_screenshot">آخرین اسکرین‌شاتم را پیدا کن</string>
+    <string name="chat_idea_meeting">فردا ساعت ۳ بعدازظهر یک جلسه اضافه کن</string>
+    <!-- 空对话推广卡上的一句话说明;完整提示词点了才填进输入框 -->
+    <string name="chat_example_github_star_blurb">از پروژهٔ متن‌باز Mika حمایت کن</string>
+    <string name="chat_example_follow_blurb">سازنده را دنبال کن و به گفت‌وگو بپیوند</string>
+    <string name="chat_example_group_summary_blurb">خلاصهٔ پیام‌های خوانده‌نشدهٔ امروز در یک خط</string>
+    <string name="chat_example_share_title">Mika را با یک دوست به اشتراک بگذار</string>
+    <string name="chat_example_share_blurb">به کسی که لازمش دارد معرفی کن</string>
+    <string name="chat_example_share">لینک پروژه Mika https://github.com/wangzan101/mika را با یک دوست به اشتراک بگذار و بگو که می‌تواند گوشی را برایش کار کند.</string>
     <string name="chat_video">ویدیو</string>
     <string name="chat_video_play">پخش</string>
 </resources>

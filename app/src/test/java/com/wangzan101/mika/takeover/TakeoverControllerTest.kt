@@ -1,9 +1,14 @@
 package com.wangzan101.mika.takeover
 
+import com.wangzan101.mika.cap.phone.a11y.AndroidScreen.TargetApp
 import com.wangzan101.mika.core.agent.TaskState
+import com.wangzan101.mika.core.screen.uistate.ActionResult
 import com.wangzan101.mika.core.tool.HandBack
 import com.wangzan101.mika.core.tool.HandBackOutcome
+import com.wangzan101.mika.shell.IMikaShell
 import com.wangzan101.mika.task.restorePipSound
+import com.wangzan101.mika.task.restoreTargetApp
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -18,7 +23,10 @@ class TakeoverControllerTest {
         val log = mutableListOf<String>()
         val displays = mutableMapOf(1 to AGENT)
         val packages = mutableMapOf(1 to "a.app")
-        var target = 1
+        private val targetApp = MutableStateFlow<TargetApp?>(TargetApp("a.app", 1))
+        var target: Int
+            get() = targetApp.value?.taskId ?: -1
+            set(value) { targetApp.value = TargetApp("a.app", value).takeIf { value >= 0 } }
         var moveToMainOk = true
         var moveBackOk = true
         override suspend fun agentTopTask() = displays.filterValues { it == AGENT }.keys.maxOrNull() ?: -1
@@ -36,6 +44,19 @@ class TakeoverControllerTest {
             if (moveBackOk) displays[taskId] = AGENT
             return moveBackOk
         }
+        private val shell = object : IMikaShell.Default() {
+            override fun displayOfTask(taskId: Int) = displays[taskId] ?: -1
+
+            override fun findTaskForPackage(packageName: String, userId: Int, displayId: Int): IntArray {
+                val task = displays.entries.firstOrNull { packages[it.key] == packageName }
+                return if (task == null) intArrayOf() else intArrayOf(task.key, task.value)
+            }
+        }
+        override suspend fun restoreTarget() =
+            restoreTargetApp(targetApp, shell, AGENT, fromMainOnly = true, moveBack = ::moveBack) {
+                log += "reopen:${it.packageName}"
+                ActionResult.Failed("app_not_found")
+            }
         override fun setSound(packageName: String, on: Boolean) { log += (if (on) "unmute:" else "mute:") + packageName }
         override fun unmute(packageName: String) { log += "pip-unmute:$packageName" }
         val results = mutableListOf<HandBack>()
@@ -96,6 +117,38 @@ class TakeoverControllerTest {
         assertEquals(listOf("back:1", "mute:a.app", "resume:complete"), port.log)
         assertEquals(Takeover.Stage.None, takeover.stage.value)
         assertFalse(takeover.handedOver)
+    }
+
+    @Test
+    fun handBackMovesReplacementTargetAndUpdatesItsId() = test {
+        takeover.onState(waiting)
+        assertTrue(takeover.handOver())
+        port.displays.remove(1)
+        port.packages.remove(1)
+        port.displays[3] = 0
+        port.packages[3] = "a.app"
+        port.log.clear()
+
+        assertTrue(takeover.handBack())
+
+        assertEquals(AGENT, port.displays[3])
+        assertEquals(3, port.target)
+        assertEquals(listOf("back:3", "mute:a.app", "resume:complete"), port.log)
+    }
+
+    @Test
+    fun handBackResumesWithRestoreFailureWhenTargetCannotBeReopened() = test {
+        takeover.onState(waiting)
+        assertTrue(takeover.handOver())
+        port.displays.remove(1)
+        port.log.clear()
+
+        assertTrue(takeover.handBack())
+
+        assertEquals(Takeover.Stage.None, takeover.stage.value)
+        assertNull(takeover.problem.value)
+        assertTrue(port.results.single().appReturnFailure.orEmpty().contains("a.app"))
+        assertEquals(listOf("reopen:a.app", "mute:a.app", "resume:complete"), port.log)
     }
 
     @Test

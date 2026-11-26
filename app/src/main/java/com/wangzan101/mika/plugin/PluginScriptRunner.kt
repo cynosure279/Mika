@@ -1,7 +1,7 @@
 package com.wangzan101.mika.plugin
 
-import com.wangzan101.mika.core.plugin.ScriptResult
-import com.wangzan101.mika.core.plugin.ScriptRunner
+import com.wangzan101.mika.core.tool.ScriptResult
+import com.wangzan101.mika.core.tool.ScriptRunner
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -74,5 +74,5 @@ internal fun readCapped(input: java.io.InputStream, maxBytes: Int): String {
         total += n
     }
     while (input.read(chunk) >= 0) { /* drain the rest so the process isn't blocked on a full pipe */ }
-    return out.toString(Charsets.UTF_8)
+    return String(out.toByteArray(), Charsets.UTF_8)
 }

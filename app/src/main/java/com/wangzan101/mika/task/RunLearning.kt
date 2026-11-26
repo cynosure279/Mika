@@ -7,36 +7,41 @@ import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.core.agent.LearnGate
 import com.wangzan101.mika.core.agent.RunOutcome
 import com.wangzan101.mika.core.agent.TaskState
-import com.wangzan101.mika.core.knowledge.FrontMatter
-import com.wangzan101.mika.core.knowledge.GuideCatalog
-import com.wangzan101.mika.core.knowledge.KnowledgeStore
-import com.wangzan101.mika.core.knowledge.AppKnowledgeDrafter
-import com.wangzan101.mika.core.knowledge.AppKnowledgeDraftStore
-import com.wangzan101.mika.core.knowledge.AppKnowledgeStage
-import com.wangzan101.mika.core.knowledge.AppRunInput
-import com.wangzan101.mika.core.memory.Change
-import com.wangzan101.mika.core.memory.MemoryExtractor
-import com.wangzan101.mika.core.memory.MemorySource
-import com.wangzan101.mika.core.memory.MemoryStore
-import com.wangzan101.mika.core.record.RunEvent
-import com.wangzan101.mika.core.observation.PlaceKind
+import com.wangzan101.mika.core.learn.knowledge.FrontMatter
+import com.wangzan101.mika.core.learn.knowledge.GuideCatalog
+import com.wangzan101.mika.core.learn.knowledge.KnowledgeStore
+import com.wangzan101.mika.core.learn.knowledge.AppKnowledgeDrafter
+import com.wangzan101.mika.core.learn.knowledge.AppKnowledgeDraftStore
+import com.wangzan101.mika.core.learn.knowledge.AppKnowledgeStage
+import com.wangzan101.mika.core.learn.knowledge.AppRunInput
+import com.wangzan101.mika.core.learn.memory.Change
+import com.wangzan101.mika.core.learn.memory.MemoryExtractor
+import com.wangzan101.mika.core.learn.memory.MemorySource
+import com.wangzan101.mika.core.learn.memory.MemoryStore
+import com.wangzan101.mika.core.run.record.RunEvent
+import com.wangzan101.mika.core.screen.observation.PlaceKind
 import com.wangzan101.mika.core.run.RunOrigin
-import com.wangzan101.mika.core.skills.DraftInput
-import com.wangzan101.mika.core.skills.DraftResult
-import com.wangzan101.mika.core.skills.Eligibility
-import com.wangzan101.mika.core.skills.PersonalSkills
-import com.wangzan101.mika.core.skills.SkillDrafter
-import com.wangzan101.mika.core.skills.SkillFollow
-import com.wangzan101.mika.core.skills.SkillNote
-import com.wangzan101.mika.core.skills.SkillOutcomes
-import com.wangzan101.mika.core.skills.SkillResult
-import com.wangzan101.mika.core.skills.SkillStatus
+import com.wangzan101.mika.core.learn.skills.DraftInput
+import com.wangzan101.mika.core.learn.skills.DraftResult
+import com.wangzan101.mika.core.learn.skills.Eligibility
+import com.wangzan101.mika.core.learn.skills.PersonalSkills
+import com.wangzan101.mika.core.learn.skills.SkillDrafter
+import com.wangzan101.mika.core.learn.skills.SkillFollow
+import com.wangzan101.mika.core.learn.skills.SkillNote
+import com.wangzan101.mika.core.learn.skills.SkillOutcomes
+import com.wangzan101.mika.core.learn.skills.SkillResult
+import com.wangzan101.mika.core.learn.skills.SkillStatus
+import com.wangzan101.mika.core.screen.map.ScreenMapBuilder
+import com.wangzan101.mika.core.screen.map.ScreenMapGrower
+import com.wangzan101.mika.core.screen.map.ScreenMapStore
 import com.wangzan101.mika.memory.RunNotes
 import com.wangzan101.mika.settings.MemorySwitches
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.wangzan101.mika.core.tool.ToolIndex
 
 /** 一次运行结束后,学东西要用的全部材料;由 [TaskRun] 在任务收尾时交出。 */
@@ -90,10 +95,13 @@ class RunLearning(
     private val yieldToForeground: suspend () -> Unit = {},
     private val appDrafter: AppKnowledgeDrafter? = null,
     private val appDrafts: AppKnowledgeDraftStore? = null,
+    /** 各 App 的屏图仓库;为 null 时收尾不长图。 */
+    private val screenMaps: ScreenMapStore? = null,
 ) {
     suspend fun learn(a: RunAftermath): RunNotes {
         yieldToForeground()
         val events = guarded(emptyList()) { a.events() }
+        growGraphs(a, events)
         val used = events.filterIsInstance<RunEvent.SkillUsed>()
         // 照着做了的技能(只读过的不算):记结果和要不要起草都看它
         val followed = SkillFollow.followed(events, used, a.tools, catalog::skillPlaces)
@@ -203,6 +211,17 @@ class RunLearning(
         throw e
     } catch (e: Exception) {
         fallback
+    }
+
+    /** 收尾长图:重放本次 events 得到屏/边片段,按屏 id 并进已存图。失败只计数、不影响任务结局。 */
+    private suspend fun growGraphs(a: RunAftermath, events: List<RunEvent>) {
+        val store = screenMaps ?: return
+        if (a.origin != RunOrigin.Ui) return
+        val fragments = ScreenMapBuilder().apply(a.runId ?: "", events)
+        if (fragments.isEmpty()) return
+        guarded(Unit) {
+            withContext(Dispatchers.IO) { ScreenMapGrower.grow(store, fragments) }
+        }
     }
 
     companion object {

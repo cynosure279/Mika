@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_draft_title">Bản nháp theo dõi WeChat</string>
+    <string name="calls_draft_edit">Sửa</string>
+    <string name="calls_draft_copy">Sao chép</string>
+    <string name="calls_draft_copied">Đã sao chép</string>
+    <string name="calls_draft_saved">Đã lưu bản nháp</string>
+    <string name="calls_draft_save_failed">Không thể lưu bản nháp. Vui lòng thử lại.</string>
+    <string name="calls_draft_create">Viết tin nhắn theo dõi</string>
+</resources>

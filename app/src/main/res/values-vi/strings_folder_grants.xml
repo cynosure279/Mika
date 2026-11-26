@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="folder_grant_choose_readonly">Chọn thư mục chỉ đọc</string>
+    <string name="folder_grant_choose">Chọn thư mục để đọc và ghi</string>
+    <string name="folder_grant_writable">Đọc và ghi</string>
+    <string name="folder_grant_readonly">Chỉ đọc</string>
+    <string name="folder_grant_unavailable">Thư mục không khả dụng — hãy chọn lại</string>
+    <string name="folder_grant_revoke">Xóa quyền truy cập</string>
+    <string name="folder_grant_loading">Đang tải thư mục…</string>
+    <string name="folder_grant_error">Không thể truy cập thư mục. Chọn thư mục có thể đọc và thử lại.</string>
+    <string name="tool_list_folder_files">Duyệt thư mục đã cấp phép</string>
+</resources>

@@ -24,11 +24,8 @@
     <string name="calls_enable">AI 전화 켜기</string>
     <string name="calls_disable">끄고 일반 통화로 복원</string>
     <string name="calls_provider">Volcengine 실시간 음성 3.0</string>
-    <string name="calls_credentials">실시간 음성 인증 정보</string>
-    <string name="calls_key_saved">인증 정보를 안전하게 저장했습니다. 실제 통화로 서비스를 이용할 수 있는지 확인하세요</string>
     <string name="calls_key_missing">설정되지 않음</string>
     <string name="calls_profile">인사말과 통화 목적</string>
-    <string name="calls_model_label">모델 %1$s · 통화 오디오 경로</string>
     <string name="calls_incoming">수신 전화</string>
     <string name="calls_auto_answer">수신 전화 자동으로 받기</string>
     <string name="calls_all_incoming">모든 수신 전화 받기</string>
@@ -52,7 +49,8 @@
     <string name="calls_cancel">취소</string>
     <string name="calls_greeting">첫인사</string>
     <string name="calls_instructions">통화 목적 및 지시</string>
-    <string name="calls_duration">최대 AI 응대 시간(15~600초)</string>
+    <string name="calls_duration">최대 AI 응대 시간(0 = 무제한, 15~600초)</string>
+    <string name="calls_limits_unlimited">한 번에 한 통화 · AI 음성 시간 무제한</string>
     <string name="calls_speaker">음성 ID</string>
     <string name="calls_audio_route">통화 오디오 경로</string>
     <string name="calls_audio_verified">이 휴대전화에서 AI 통화 중 양쪽 모두 소리가 들리는지 확인했습니다</string>
@@ -60,7 +58,6 @@
     <string name="calls_tool_state">통화 상태</string>
     <string name="calls_tool_dial">전화 걸기</string>
     <string name="calls_tool_hangup">전화 끊기</string>
-    <string name="calls_advanced">고급 설정</string>
     <string name="calls_allowlist_hint">한 줄에 하나씩 입력하거나 쉼표로 구분하세요.</string>
     <string name="calls_allowlist_invalid">유효한 전화번호를 최대 %1$d개 입력하세요.</string>
     <string name="calls_audio_direct">전화 오디오 직접 연결</string>
@@ -143,4 +140,21 @@
     <string name="calls_notification_connecting_audio">통화 오디오 연결 중</string>
     <string name="calls_notification_connected_waiting">AI가 연결되었습니다. 상대방의 말을 기다리는 중이며 언제든 이어받을 수 있습니다.</string>
     <string name="calls_notification_connected">AI가 연결되었습니다. 언제든 직접 이어받을 수 있습니다.</string>
+    <string name="calls_only_types">선택한 유형의 전화만 받기</string>
+    <string name="calls_pick_types">전화 유형을 하나 이상 선택하세요</string>
+    <string name="calls_type_note">Mika가 접근성 기능으로 전화 앱에 표시된 라벨과 번호를 수신 전화와 대조합니다. 확인되지 않으면 직접 받을 수 있습니다.</string>
+    <string name="calls_type_accessibility">접근성 설정 열기</string>
+    <string name="calls_type_takeout">음식 배달</string>
+    <string name="calls_type_parcel">택배</string>
+    <string name="calls_type_delivery">배송 또는 물류(상세 유형 미상)</string>
+    <string name="calls_type_sales">광고 및 영업</string>
+    <string name="calls_type_broker">중개업체</string>
+    <string name="calls_type_financial_sales">보험 및 투자 권유</string>
+    <string name="calls_type_spam">스팸 전화</string>
+    <string name="calls_type_fraud">사기 의심</string>
+    <string name="calls_type_high_risk">고위험 전화</string>
+    <string name="calls_type_business">기업 및 고객 센터</string>
+    <string name="calls_type_transport">택시 및 차량 호출</string>
+    <string name="calls_only_strangers">연락처에 없는 번호만</string>
+    <string name="calls_strangers_note">Mika에 연락처 읽기 권한을 허용하세요. 저장되지 않은 번호로 확인된 경우에만 AI가 받습니다. 발신 번호가 숨겨져 있거나 확인할 수 없으면 직접 받으세요.</string>
 </resources>

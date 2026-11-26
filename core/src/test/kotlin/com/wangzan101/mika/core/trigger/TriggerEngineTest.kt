@@ -275,4 +275,85 @@ class TriggerEngineTest {
         val once = TriggerDefinition("once", "t", "do", 9_000)
         assertEquals(listOf(9_000L), upcoming(once, 8_000, 3))
     }
+
+    @Test fun dueTaskWaitsOutsideItsExecutionWindowWithoutBeingClaimed() {
+        val due = Instant.parse("2026-11-06T08:00:00Z").toEpochMilli()
+        val outside = Instant.parse("2026-11-06T08:30:00Z").toEpochMilli()
+        val opening = Instant.parse("2026-11-06T09:00:00Z").toEpochMilli()
+        val store = MemoryTriggerStore()
+        store.upsert(TriggerDefinition(
+            "windowed", "t", "do", due,
+            executionWindowZone = "UTC", executionWindows = listOf(ExecutionWindow(9 * 60, 10 * 60)),
+        ))
+        var armed: Long? = null
+        val sent = mutableListOf<TriggerWindow>()
+        val engine = TriggerEngine(store, { armed = it }) { _, window -> sent += window }
+
+        engine.fire(outside)
+        assertTrue(sent.isEmpty())
+        assertTrue(store.windows().isEmpty())
+        assertEquals(opening, armed)
+
+        engine.fire(opening)
+        assertEquals(due, sent.single().dueAtMs)
+        assertEquals(1, store.windows().size)
+    }
+
+    @Test fun remindersAndManualRunsAreNotDelayedByExecutionWindows() {
+        val store = MemoryTriggerStore()
+        val plan = TriggerDefinition(
+            "reminder", "t", "remind", 1_000, reminderText = "remind",
+            executionWindowZone = "UTC", executionWindows = listOf(ExecutionWindow(9 * 60, 10 * 60)),
+        )
+        store.upsert(plan)
+        val sent = mutableListOf<String>()
+        TriggerEngine(store, {}) { trigger, _ -> sent += trigger.id }.fire(1_000)
+
+        assertEquals(listOf("reminder"), sent)
+        assertTrue(store.mark("reminder:1000", TriggerWindowState.Delivered))
+        assertNotNull(store.claimNow("reminder", 2_000))
+    }
+
+    @Test fun rezoneMovesCustomExecutionWindowButKeepsUtcPricingPreset() {
+        val store = MemoryTriggerStore()
+        store.upsert(TriggerDefinition(
+            "custom", "t", "do", 5_000,
+            executionWindowZone = "Asia/Shanghai", executionWindows = listOf(ExecutionWindow(9 * 60, 10 * 60)),
+        ))
+        store.upsert(TriggerDefinition(
+            "deepseek", "t", "do", 5_000,
+            executionWindowZone = "UTC", executionWindows = DEEPSEEK_OFF_PEAK_WINDOWS,
+        ))
+
+        TriggerEngine(store, {}) { _, _ -> }.rezone(6_000, "Asia/Shanghai", ZoneId.of("America/New_York"))
+
+        assertEquals("America/New_York", store.get("custom")!!.executionWindowZone)
+        assertEquals(5_000L, store.get("custom")!!.nextAtMs)
+        assertEquals("UTC", store.get("deepseek")!!.executionWindowZone)
+    }
+
+    @Test fun rezoneMovesPausedCustomExecutionWindow() {
+        val store = MemoryTriggerStore()
+        store.upsert(TriggerDefinition(
+            "paused", "t", "do", 5_000, enabled = false,
+            executionWindowZone = "Asia/Shanghai", executionWindows = listOf(ExecutionWindow(22 * 60, 2 * 60)),
+        ))
+
+        TriggerEngine(store, {}) { _, _ -> }.rezone(6_000, "Asia/Shanghai", ZoneId.of("America/New_York"))
+
+        assertEquals("America/New_York", store.get("paused")!!.executionWindowZone)
+        assertFalse(store.get("paused")!!.enabled)
+    }
+
+    @Test fun rezoneDoesNotMoveDeepSeekPresetCreatedWhileDeviceIsUtc() {
+        val store = MemoryTriggerStore()
+        store.upsert(TriggerDefinition(
+            "deepseek", "t", "do", 5_000,
+            executionWindowZone = "UTC", executionWindows = DEEPSEEK_OFF_PEAK_WINDOWS,
+        ))
+
+        TriggerEngine(store, {}) { _, _ -> }.rezone(6_000, "UTC", ZoneId.of("America/New_York"))
+
+        assertEquals("UTC", store.get("deepseek")!!.executionWindowZone)
+    }
 }

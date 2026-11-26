@@ -5,9 +5,9 @@ import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.model.Message
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.Role
-import com.wangzan101.mika.core.observation.ObsKind
+import com.wangzan101.mika.core.screen.observation.ObsKind
 import com.wangzan101.mika.core.prompt.Prompts
-import com.wangzan101.mika.core.record.RunEvent
+import com.wangzan101.mika.core.run.record.RunEvent
 import com.wangzan101.mika.core.tool.PACKAGE_NAME_RE
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
@@ -77,6 +77,24 @@ class StopSummary(
         private const val NOTE_CHARS = 120
         private const val DRAFT_CHARS = 1200
 
+        private val CANCELLED_HEADER = Regex(
+            "^(?:已经|已經)停下[。．，,]?[\\s\\p{Zs}]*停止前(?:做了这些|做了這些)?[：:]?[\\t \\p{Zs}]*(?:\\r?\\n)?",
+            RegexOption.MULTILINE,
+        )
+        private val EMPTY_CANCELLED_HEADER = Regex(
+            "^(?:已经|已經)停下[，,][\\s\\p{Zs}]*(?:还没|還沒)(?:开始|開始)操作[。．.]?",
+            RegexOption.MULTILINE,
+        )
+
+        /** 把旧记录里的中文停止头部换成 App 语言;已有译文和中文记录原样保留。 */
+        fun localizeCancelledHeader(raw: String, language: String?): String {
+            val phrase = StopPhrases.forLanguage(language)
+            if (phrase.isChinese) return raw
+            return raw
+                .replace(CANCELLED_HEADER, phrase.headWithActs + "\n")
+                .replace(EMPTY_CANCELLED_HEADER, phrase.headEmpty)
+        }
+
         /** 有没有可交代的:做过至少一件事、已经确认过进度,或停下时已经写出了字。都没有就只说「已停止」。 */
         fun worthSaying(events: List<RunEvent>, draft: String?): Boolean =
             events.any { it is RunEvent.Activity || it is RunEvent.Criteria && (it.criteria.isNotEmpty() || it.progress != null) } || !draft.isNullOrBlank()
@@ -90,7 +108,7 @@ class StopSummary(
             label: (String) -> String = { it }, appLabel: (String) -> String = { it },
             language: String? = null,
         ): String {
-            val isZh = language == null || language.startsWith("zh", ignoreCase = true)
+            val isZh = StopPhrases.forLanguage(language).isChinese
             val notes = notes(events)
             val lines = mutableListOf<String>()
             val said = mutableSetOf<Int>()

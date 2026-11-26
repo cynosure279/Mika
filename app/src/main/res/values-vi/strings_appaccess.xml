@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appaccess_title">Quyền truy cập ứng dụng</string>
+    <string name="appaccess_row_sub">Chặn ứng dụng và chia sẻ màn hình theo từng ứng dụng</string>
+    <string name="appaccess_intro">Chọn những ứng dụng Mika được đọc và thao tác bằng các công cụ điện thoại tiêu chuẩn. Lệnh shell, hộp cát và quyền truy cập máy tính (MCP) không bị giới hạn bởi cài đặt này.</string>
+    <string name="appaccess_privacy">Việc phân loại sẽ gửi tên ứng dụng và tên gói cho mô hình AI; “Làm mới danh sách ứng dụng” sẽ hỏi bạn trước.</string>
+    <string name="appaccess_unavailable">Không đọc được cài đặt quyền truy cập ứng dụng, nên quyền truy cập điện thoại tiêu chuẩn đã tạm dừng. Đặt lại sẽ xóa các quyền và phân loại đã lưu.</string>
+    <string name="appaccess_reset">Đặt lại quyền truy cập ứng dụng</string>
+    <string name="appaccess_search">Tìm kiếm theo tên hoặc gói</string>
+    <string name="appaccess_refreshing">Đang phân loại…</string>
+    <string name="appaccess_refresh">Làm mới danh sách ứng dụng</string>
+    <string name="appaccess_recommend">Nên chặn</string>
+    <string name="appaccess_recommend_count">Nên chặn · %1$d</string>
+    <string name="appaccess_allow_all">Cho phép tất cả</string>
+    <string name="appaccess_risk_note">Thao tác tự động có thể khiến các ứng dụng này giới hạn tài khoản; hãy chặn những ứng dụng bạn không cần.</string>
+    <string name="appaccess_blocked">Đã chặn</string>
+    <string name="appaccess_allowed">Đã cho phép</string>
+    <string name="appaccess_revoke_share">Thu hồi chia sẻ màn hình cho %1$s</string>
+
+    <string name="appaccess_send_title">Gửi danh sách ứng dụng cho AI?</string>
+    <string name="appaccess_send_body">Làm mới sẽ đọc các ứng dụng đã cài và gửi tên cùng tên gói của chúng cho mô hình AI bạn đã cấu hình, để đánh giá mức độ rủi ro. Không có nội dung bên trong ứng dụng nào được gửi.</string>
+    <string name="appaccess_send_confirm">Tiếp tục và phân loại</string>
+    <string name="appaccess_cancel">Hủy</string>
+
+    <string name="appaccess_recommend_title">Nên chặn: ứng dụng tài chính</string>
+    <string name="appaccess_recommend_body">Các ứng dụng này được phân loại là tài chính hoặc thanh toán, và Mika vẫn có thể thao tác trên chúng. Hãy chặn từng ứng dụng, hoặc chặn tất cả cùng lúc.</string>
+    <string name="appaccess_recommend_empty">Không có gì để chặn.</string>
+    <string name="appaccess_block">Chặn</string>
+    <string name="appaccess_block_all">Chặn tất cả</string>
+
+    <string name="appaccess_edit_category">Đổi phân loại</string>
+    <string name="appaccess_category_manual">Do bạn đặt</string>
+
+    <string name="appaccess_error_save">Không lưu được</string>
+    <string name="appaccess_error_no_model">Không có mô hình khả dụng. Danh sách ứng dụng đã được làm mới nhưng không phân loại được.</string>
+    <string name="appaccess_error_refresh">Làm mới thất bại</string>
+    <string name="appaccess_error_load">Không đọc được danh sách ứng dụng</string>
+
+    <string name="appaccess_category_finance">Tài chính</string>
+    <string name="appaccess_category_social">Mạng xã hội</string>
+    <string name="appaccess_category_game">Trò chơi</string>
+    <string name="appaccess_category_shopping">Mua sắm</string>
+    <string name="appaccess_category_productivity">Năng suất</string>
+    <string name="appaccess_category_media">Đa phương tiện</string>
+    <string name="appaccess_category_other">Khác</string>
+    <string name="appaccess_category_unknown">Chưa phân loại</string>
+
+    <string name="appaccess_share_title">Chia sẻ màn hình của %1$s</string>
+    <string name="appaccess_share_body">Ứng dụng này đang bị chặn. Chia sẻ màn hình cho phép bạn chủ động chia sẻ ứng dụng; việc đọc và thao tác tự động vẫn bị chặn.</string>
+    <string name="appaccess_share_allow">Chỉ cho phép chia sẻ màn hình</string>
+    <string name="appaccess_share_unblock">Bỏ khỏi danh sách chặn</string>
+    <string name="appaccess_share_cancel">Hủy chia sẻ</string>
+    <string name="appaccess_share_expired">Quyền chia sẻ màn hình đã hết hạn. Hãy chụp ảnh màn hình mới.</string>
+</resources>

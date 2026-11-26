@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_ready_title">Sẵn sàng</string>
+    <string name="calls_ready_standby">Trả lời tự động đang chờ · các cuộc gọi khớp sẽ được trả lời sau %1$d giây</string>
+    <string name="calls_ready_manual">Bạn có thể để AI trả lời hoặc tự gọi</string>
+    <string name="calls_ready_missing">Còn %1$d bước nữa trước khi hoạt động được</string>
+    <string name="calls_ready_view">Xem</string>
+    <string name="calls_ready_finish">Hoàn tất</string>
+    <string name="calls_step_voice">Nghe và nói</string>
+    <string name="calls_step_voice_missing">Chọn mô hình nghe trực tuyến và mô hình nói cho cuộc gọi</string>
+    <string name="calls_step_phone">Quyền điện thoại và thông báo</string>
+    <string name="calls_step_phone_sub">Đọc trạng thái cuộc gọi, thực hiện cuộc gọi, thông báo cuộc gọi đến</string>
+    <string name="calls_step_helper_sub">AI cần tính năng này để nghe và nói trong cuộc gọi</string>
+    <string name="calls_step_audio">Kiểm tra một cuộc gọi</string>
+    <string name="calls_step_audio_sub">Thực hiện cuộc gọi thử và kiểm tra cả hai phía có nghe thấy nhau không</string>
+    <string name="calls_step_standby">Chờ ở nền</string>
+    <string name="calls_step_standby_sub">Trả lời tự động hoạt động khi màn hình khóa hoặc ứng dụng chạy nền</string>
+    <string name="calls_step_go">Thiết lập</string>
+    <string name="calls_step_test">Kiểm tra</string>
+    <string name="calls_step_change">Thay đổi</string>
+    <string name="calls_checklist_title">Danh sách kiểm tra thiết lập</string>
+    <string name="calls_checklist_lead">Mọi thứ cuộc gọi AI cần đều ở trang này. Làm theo danh sách từ trên xuống là sẵn sàng.</string>
+    <string name="calls_checklist_note">Thay đổi chế độ âm thanh cuộc gọi sẽ xóa bài kiểm tra; trả lời tự động vẫn tắt cho đến khi một cuộc gọi được kiểm tra.</string>
+    <string name="calls_checklist_left">Còn %1$d bước</string>
+    <string name="calls_checklist_done">Đã xong tất cả</string>
+    <string name="calls_settings_title">Cài đặt điện thoại</string>
+    <string name="calls_settings_sound">Giọng nói</string>
+    <string name="calls_settings_this_phone">Điện thoại này</string>
+    <string name="calls_settings_records">Bản ghi</string>
+    <string name="calls_voice_needs_change">Thay đổi</string>
+    <string name="calls_disable_sub">Cuộc gọi đến và quay số đều quay về ứng dụng điện thoại hệ thống</string>
+    <string name="calls_how_to_talk">Khi AI trả lời</string>
+    <string name="calls_greeting_empty">Trống · đợi người gọi nói trước</string>
+    <string name="calls_talk_settings_sub">Hướng dẫn và thời lượng AI nói tối đa</string>
+    <string name="calls_stage_listen">Nghe</string>
+    <string name="calls_stage_think">Suy nghĩ</string>
+    <string name="calls_stage_speak">Nói</string>
+    <string name="calls_stage_now">Hiện tại: %1$s</string>
+</resources>

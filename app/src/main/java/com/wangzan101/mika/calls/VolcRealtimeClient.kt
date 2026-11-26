@@ -97,6 +97,7 @@ class VolcRealtimeClient internal constructor(
     private val endpoint: String,
     private val connectTimeoutMs: Long = 10_000,
     private val closeTimeoutMs: Long = 3_000,
+    private val noticeMatchTimeoutMs: Long = 15_000,
 ) {
     constructor() : this(defaultHttp, VolcRealtimeProtocol.ENDPOINT)
     constructor(endpoint: String) : this(defaultHttp, endpoint)
@@ -104,7 +105,7 @@ class VolcRealtimeClient internal constructor(
     private val client = http.newBuilder().followRedirects(false).followSslRedirects(false)
         .retryOnConnectionFailure(false).build()
 
-    /** Returns after session.create and, when enabled, the phone tools update are acknowledged. */
+    /** Returns after session.create and, when enabled, the tools update are acknowledged. */
     suspend fun connect(
         credentials: VolcRealtimeCredentials,
         config: VolcRealtimeConfig = VolcRealtimeConfig(),
@@ -116,7 +117,7 @@ class VolcRealtimeClient internal constructor(
                 .addPathSegments("v1/realtime").addQueryParameter("model", config.model).build()
             Request.Builder().url(url).header("Authorization", "Bearer " + credentials.apiKey).build()
         } else Request.Builder().url(endpoint).apply { credentials.applyHeaders(this) }.build()
-        val session = VolcRealtimeSession(config, closeTimeoutMs)
+        val session = VolcRealtimeSession(config, closeTimeoutMs, noticeMatchTimeoutMs)
         try {
             session.attach(client.newWebSocket(request, session.listener))
             return withTimeoutOrNull(connectTimeoutMs) { session.awaitReady(); session }
@@ -146,6 +147,7 @@ class VolcRealtimeClient internal constructor(
 class VolcRealtimeSession internal constructor(
     private val config: VolcRealtimeConfig,
     private val closeTimeoutMs: Long,
+    private val noticeMatchTimeoutMs: Long = 15_000,
 ) : CallRealtimeSession {
     private enum class Phase { CONNECTING, CREATING, CONFIGURING_TOOLS, ACTIVE, ENDING_SESSION, ENDING_SOCKET, ENDED }
     private var phase = Phase.CONNECTING
@@ -249,6 +251,97 @@ class VolcRealtimeSession internal constructor(
         return send(if (openAi) OpenAiCallProtocol.greeting(text) else VolcRealtimeProtocol.greeting(nextId(), text))
     }
 
+    /**
+     * 前台的汇报:代码拼好的一句话原样念出(和开场白同一条路),排队由服务端管。
+     * 交出去之后开播的那段回复播完才算说完;在那之前用户开口、回复被取消或通话断了,都算没说完。
+     */
+    @Synchronized override fun sendNotice(text: String, ended: (spoken: Boolean) -> Unit): Boolean {
+        if (phase != Phase.ACTIVE || text.isBlank() || text.length > VolcRealtimeProtocol.MAX_TOOL_RESULT_CHARS) return false
+        val id = "mika_notice_${UUID.randomUUID()}"
+        val sent = send(if (openAi) OpenAiCallProtocol.greeting(text, id) else VolcRealtimeProtocol.greeting(id, text))
+        if (sent) trackNotice(id, ended)
+        return sent
+    }
+
+    /**
+     * 给模型的提示,由它转述:能加 system 文字项的实时协议加一项再请它回话,说没说完和汇报一样跟踪。
+     * 双工对话协议能交给模型的文字只有照念的 speech_text_buffer,没有让模型接着回话的文字输入:返回 false
+     * (电话前台据此改让模型再请示去取回复,见 [PhoneDesk.canCue])。
+     */
+    @Synchronized override fun sendCue(text: String, ended: (spoken: Boolean) -> Unit): Boolean {
+        if (!openAi || phase != Phase.ACTIVE || text.isBlank() || text.length > VolcRealtimeProtocol.MAX_TOOL_RESULT_CHARS) return false
+        val id = "mika_notice_${UUID.randomUUID()}"
+        if (!send(OpenAiCallProtocol.systemNote(text)) || !send(OpenAiCallProtocol.respond(id))) return false
+        trackNotice(id, ended)
+        return true
+    }
+
+    /** 只当背景的提示:能加 system 文字项的实时协议加一项,不请它开口;双工对话协议没有这种输入,返回 false。 */
+    @Synchronized override fun sendContext(text: String): Boolean {
+        if (!openAi || phase != Phase.ACTIVE || text.isBlank() || text.length > VolcRealtimeProtocol.MAX_TOOL_RESULT_CHARS) return false
+        return send(OpenAiCallProtocol.systemNote(text))
+    }
+
+    /** 未确认播完的汇报;只认服务端明确关联的回复,不把下一段音频猜成自己的。 */
+    private class PendingNotice(val id: String, val ended: (Boolean) -> Unit) {
+        var responseId: String? = null
+        var playing = false
+        var timeout: Job? = null
+        var lastProgressNanos = System.nanoTime()
+    }
+    private val notices = ArrayDeque<PendingNotice>()
+
+    private fun trackNotice(id: String, ended: (Boolean) -> Unit) {
+        val pending = PendingNotice(id, ended)
+        notices.addLast(pending)
+        // 可选关联字段缺失、或关联后一直不开播时,交回上层写回会话,不堵住后续汇报。
+        pending.timeout = cleanupScope.launch {
+            while (true) {
+                delay(noticeMatchTimeoutMs)
+                synchronized(this@VolcRealtimeSession) {
+                    if (pending !in notices) return@launch
+                    if ((System.nanoTime() - pending.lastProgressNanos) / 1_000_000 >= noticeMatchTimeoutMs) {
+                        finishNotice(pending, false)
+                        return@launch
+                    }
+                }
+            }
+        }
+    }
+
+    private fun bindNotice(requestId: String?, responseId: String?) {
+        if (requestId == null || responseId == null) return
+        val pending = notices.firstOrNull { it.id == requestId } ?: return
+        if (pending.responseId != null && pending.responseId != responseId) return
+        pending.responseId = responseId
+        if (audioActive && audioId == responseId) noticeAudioStarted(responseId)
+    }
+
+    private fun noticeAudioStarted(responseId: String?) {
+        if (responseId == null) return
+        notices.firstOrNull { it.responseId == responseId }?.let {
+            it.playing = true
+            it.lastProgressNanos = System.nanoTime()
+        }
+    }
+
+    private fun noticeResponseDone(responseId: String?, completed: Boolean) {
+        if (responseId == null) return
+        val pending = notices.firstOrNull { it.responseId == responseId } ?: return
+        finishNotice(pending, completed && pending.playing)
+    }
+
+    private fun finishNotice(pending: PendingNotice, spoken: Boolean) {
+        if (!notices.remove(pending)) return
+        pending.timeout?.cancel()
+        pending.ended(spoken)
+    }
+
+    /** 用户开口、回复被取消、通话断了:交出去的汇报都算没说完。 */
+    private fun cutNotices() {
+        while (notices.isNotEmpty()) finishNotice(notices.first(), false)
+    }
+
     @Synchronized override fun setMuted(muted: Boolean): Boolean {
         if (phase != Phase.ACTIVE) return false
         if (this.muted == muted) return true
@@ -257,7 +350,7 @@ class VolcRealtimeSession internal constructor(
 
     /** Once per call ID. A provider batch is returned together after all its tools finish. */
     @Synchronized override fun sendToolResult(callId: String, result: JsonObject): Boolean {
-        if (phase != Phase.ACTIVE || !config.enablePhoneDtmf ||
+        if (phase != Phase.ACTIVE || !(config.enablePhoneDtmf || config.agentTools) ||
             result.toString().length > VolcRealtimeProtocol.MAX_TOOL_RESULT_CHARS) return false
         val call = toolCalls[callId] ?: return false
         if (call.result != null || call.sent) return false
@@ -309,9 +402,9 @@ class VolcRealtimeSession internal constructor(
                 if (openAi) {
                     phase = Phase.CONFIGURING_TOOLS
                     send(OpenAiCallProtocol.configure(config))
-                } else if (config.enablePhoneDtmf) {
+                } else if (config.enablePhoneDtmf || config.agentTools) {
                     phase = Phase.CONFIGURING_TOOLS
-                    send(VolcRealtimeProtocol.enablePhoneTools(nextId()))
+                    send(VolcRealtimeProtocol.enableTools(nextId(), config))
                 } else {
                     phase = Phase.ACTIVE
                     ready.complete(Unit)
@@ -343,9 +436,12 @@ class VolcRealtimeSession internal constructor(
         }
         if (phase != Phase.ACTIVE) return
         val responseId = frame.string("response_id")?.takeIf { it.isNotBlank() }
+        if (!openAi) bindNotice(frame.string("event_id"), responseId)
         when (type) {
             "response.created" -> if (openAi) {
-                acceptResponseIdentity((frame["response"] as? JsonObject)?.string("id"))
+                val response = frame["response"] as? JsonObject
+                bindNotice((response?.get("metadata") as? JsonObject)?.string("mika_notice_id"), response?.string("id"))
+                acceptResponseIdentity(response?.string("id"))
             }
             "response.done" -> if (openAi) handleOpenAiResponse(frame)
             VolcRealtimeProtocol.FUNCTION_CALL -> if (!openAi) receiveFunctionCalls(frame, responseId)
@@ -385,8 +481,8 @@ class VolcRealtimeSession internal constructor(
                     userText = item!!.text
                 }
                 val text = item?.text ?: userText
-                // Seeduplex's official Web demo replaces the owner question for each ASR
-                // delta (setQuestion), while appending assistant text (appendAnswer). ASR
+                // The protocol replaces the owner question for each ASR delta
+                // (setQuestion) while appending assistant text (appendAnswer). ASR
                 // events are full, revisable snapshots despite the event's "delta" name.
                 // Never infer this by text overlap: genuine repeated words must survive.
                 text.setLength(0)
@@ -457,6 +553,7 @@ class VolcRealtimeSession internal constructor(
                 if (!audioActive || (responseId != null && responseId != audioId)) {
                     audioId = responseId
                     audioActive = true
+                    noticeAudioStarted(responseId)
                     publish(VolcRealtimeEvent.AssistantAudioStarted)
                 }
             }
@@ -473,6 +570,7 @@ class VolcRealtimeSession internal constructor(
                     if (audioId != null && responseId != audioId) retireResponse(audioId)
                     audioId = responseId
                 }
+                noticeAudioStarted(responseId)
                 if (openAi) {
                     val itemId = frame.string("item_id")
                     val index = (frame["content_index"] as? JsonPrimitive)?.intOrNull
@@ -480,10 +578,14 @@ class VolcRealtimeSession internal constructor(
                     publish(VolcRealtimeEvent.Audio(pcm, itemId, index))
                 } else publish(VolcRealtimeEvent.Audio(pcm))
             }
-            VolcRealtimeProtocol.AUDIO_DONE -> if (!isRetiredResponse(responseId) && audioActive && (responseId == null || responseId == audioId || audioId == null)) {
-                audioActive = false
-                audioId = null
-                publish(VolcRealtimeEvent.AssistantAudioEnded)
+            VolcRealtimeProtocol.AUDIO_DONE -> if (!isRetiredResponse(responseId)) {
+                // 匿名结束仍按原规则处理播放,但不能证明某条汇报已经播完。
+                if (!openAi) noticeResponseDone(responseId, completed = true)
+                if (audioActive && (responseId == null || responseId == audioId || audioId == null)) {
+                    audioActive = false
+                    audioId = null
+                    publish(VolcRealtimeEvent.AssistantAudioEnded)
+                }
             }
             VolcRealtimeProtocol.CANCELED -> {
                 // A late cancellation for an older response must not flush the replacement.
@@ -499,6 +601,10 @@ class VolcRealtimeSession internal constructor(
     private fun handleOpenAiResponse(frame: JsonObject) {
         val response = frame["response"] as? JsonObject ?: return
         val id = response.string("id")
+        when (response.string("status")) {
+            "completed" -> noticeResponseDone(id, completed = true)
+            "cancelled", "failed", "incomplete" -> noticeResponseDone(id, completed = false)
+        }
         when (response.string("status")) {
             "completed" -> {
                 val calls = (response["output"] as? JsonArray).orEmpty().filterIsInstance<JsonObject>()
@@ -517,7 +623,7 @@ class VolcRealtimeSession internal constructor(
     }
 
     private fun receiveFunctionCalls(frame: JsonObject, responseId: String?) {
-        if (!config.enablePhoneDtmf) { invalidFrame(); return }
+        if (!config.enablePhoneDtmf && !config.agentTools) { invalidFrame(); return }
         val items = frame["items"] as? JsonArray
         if (items == null || items.size !in 1..VolcRealtimeProtocol.MAX_FUNCTION_BATCH) {
             invalidFrame(); return
@@ -544,14 +650,19 @@ class VolcRealtimeSession internal constructor(
         for ((id, item) in newCalls) {
             val name = item.string("name")
             val rawArguments = item.string("arguments")
-            val arguments = if (rawArguments != null && rawArguments.length <= VolcRealtimeProtocol.MAX_FUNCTION_ARGUMENT_CHARS) {
+            val arguments = if (rawArguments != null &&
+                rawArguments.length <= VolcRealtimeProtocol.maxArgumentCharsFor(name)) {
                 try { Json.parseToJsonElement(rawArguments) as? JsonObject } catch (_: IllegalArgumentException) { null }
             } else null
             val error = when {
                 stale -> "stale_response"
-                name != VolcRealtimeProtocol.DTMF_FUNCTION -> "unsupported_tool"
-                arguments == null || !VolcRealtimeProtocol.validDtmfArguments(arguments) -> "invalid_arguments"
-                else -> null
+                name == VolcRealtimeProtocol.DTMF_FUNCTION && config.enablePhoneDtmf ->
+                    if (arguments == null || !VolcRealtimeProtocol.validDtmfArguments(arguments)) "invalid_arguments" else null
+                name in VolcRealtimeProtocol.phoneDeskToolNames && config.enablePhoneDtmf ->
+                    if (arguments == null || !VolcRealtimeProtocol.validDeskArguments(name!!, arguments)) "invalid_arguments" else null
+                name in VolcRealtimeProtocol.deskToolNames && config.agentTools ->
+                    if (arguments == null || !VolcRealtimeProtocol.validDeskArguments(name!!, arguments)) "invalid_arguments" else null
+                else -> "unsupported_tool"
             }
             if (error != null) {
                 toolCalls.getValue(id).result = buildJsonObject { put("ok", false); put("error", error) }
@@ -605,7 +716,7 @@ class VolcRealtimeSession internal constructor(
         userTurnActive = false
     }
 
-    // Same field priority as the official Seeduplex Web demo's extractEventText.
+    // Field priority when extracting ASR text: first non-empty field in ASR_TEXT_FIELDS wins.
     private fun asrText(frame: JsonObject): String? = ASR_TEXT_FIELDS.firstNotNullOfOrNull { key ->
         frame.string(key)?.takeIf { it.isNotEmpty() }
     }
@@ -620,11 +731,13 @@ class VolcRealtimeSession internal constructor(
 
     private fun retireResponse(id: String?) {
         if (id == null) return
+        noticeResponseDone(id, completed = false)
         retiredResponseIds.add(id)
         if (retiredResponseIds.size > MAX_RETIRED_RESPONSES) retiredResponseIds.remove(retiredResponseIds.first())
     }
 
     private fun interruptAudio() {
+        cutNotices()
         // Text can arrive before synthesis starts. Retire that observed identity too.
         retireResponse(lastResponseId)
         lastResponseId = null
@@ -682,6 +795,7 @@ class VolcRealtimeSession internal constructor(
         if (phase == Phase.ENDED) return
         phase = Phase.ENDED
         closeWatchdog?.cancel()
+        cutNotices()
         val connection = socket
         socket = null
         if (cancelSocket) connection?.cancel()

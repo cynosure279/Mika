@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="viewer_no_open_app">Không có ứng dụng nào mở được tệp này</string>
+    <string name="viewer_no_share_app">Không có ứng dụng nào chia sẻ được tệp này</string>
+    <string name="viewer_open_elsewhere">Mở bằng ứng dụng khác</string>
+    <string name="viewer_unsupported">Tệp này không xem được trong Mika.</string>
+    <string name="viewer_read_error">Đã xảy ra lỗi khi đọc tệp này.</string>
+    <string name="viewer_page">Trang %1$d</string>
+    <string name="viewer_truncated">Tệp này lớn; chỉ hiển thị phần đầu.</string>
+    <string name="viewer_find">Tìm trong tệp</string>
+    <string name="viewer_find_hint">Nhập để tìm kiếm</string>
+    <string name="viewer_find_prev">Kết quả khớp trước</string>
+    <string name="viewer_find_next">Kết quả khớp tiếp theo</string>
+    <string name="viewer_find_close">Đóng tìm kiếm</string>
+    <string name="viewer_find_no_matches">Không có kết quả khớp</string>
+    <string name="viewer_copy">Sao chép tất cả</string>
+    <string name="viewer_copied">Đã sao chép</string>
+    <string name="viewer_copied_part">Đã sao chép (chỉ phần đầu)</string>
+    <string name="viewer_copy_failed">Quá lớn để sao chép</string>
+</resources>

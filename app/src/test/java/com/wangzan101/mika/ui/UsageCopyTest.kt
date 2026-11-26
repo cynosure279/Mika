@@ -4,18 +4,19 @@ import org.junit.Rule
 import com.wangzan101.mika.i18n.ChineseTexts
 import com.wangzan101.mika.i18n.ResFileTexts
 import com.wangzan101.mika.i18n.UiText
-import com.wangzan101.mika.core.usage.UsageCounts
-import com.wangzan101.mika.core.usage.UsageKey
-import com.wangzan101.mika.core.usage.UsagePurpose
-import com.wangzan101.mika.core.usage.UsageQuery
-import com.wangzan101.mika.core.usage.UsageRange
-import com.wangzan101.mika.core.usage.UsageRow
-import com.wangzan101.mika.core.usage.UsageSnapshot
+import com.wangzan101.mika.core.model.usage.UsageCounts
+import com.wangzan101.mika.core.model.usage.UsageKey
+import com.wangzan101.mika.core.model.usage.UsagePurpose
+import com.wangzan101.mika.core.model.usage.UsageQuery
+import com.wangzan101.mika.core.model.usage.UsageRange
+import com.wangzan101.mika.core.model.usage.UsageRow
+import com.wangzan101.mika.core.model.usage.UsageSnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import com.wangzan101.mika.settings.ui.UsageCopy
 
 class UsageCopyTest {
     @get:Rule val texts = ChineseTexts()
@@ -44,6 +45,13 @@ class UsageCopyTest {
         val p1 = UsageCopy.modelRanking(report, "p1")
         assertEquals(listOf("a", "b"), p1.map { it.model.model })
         assertEquals("占比按这一排算", 100.0 / 110, p1.first().share, 1e-9)
+    }
+
+    @Test fun percentLabelsPositiveSharesBelowOnePercentBeforeRounding() {
+        assertEquals("0%", UsageCopy.percent(0.0))
+        assertEquals("<1%", UsageCopy.percent(0.007))
+        assertEquals("1%", UsageCopy.percent(0.01))
+        assertEquals("2%", UsageCopy.percent(0.016))
     }
 
     @Test fun colorsFollowTheFixedOrderAndFoldBeyondThree() {

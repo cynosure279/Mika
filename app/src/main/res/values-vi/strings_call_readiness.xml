@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_device_allow_notifications">Cho phép thông báo</string>
+    <string name="calls_device_allow_phone">Cho phép quyền điện thoại</string>
+    <string name="calls_device_helper">Trợ lý tích hợp</string>
+    <string name="calls_device_helper_connected">Đã kết nối</string>
+    <string name="calls_device_notifications">Thông báo cuộc gọi</string>
+    <string name="calls_device_notifications_app_off">Thông báo ứng dụng đang tắt</string>
+    <string name="calls_device_notifications_calls_off">Kênh cuộc gọi AI đang tắt</string>
+    <string name="calls_device_notifications_permission_missing">Chưa được cấp quyền thông báo</string>
+    <string name="calls_device_notifications_standby_off">Kênh chờ đang tắt</string>
+    <string name="calls_device_notifications_unknown">Không kiểm tra được trạng thái thông báo</string>
+    <string name="calls_device_open_app_settings">Mở cài đặt quyền của ứng dụng</string>
+    <string name="calls_device_pair_helper">Kết nối trợ lý</string>
+    <string name="calls_device_permission_granted">Đã cho phép</string>
+    <string name="calls_device_phone_permissions">Quyền điện thoại</string>
+    <string name="calls_device_phone_permissions_note">Cho phép đọc trạng thái cuộc gọi và thực hiện cuộc gọi</string>
+    <string name="calls_device_ready_to_test">Sẵn sàng kiểm tra âm thanh thủ công</string>
+    <string name="calls_device_system_settings_failed">Không mở được cài đặt hệ thống. Hãy mở trang thông tin ứng dụng trong Cài đặt Android.</string>
+    <string name="calls_background_auto_off">Trả lời tự động đang tắt</string>
+    <string name="calls_background_battery">Pin và hoạt động nền</string>
+    <string name="calls_background_battery_managed">Android đang áp dụng tối ưu hóa pin</string>
+    <string name="calls_background_battery_restricted">Android báo cáo hoạt động nền bị hạn chế</string>
+    <string name="calls_background_battery_unknown">Không kiểm tra được chính sách pin</string>
+    <string name="calls_background_battery_unrestricted">Android báo cáo được miễn tối ưu hóa pin</string>
+    <string name="calls_background_lock_screen_note">Đối với cuộc gọi đến, hãy cho phép thông báo cuộc gọi trên màn hình khóa. Nếu chế độ chờ cứ dừng, hãy kiểm tra cài đặt pin và nền. Dịch vụ đang chạy không đảm bảo cuộc gọi có thể được trả lời khi đang khóa.</string>
+    <string name="calls_background_not_running">Đã dừng · trả lời tự động chỉ hoạt động khi ứng dụng hiển thị và đã mở khóa</string>
+    <string name="calls_background_open_battery">Mở cài đặt pin</string>
+    <string name="calls_background_running">Đang chạy</string>
+    <string name="calls_background_service">Chờ cuộc gọi đến</string>
+    <string name="calls_background_settings">Nền và màn hình khóa</string>
+    <string name="calls_background_start">Bắt đầu chờ ở nền</string>
+    <string name="calls_background_starting">Đang bắt đầu…</string>
+    <string name="calls_device_locked_dial_pending">Quay số sau khi khóa</string>
+    <string name="calls_device_locked_dial_remaining">Khóa điện thoại trong vòng %1$d giây</string>
+    <string name="calls_device_locked_dial_preparing">Đang chuẩn bị cuộc gọi trên màn hình khóa</string>
+    <string name="calls_device_locked_dial_cancel">Hủy</string>
+</resources>

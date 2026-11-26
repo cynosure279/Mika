@@ -1,0 +1,27 @@
+<resources>
+    <string name="device_access_group">Đánh thức và mở khóa từ xa</string>
+    <string name="device_access_title">Cho phép đánh thức và mở khóa từ xa</string>
+    <string name="device_access_sub">Máy tính có token MCP của bạn có thể đánh thức và mở khóa điện thoại này.</string>
+    <string name="device_access_credential">Thông tin khóa màn hình</string>
+    <string name="device_access_no_credential">Chưa cấu hình · chỉ vuốt hoặc không khóa màn hình</string>
+    <string name="device_access_pin_saved">Đã lưu PIN · nhấn để thay thế</string>
+    <string name="device_access_password_saved">Đã lưu mật khẩu · nhấn để thay thế</string>
+    <string name="device_access_blocked">Mở khóa đã tạm dừng · kiểm tra và lưu lại thông tin trên điện thoại này</string>
+    <string name="device_access_clear">Xóa thông tin đã lưu</string>
+    <string name="device_access_foot">Tắt theo mặc định. Thông tin ở dạng mã hóa trên điện thoại này và không bao giờ gửi tới mô hình hoặc máy tính. Một lần nhập sai sẽ tạm dừng các lần thử tiếp theo. Sau khi khởi động lại, hãy tự mở khóa điện thoại một lần trước. Cần thiết lập điều khiển điện thoại.</string>
+    <string name="device_access_pin">PIN</string>
+    <string name="device_access_password">Mật khẩu</string>
+    <string name="device_access_value">Thông tin đăng nhập</string>
+    <string name="device_access_value_hint">Nhập khóa màn hình hiện tại của bạn</string>
+    <string name="device_access_repeat">Xác nhận</string>
+    <string name="device_access_repeat_hint">Nhập lại</string>
+    <string name="device_access_save">Lưu thông tin</string>
+    <string name="device_access_pin_hint">Dùng PIN hiện tại gồm 4–16 chữ số. Lưu lại cho phép thử thêm một lần sau khi thất bại.</string>
+    <string name="device_access_password_hint">Dùng mật khẩu hiện tại gồm 4–64 ký tự: chữ cái tiếng Anh, số, dấu cách và ký hiệu ASCII thông dụng. Các ký tự khác và khóa hình vẽ không được hỗ trợ.</string>
+    <string name="device_access_save_failed">Không thể lưu. Kiểm tra bộ nhớ điện thoại và thử lại.</string>
+    <string name="device_local_group">Tác vụ cục bộ</string>
+    <string name="device_local_title">Chạy tác vụ khi đang khóa</string>
+    <string name="device_local_sub">Tác vụ bắt đầu trên điện thoại này có thể đánh thức và mở khóa màn hình để làm việc không cần giám sát.</string>
+    <string name="device_local_foot">Tắt theo mặc định. Hoạt động độc lập: nó không thay đổi “Cho phép đánh thức và mở khóa từ xa” trong mục Kết nối máy tính, và công tắc đó cũng không thay đổi công tắc này. Dùng cùng thông tin khóa màn hình đã mã hóa bên dưới; một lần thử sai sẽ tạm dừng các lần thử tiếp theo.</string>
+    <string name="device_local_unlock_failed">Tác vụ không thể đánh thức hoặc mở khóa điện thoại. Hãy tự mở khóa, hoặc kiểm tra “Chạy tác vụ khi đang khóa” và thông tin khóa màn hình đã lưu trong Cài đặt › Chạy tác vụ.</string>
+</resources>

@@ -166,7 +166,7 @@
     <string name="skin_accent_follow">アクセントカラーを画像から取る</string>
     <string name="skin_accent_follow_sub">画像の主な色を上で選んだアクセントカラーの代わりに使います（はっきりした色がない画像では従来どおり）</string>
     <string name="settings_self_config">Mika に自分の設定を変更させる</string>
-    <string name="settings_self_config_sub">オンにすると、タスクがこれらの設定(ペース、ミュート、カプセル、外観、アクセントカラー、画面オン)を読み取り・変更するツールを 1 つ使えるようになります。モデル、API キー、コンテナのネットワーク、データを削除するものは含まれません</string>
+    <string name="settings_self_config_sub">一覧の設定だけを変更します。モデル、キー、ネットワーク、データ削除には触れません。</string>
     <string name="settings_step_limit">タスクごとのステップ上限</string>
     <string name="settings_step_limit_sub">オフは無制限です。上限に達するとタスクは止まり、どこで止まったかを表示します。</string>
     <string name="settings_step_limit_off">上限なし</string>
@@ -206,6 +206,58 @@
     <string name="mcp_servers_status_fail">接続に失敗:%1$s</string>
     <string name="mcp_servers_refresh_all">すべてテスト</string>
     <string name="mcp_servers_allowlist">許可するツール(カンマ区切り、空欄はすべて)</string>
+    <string name="mcp_category_all">すべて</string>
+    <string name="mcp_category_ai">AI</string>
+    <string name="mcp_category_data">データ</string>
+    <string name="mcp_category_dev">開発ツール</string>
+    <string name="mcp_category_comm">コミュニケーション</string>
+    <string name="mcp_category_prod">生産性</string>
+    <string name="mcp_category_design">デザイン・メディア</string>
+    <string name="mcp_category_cloud">クラウド</string>
+    <string name="mcp_category_web">検索・ウェブ</string>
+    <string name="mcp_category_maps">地図</string>
+    <string name="mcp_category_local">この端末で実行</string>
+    <string name="mcp_catalog_title">MCP サービス</string>
+    <string name="mcp_catalog_search_hint">サービスを検索</string>
+    <string name="mcp_catalog_no_results">一致するサービスがありません</string>
+    <string name="mcp_catalog_no_results_sub">別のキーワードやカテゴリを試すか、カスタムサーバーを設定してください。</string>
+    <string name="mcp_catalog_custom">カスタム MCP サーバー</string>
+    <string name="mcp_catalog_browse">サービスカタログを見る</string>
+    <string name="mcp_catalog_custom_server">カスタムサーバー</string>
+    <string name="mcp_connect_auth_oauth">アカウントでログイン</string>
+    <string name="mcp_connect_auth_fields">API キー</string>
+    <string name="mcp_connect_auth_none">ログイン不要</string>
+    <string name="mcp_connect_auth_stdio">この端末で実行</string>
+    <string name="mcp_connect_authorize">ログインして接続</string>
+    <string name="mcp_connect_connect">接続</string>
+    <string name="mcp_connect_connecting">接続中…</string>
+    <string name="mcp_connect_cancel">キャンセル</string>
+    <string name="mcp_connect_retry">再試行</string>
+    <string name="mcp_connect_success_title">接続済み</string>
+    <string name="mcp_connect_success_tools">%1$d 個のツールを利用できます</string>
+    <string name="mcp_connect_done">完了</string>
+    <string name="mcp_connect_view_tools">ツールを見る</string>
+    <string name="mcp_connect_data_note">リクエストとデータはこのサービスに送信されます。</string>
+    <string name="mcp_connect_package_title">ダウンロードが必要</string>
+    <string name="mcp_connect_package_body">このサーバーを使用するには、Mika が端末にこのパッケージをダウンロードしてキャッシュします：\n%1$s %2$s\n提供元：%3$s</string>
+    <string name="mcp_connect_package_confirm">ダウンロードして接続</string>
+    <string name="mcp_connect_help">API キーを取得</string>
+    <string name="mcp_connect_official">公式ドキュメント</string>
+    <string name="mcp_connect_about">このサービスについて</string>
+    <string name="mcp_manage_test">今すぐテスト</string>
+    <string name="mcp_manage_reauthorize">再ログイン</string>
+    <string name="mcp_manage_replace">認証情報を変更</string>
+    <string name="mcp_manage_replace_hint">空欄のままにすると現在の値を保持します。</string>
+    <string name="mcp_manage_edit">詳細を編集</string>
+    <string name="mcp_manage_delete_note">削除すると Mika からこのサーバーと保存された認証情報が削除されます。サービス公式サイトで許可したアクセスは取り消されません。</string>
+    <string name="mcp_custom_headers">リクエストヘッダー</string>
+    <string name="mcp_custom_header_name">ヘッダー名</string>
+    <string name="mcp_custom_header_value">ヘッダー値</string>
+    <string name="mcp_custom_add_header">ヘッダーを追加</string>
+    <string name="mcp_custom_advanced">詳細</string>
+    <string name="mcp_custom_timeout">接続タイムアウト(秒)</string>
+    <string name="mcp_custom_preview">結果プレビューの長さ</string>
+    <string name="mcp_custom_budget">タスクあたりのコスト上限</string>
     <string name="settings_show_task_cost">タスクの費用を表示</string>
     <string name="settings_show_task_cost_sub">新しいタスクの DeepSeek API 費用を人民元で見積もります。</string>
     <string name="quit_title">Mika を完全に終了</string>
@@ -239,5 +291,21 @@
     <string name="settings_trigger_run_limit_sub">スケジュールタスクは見ていない間に動きます。オフは無制限です。時間になるとタスクは止まり、時間切れだったことを伝えます。</string>
     <plurals name="settings_trigger_run_minutes_n">
         <item quantity="other">%1$d 分</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">タスクごとのサンドボックス時間上限</string>
+    <string name="settings_sandbox_budget_sub">1 つのタスクでサンドボックスコマンドを合計して実行できる時間（依存パッケージのインストールやビルドなど）。デフォルトは 30 分。変更は次のタスクから適用されます。</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
+        <item quantity="other">%1$d 分</item>
+    </plurals>
+    <string name="settings_attachment_file_limit">アップロード1ファイルの上限</string>
+    <string name="settings_attachment_file_limit_sub">チャット添付とデバイスのファイル取り込みで受け付ける1ファイルの最大サイズ。WeChat画像とPC接続のファイルは固定のまま。デフォルトは 200 MB。</string>
+    <plurals name="settings_attachment_file_limit_mb_n">
+        <item quantity="other">%1$d MB</item>
+    </plurals>
+    <string name="settings_workspace_size_limit">ワークスペース1つあたりの上限</string>
+    <string name="settings_workspace_size_limit_sub">チャット添付とデバイスのファイル取り込みに使えるワークスペース容量。デフォルトは 4 GB。</string>
+    <plurals name="settings_workspace_size_limit_gb_n">
+        <item quantity="other">%1$d GB</item>
     </plurals>
 </resources>

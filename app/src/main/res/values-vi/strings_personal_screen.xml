@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="personal_status_running">Đang chạy</string>
+    <string name="personal_status_queued">Đang xếp hàng</string>
+    <string name="personal_status_needs_you">Cần bạn</string>
+    <string name="personal_status_paused">Đang chờ tiếp tục</string>
+    <string name="personal_status_finishing">Đang hoàn tất</string>
+    <string name="personal_status_completed">Đã hoàn thành</string>
+    <string name="personal_status_cancelled">Đã dừng</string>
+    <string name="personal_status_partial">Hoàn thành một phần</string>
+    <string name="personal_status_incomplete">Chưa hoàn thành</string>
+    <string name="personal_send_failed">Không gửi được. Vui lòng thử lại.</string>
+    <string name="personal_welcome_title">Tiếp tục cuộc trò chuyện.</string>
+    <string name="personal_welcome_body">Ý tưởng, cuộc sống hằng ngày, và những việc bạn nhờ tôi làm.\nQuay lại bất cứ lúc nào và tiếp tục từ chỗ chúng ta dừng lại.</string>
+    <string name="personal_view_model">Xem mô hình hiện tại</string>
+    <string name="personal_received">Đã nhận</string>
+    <string name="personal_view_task">Xem tác vụ</string>
+    <string name="personal_latest">Về tin mới nhất</string>
+    <string name="personal_ok">Đã hiểu</string>
+    <string name="personal_close">Đóng</string>
+    <string name="personal_no_tasks">Chưa có tác vụ nào.</string>
+    <string name="personal_open_sidebar">Mở thanh bên</string>
+    <string name="personal_view_activity">Xem hoạt động</string>
+    <string name="personal_expand_phone">Phóng to màn hình điện thoại</string>
+    <string name="personal_task_details">Xem chi tiết tác vụ</string>
+    <string name="personal_goal">Mục tiêu tác vụ</string>
+    <string name="personal_progress">Tiến trình</string>
+    <string name="personal_result">Kết quả tác vụ</string>
+    <string name="personal_handle_task">Mở tác vụ để thao tác</string>
+    <string name="personal_view_execution">Xem quá trình thực thi</string>
+    <string name="personal_view_replay">Xem phát lại</string>
+    <string name="personal_stop_task">Dừng tác vụ này</string>
+    <string name="personal_tab_tasks">Tác vụ</string>
+    <string name="personal_tab_memory">Bộ nhớ</string>
+    <string name="personal_tab_skills">Kỹ năng</string>
+</resources>

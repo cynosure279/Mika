@@ -2,7 +2,7 @@ package com.wangzan101.mika.core.general
 
 import com.wangzan101.mika.core.action.ActionRisk
 import com.wangzan101.mika.core.action.Risk as ApprovalRisk
-import com.wangzan101.mika.core.observation.Untrusted
+import com.wangzan101.mika.core.screen.observation.Untrusted
 import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.tool.AgentTool
 import com.wangzan101.mika.core.tool.ArgError
@@ -18,9 +18,15 @@ import com.wangzan101.mika.core.tool.okObj
 import com.wangzan101.mika.core.tool.str
 import com.wangzan101.mika.core.tool.strArray
 import com.wangzan101.mika.core.trigger.ConditionNotify
+import com.wangzan101.mika.core.trigger.DEEPSEEK_OFF_PEAK_WINDOWS
+import com.wangzan101.mika.core.trigger.DEEPSEEK_OFF_PEAK_ZONE
+import com.wangzan101.mika.core.trigger.ExecutionWindow
+import com.wangzan101.mika.core.trigger.PlanExecutionWindow
 import com.wangzan101.mika.core.trigger.PlanRepeat
+import com.wangzan101.mika.core.trigger.PlanValidation
 import com.wangzan101.mika.core.trigger.PlanValidationException
 import com.wangzan101.mika.core.trigger.TriggerDefinition
+import com.wangzan101.mika.core.trigger.customExecutionWindow
 import com.wangzan101.mika.core.trigger.editedTrigger
 import com.wangzan101.mika.core.trigger.nextCalendarAt
 import com.wangzan101.mika.core.trigger.normalizedCalendarTimes
@@ -58,6 +64,10 @@ internal object ScheduleTask : AgentTool {
         "cooldownMinutes" to int("With condition: minimum minutes between goal runs. For edit, 0 clears the cooldown.", 0, 525600),
         "reminder" to str("Fixed reminder text, delivered without a model. For edit, an empty string switches back to a normal task."),
         "whenIdle" to bool("If true, run only while no foreground task is active; the watchdog retries while busy."),
+        "executionWindow" to str("When model work may run: anytime (default), deepseek_off_peak, or custom. Due runs wait for the next opening; run_now and fixed reminders bypass it.", listOf("anytime", "deepseek_off_peak", "custom")),
+        "executionStart" to str("With custom: local window start HH:mm. Windows may cross midnight."),
+        "executionEnd" to str("With custom: local window end HH:mm, or 24:00. Must differ from executionStart."),
+        "executionZone" to str("With custom: IANA time zone; defaults to the device's zone. DeepSeek off-peak always uses UTC and avoids weekday 01:00-04:00 and 06:00-10:00 peak hours; weekends are all day."),
         "enabled" to bool("Whether this plan is enabled; omitted on edit preserves its paused/enabled state."),
     ), emptyList())
 
@@ -81,6 +91,15 @@ internal object ScheduleTask : AgentTool {
                         plan.calendarZone?.let { put("repeatZone", it) }
                         put("weekdays", buildJsonArray { plan.calendarDays.forEach { add(JsonPrimitive(java.time.DayOfWeek.of(it).name.take(3))) } })
                         put("whenIdle", plan.idleOnly)
+                        val execution = plan.toPlanDraft()
+                        put("executionWindow", windowWire(execution.executionWindow))
+                        if (execution.executionWindow != PlanExecutionWindow.Anytime) {
+                            put("executionZone", plan.executionWindowZone)
+                            if (execution.executionWindow == PlanExecutionWindow.Custom) {
+                                put("executionStart", execution.windowStart)
+                                put("executionEnd", execution.windowEnd)
+                            }
+                        }
                         plan.conditionGoal?.let { put("condition", it); put("notifyWhen", plan.notifyWhen.wire) }
                         plan.cooldownMs?.let { put("cooldownMinutes", it / 60_000) }
                         plan.lastValue?.let { put("lastValue", Untrusted.wrap(it)) }
@@ -153,6 +172,12 @@ internal object ScheduleTask : AgentTool {
         if (reminder != null && condition != null) return ToolExecution(okObj {
             put("scheduled", false); put("reason", "reminder_and_condition_conflict")
         })
+        val execution = try { executionSpec(a) } catch (e: PlanValidationException) {
+            return ToolExecution(okObj { put("scheduled", false); put("reason", "invalid_execution_window") })
+        }
+        if (reminder != null && execution.mode != PlanExecutionWindow.Anytime) return ToolExecution(okObj {
+            put("scheduled", false); put("reason", "reminder_execution_window_conflict")
+        })
         val notifyRaw = a.str("notifyWhen")
         val cooldown = a.int("cooldownMinutes", 1, 525600)?.toLong()?.times(60_000)
         if ((notifyRaw != null || cooldown != null) && condition == null) return ToolExecution(okObj {
@@ -164,7 +189,8 @@ internal object ScheduleTask : AgentTool {
             idleOnly = a.bool("whenIdle", false), reminderText = reminder,
             calendarTime = clocks?.first(), calendarZone = if (clocks != null) zone else null, calendarDays = days,
             notifyWhen = notifyWhen, cooldownMs = cooldown, enabled = a.bool("enabled", true),
-            calendarTimes = clocks?.takeIf { it.size > 1 }.orEmpty())
+            calendarTimes = clocks?.takeIf { it.size > 1 }.orEmpty(),
+            executionWindowZone = execution.zone, executionWindows = execution.windows)
         val create = ctx.config.scheduleTrigger ?: return ToolExecution(okObj {
             put("scheduled", false); put("reason", "unavailable")
         })
@@ -182,12 +208,62 @@ internal object ScheduleTask : AgentTool {
         })
     }
 
+    private data class ExecutionSpec(
+        val mode: PlanExecutionWindow,
+        val zone: String?,
+        val windows: List<ExecutionWindow>,
+        val start: String,
+        val end: String,
+    )
+
+    private fun invalidWindow(): Nothing = throw PlanValidationException(PlanValidation.InvalidExecutionWindow)
+
+    /** 省略时编辑保留原窗口；自定义时间、时区与手动编辑器共用解析规则。 */
+    private fun executionSpec(a: Args, original: TriggerDefinition? = null): ExecutionSpec {
+        val previous = original?.toPlanDraft()
+        val raw = a.str("executionWindow")
+        if (original == null && raw == null && listOf("executionStart", "executionEnd", "executionZone").any { a.o[it] != null }) invalidWindow()
+        val mode = when (raw) {
+            null -> previous?.executionWindow ?: PlanExecutionWindow.Anytime
+            "anytime" -> PlanExecutionWindow.Anytime
+            "deepseek_off_peak" -> PlanExecutionWindow.DeepSeekOffPeak
+            "custom" -> PlanExecutionWindow.Custom
+            else -> invalidWindow()
+        }
+        val start = a.str("executionStart") ?: previous?.windowStart ?: "22:00"
+        val end = a.str("executionEnd") ?: previous?.windowEnd ?: "02:00"
+        return when (mode) {
+            PlanExecutionWindow.Anytime -> ExecutionSpec(mode, null, emptyList(), start, end)
+            PlanExecutionWindow.DeepSeekOffPeak -> ExecutionSpec(mode, DEEPSEEK_OFF_PEAK_ZONE, DEEPSEEK_OFF_PEAK_WINDOWS, start, end)
+            PlanExecutionWindow.Custom -> {
+                val zone = a.str("executionZone") ?: original?.executionWindowZone?.takeIf {
+                    previous?.executionWindow == PlanExecutionWindow.Custom
+                } ?: ZoneId.systemDefault().id
+                val window = try {
+                    ZoneId.of(zone)
+                    customExecutionWindow(start, end)
+                } catch (e: Exception) {
+                    invalidWindow()
+                }
+                ExecutionSpec(mode, zone, listOf(window), start, end)
+            }
+        }
+    }
+
+    private fun windowWire(mode: PlanExecutionWindow): String = when (mode) {
+        PlanExecutionWindow.Anytime -> "anytime"
+        PlanExecutionWindow.DeepSeekOffPeak -> "deepseek_off_peak"
+        PlanExecutionWindow.Custom -> "custom"
+    }
+
     /** 缺省字段保留；清空钟点/间隔、条件、提醒和冷却有显式的空值语义。验证与页面共用。 */
     private fun editedPlan(a: Args, original: TriggerDefinition): TriggerDefinition {
         val goal = a.str("goal", max = 4000) ?: original.goal
         val reminder = a.str("reminder", min = 0, max = 2000)?.trim()?.ifEmpty { null }
             .let { if (a.o["reminder"] == null || a.o["reminder"] is JsonNull) original.reminderText else it }
         val condition = a.str("condition", min = 0, max = 2000)?.trim() ?: original.conditionGoal.orEmpty()
+        val execution = executionSpec(a, original)
+        if (reminder != null && a.str("executionWindow") != null && execution.mode != PlanExecutionWindow.Anytime) invalidWindow()
         val clock = a.str("repeatAt", min = 0)
         val times = a.strList("repeatTimes", 0, 1440, itemMax = 8)
         if (clock != null && times != null) throw ArgError("repeatTimes", "use repeatAt or repeatTimes, not both")
@@ -219,6 +295,8 @@ internal object ScheduleTask : AgentTool {
                 interval != null -> PlanRepeat.Interval; else -> PlanRepeat.Once },
             whenIdle = a.bool("whenIdle", original.idleOnly), enabled = a.bool("enabled", original.enabled), notifyWhen = notify,
             cooldownMinutes = cooldown?.takeIf { it > 0 }?.toString() ?: if (cooldown == null) original.cooldownMs?.let { (it / 60_000).toString() }.orEmpty() else "",
+            executionWindow = execution.mode, windowStart = execution.start, windowEnd = execution.end,
+            executionZone = execution.zone ?: original.toPlanDraft().executionZone,
         )
         val floor = if (clocks.isNotEmpty() && a.str("at") != null) {
             val first = runCatching { Instant.parse(at).toEpochMilli() }.getOrElse { throw ArgError("at", "must be ISO 8601 with timezone") }

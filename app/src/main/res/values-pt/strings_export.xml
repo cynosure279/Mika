@@ -7,6 +7,7 @@
     <string name="export_format">Formato</string>
     <string name="export_format_markdown">Markdown</string>
     <string name="export_format_json">JSON</string>
+    <string name="export_format_html">HTML</string>
     <string name="export_include_tool_steps">Etapas de ferramentas</string>
     <string name="export_include_attachments">Anexos</string>
     <string name="export_include_screens">Capturas de tela</string>
@@ -15,6 +16,8 @@
     <string name="export_redact_pii">Ocultar também telefones, e-mails e caminhos</string>
     <string name="export_bundle_note">Anexos ou capturas incluídos, então o arquivo é um zip.</string>
     <string name="export_button">Exportar</string>
+    <string name="export_preview">Prévia</string>
+    <string name="export_preview_truncated">Prévia truncada; o arquivo exportado contém todo o conteúdo.</string>
     <string name="export_cancel">Cancelar</string>
     <string name="export_close">Fechar</string>
     <string name="export_preparing">Preparando…</string>

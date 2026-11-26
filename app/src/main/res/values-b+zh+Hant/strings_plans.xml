@@ -43,6 +43,15 @@
     <string name="plans_notify_each">每次滿足時</string>
     <string name="plans_cooldown_minutes">兩次執行至少間隔多少分鐘（可選）</string>
     <string name="plans_when_idle">僅在 Mika 閒置時執行</string>
+    <string name="plans_execution_window">執行時段</string>
+    <string name="plans_window_anytime">任意時間</string>
+    <string name="plans_window_off_peak">半價時段</string>
+    <string name="plans_window_custom">自訂</string>
+    <string name="plans_window_off_peak_hint">DeepSeek 半價：工作日 00:00–01:00、04:00–06:00、10:00–24:00 UTC，週末全天。排程不依賴節假日額外優惠。</string>
+    <string name="plans_window_start">開始時刻（HH:mm）</string>
+    <string name="plans_window_end">結束時刻（HH:mm 或 24:00）</string>
+    <string name="plans_window_custom_hint">時區：%1$s。結束早於開始時，表示跨午夜執行。</string>
+    <string name="plans_error_window">請輸入有效時段，開始與結束不能相同</string>
     <string name="plans_enabled">啟用</string>
     <string name="plans_error_content">請輸入任務或提醒內容</string>
     <string name="plans_error_content_long">任務最多 4,000 個字元，提醒最多 2,000 個字元</string>

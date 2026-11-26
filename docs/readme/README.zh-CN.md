@@ -1,4 +1,4 @@
-<!-- translated-from: README.md @ 7b09b8113580 -->
+<!-- translated-from: README.md @ 4dc4add5f2b9 -->
 <div align="center">
 
 <img src="../media/logo.png" alt="Mika" width="88" />
@@ -26,7 +26,7 @@
 
 <br/>
 
-[English](../../README.md) · 简体中文 · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Türkçe](README.tr.md)
+[English](../../README.md) · 简体中文 · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · [Español](README.es.md) · [Türkçe](README.tr.md) · [Tiếng Việt](README.vi.md)
 
 <br/>
 
@@ -110,7 +110,7 @@
 <!-- 这一段由 ./gradlew updateReadme 生成，不要手改 -->
 | 类别 | 内置 |
 |---|---|
-| **App** | 阿里巴巴、支付宝、Android 设置、百度、百家号、哔哩哔哩、BOSS直聘、Chrome、得到、大众点评、抖音、飞书、Gmail、京东、即刻、快手、领英、美团、美团外卖、拼多多、QQ、QQ邮箱、QQ音乐、淘宝、Telegram、今日头条、Uber、Uber Eats、微信、微博、WhatsApp、X、闲鱼、小黑盒、小红书、知乎 |
+| **App** | 阿里巴巴、支付宝、Amazon、Android 设置、百度、百家号、哔哩哔哩、BOSS直聘、ChatGPT、Chrome、得到、大众点评、Discord、抖音、飞书、GitHub、Gmail、Google Calendar、Google Maps、Instagram、京东、即刻、快手、领英、美团、美团外卖、Netflix、拼多多、QQ、QQ邮箱、QQ音乐、Reddit、Slack、Spotify、淘宝、Telegram、TikTok、今日头条、Uber、Uber Eats、微信、微博、WhatsApp、X、闲鱼、小黑盒、小红书、YouTube、知乎 |
 | **网站** | 铁路12306、1688、Amazon、百度搜索、哔哩哔哩、Google Calendar、携程旅行、大众点评、豆瓣、抖音、GitHub、Instagram、京东、Gmail、Google Maps、美团、淘宝网、Telegram、百度贴吧、百度热搜、微博、搜狗微信、WhatsApp、小红书、小宇宙、QQ音乐、YouTube、知乎、BOSS直聘 |
 | **通用做法**（技能） | 改 Mika 自己的设置、把内容整理成文字、处理 PDF 文档、查清一件事、消息与邮件、写技能 |
 <!-- generated:knowledge:end -->
@@ -122,7 +122,7 @@
 
 <!-- generated:providers:start -->
 <!-- 这一段由 ./gradlew updateReadme 生成，不要手改 -->
-内置 DeepSeek、通义千问、Kimi、智谱、智谱 Coding Plan、硅基流动、火山方舟、MiniMax、阶跃星辰、腾讯混元、百度千帆、OpenRouter、OpenCode Go、Anthropic、Gemini、OpenAI、xAI、Mistral、Groq、Ollama、LM Studio 等服务商预设；其他服务商选「自定义」，OpenAI 兼容、Anthropic、Gemini、OpenAI Responses 接口都能接。
+内置 DeepSeek、通义千问、Kimi、智谱、智谱 Coding Plan、硅基流动、火山方舟、MiniMax、阶跃星辰、腾讯混元、百度千帆、OpenRouter、OpenDesign Go、OpenCode Go、Anthropic、Gemini、OpenAI、xAI、Mistral、Groq、Cloudflare Workers AI、Ollama、LM Studio 等服务商预设；其他服务商选「自定义」，OpenAI 兼容、Anthropic、Gemini、OpenAI Responses 接口都能接。
 <!-- generated:providers:end -->
 
 也可以不填 Key：ChatGPT（Plus / Pro）、xAI / Grok、OpenRouter 账号登录。添加模型的步骤和各家登录的注意事项见[模型与登录](../models.md)。
@@ -176,8 +176,8 @@
 
 <a href="https://star-history.com/#wangzan101/Mika&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&theme=dark&v=20261110-2017" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&v=20261110-2017" width="600" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&theme=dark&v=20261125-2135" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&v=20261125-2135" width="600" />
   </picture>
 </a>
 

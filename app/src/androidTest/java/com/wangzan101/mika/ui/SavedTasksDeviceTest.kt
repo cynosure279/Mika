@@ -1,6 +1,10 @@
 package com.wangzan101.mika.ui
 
 import android.graphics.Bitmap
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -24,6 +28,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.util.UUID
+import com.wangzan101.mika.chat.ui.ChatScreen
+import com.wangzan101.mika.chat.ui.ChatViewModel
+import com.wangzan101.mika.chat.ui.TaskActions
+import com.wangzan101.mika.chat.ui.draft
+import com.wangzan101.mika.settings.ui.models.use
+import com.wangzan101.mika.task.ui.RecommendedTasksScreen
 
 @RunWith(AndroidJUnit4::class)
 class SavedTasksDeviceTest {
@@ -51,24 +61,33 @@ class SavedTasksDeviceTest {
 
     @After fun cleanUp() { scope.cancel(); directory.deleteRecursively() }
 
+    /** 同一用例里聊天屏与常用任务页来回切:Compose 测试规则只允许 setContent 一次,所以只挂一个宿主、换页靠状态。 */
+    private var page by mutableStateOf<(@Composable () -> Unit)?>(null)
+    private var hosted = false
+
+    private fun host(content: @Composable () -> Unit) {
+        compose.runOnUiThread { page = content }
+        if (!hosted) {
+            hosted = true
+            compose.setContent { page?.invoke() }
+        }
+        compose.waitForIdle()
+    }
+
     private fun show(): ChatViewModel {
         val vm = ChatViewModel(scope, MutableStateFlow(TaskState.Idle), MutableStateFlow(Takeover.Stage.None),
             actions, conversations, parallelFlag = { false }, sandboxReady = MutableStateFlow(false),
             io = Dispatchers.Main.immediate)
         compose.runOnUiThread { vm.openConversation("history") }
-        compose.setContent {
+        host {
             ChatScreen(vm, Prerequisites.Check(emptyList()), MutableStateFlow<Bitmap?>(null), MutableStateFlow(false),
                 reduceMotion = true, onOpenDrawer = {}, openSettings = {}, recommendations = tasks)
         }
-        compose.waitForIdle()
         return vm
     }
 
     /** 推荐任务页现在只经设置页进入;管理类用例直接组合这个屏,不再走输入栏星标。 */
-    private fun showSavedTasks() {
-        compose.setContent { RecommendedTasksScreen(tasks, onBack = {}, onPick = {}) }
-        compose.waitForIdle()
-    }
+    private fun showSavedTasks() = host { RecommendedTasksScreen(tasks, onBack = {}, onPick = {}) }
 
     @Test fun saveHistoryEditAndReuseWithoutSendingOrLosingDraft() {
         val prompt = "打开浏览器，搜索日语五十音学习资料，整理三个适合初学者的练习方法。"

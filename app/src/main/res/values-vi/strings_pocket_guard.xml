@@ -1,0 +1,8 @@
+<resources>
+    <string name="pocket_guard_title">Bảo vệ chạm trong túi</string>
+    <string name="pocket_guard_summary">Trong lúc tác vụ chạy, chặn thao tác chạm khi điện thoại bị che và tối. Vuốt để thoát.</string>
+    <string name="pocket_guard_unavailable">Cần cảm biến tiệm cận và ánh sáng trên điện thoại này.</string>
+    <string name="pocket_guard_exit">Trượt sang phải để thoát</string>
+    <string name="pocket_completion_lock_title">Khóa khi tác vụ bị che dừng lại</string>
+    <string name="pocket_completion_lock_summary">Khóa màn hình khi điện thoại bị che và tối.</string>
+</resources>

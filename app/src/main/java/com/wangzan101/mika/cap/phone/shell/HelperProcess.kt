@@ -8,6 +8,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.ProviderInfo
 import android.os.Binder
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
@@ -15,11 +16,11 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.Process
 import android.util.Log
-import com.wangzan101.mika.core.shell.HelperHandoff
-import com.wangzan101.mika.core.shell.HelperRestorePolicy
-import com.wangzan101.mika.core.shell.PermissionCommands
-import com.wangzan101.mika.core.shell.RestoreCommands
-import com.wangzan101.mika.core.shell.RestoreWish
+import com.wangzan101.mika.core.device.shell.HelperHandoff
+import com.wangzan101.mika.core.device.shell.HelperRestorePolicy
+import com.wangzan101.mika.core.device.shell.PermissionCommands
+import com.wangzan101.mika.core.device.shell.RestoreCommands
+import com.wangzan101.mika.core.device.shell.RestoreWish
 import java.io.File
 import java.lang.reflect.Proxy
 import kotlin.system.exitProcess
@@ -149,6 +150,11 @@ object HelperProcess {
                         putInt(HelperHandoff.KEY_RESTORES, r.recent)
                         putLong(HelperHandoff.KEY_GAVE_UP_AT, r.gaveUpAtMs)
                     }
+                }
+                // 带 AttributionSource 的 provider 调用从 Android 12 起才有;更早的系统交接不了
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                    Log.w(TAG, "handoff needs Android 12+")
+                    return Outcome.Failed
                 }
                 val call = provider.javaClass.methods.first {
                     it.name == "call" && it.parameterTypes.size == 5 && it.parameterTypes[0] == AttributionSource::class.java

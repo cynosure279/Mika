@@ -166,7 +166,7 @@
     <string name="skin_accent_follow">强调色跟随图片</string>
     <string name="skin_accent_follow_sub">用图上的主色代替上面选的强调色；图上没有明显颜色时照旧</string>
     <string name="settings_self_config">允许 Mika 改自己的设置</string>
-    <string name="settings_self_config_sub">打开后，任务里会多一件工具，能看和改这些偏好（操作节奏、静音、胶囊、外观、强调色、屏幕常亮）。模型和 Key、容器联网、任何删数据的操作都不在其中</string>
+    <string name="settings_self_config_sub">只能改指定偏好，不能碰模型、Key、联网或删数据。</string>
     <string name="settings_step_limit">每个任务的步数上限</string>
     <string name="settings_step_limit_sub">关着表示不限制。到达上限时任务会停下，并说明停在哪一步。</string>
     <string name="settings_step_limit_off">不限制</string>
@@ -206,6 +206,58 @@
     <string name="mcp_servers_status_fail">连接失败:%1$s</string>
     <string name="mcp_servers_refresh_all">测试全部</string>
     <string name="mcp_servers_allowlist">允许的工具(英文逗号分隔,留空为全部)</string>
+    <string name="mcp_category_all">全部</string>
+    <string name="mcp_category_ai">AI</string>
+    <string name="mcp_category_data">数据</string>
+    <string name="mcp_category_dev">开发工具</string>
+    <string name="mcp_category_comm">沟通</string>
+    <string name="mcp_category_prod">效率</string>
+    <string name="mcp_category_design">设计与媒体</string>
+    <string name="mcp_category_cloud">云</string>
+    <string name="mcp_category_web">搜索与网页</string>
+    <string name="mcp_category_maps">地图</string>
+    <string name="mcp_category_local">在本机运行</string>
+    <string name="mcp_catalog_title">MCP 服务</string>
+    <string name="mcp_catalog_search_hint">搜索服务</string>
+    <string name="mcp_catalog_no_results">没有匹配的服务</string>
+    <string name="mcp_catalog_no_results_sub">换个关键词或分类试试，或设置自定义服务器。</string>
+    <string name="mcp_catalog_custom">自定义 MCP 服务器</string>
+    <string name="mcp_catalog_browse">浏览服务目录</string>
+    <string name="mcp_catalog_custom_server">自定义服务器</string>
+    <string name="mcp_connect_auth_oauth">使用账号登录</string>
+    <string name="mcp_connect_auth_fields">API 密钥</string>
+    <string name="mcp_connect_auth_none">无需登录</string>
+    <string name="mcp_connect_auth_stdio">在本机运行</string>
+    <string name="mcp_connect_authorize">登录并连接</string>
+    <string name="mcp_connect_connect">连接</string>
+    <string name="mcp_connect_connecting">正在连接…</string>
+    <string name="mcp_connect_cancel">取消</string>
+    <string name="mcp_connect_retry">重试</string>
+    <string name="mcp_connect_success_title">已连接</string>
+    <string name="mcp_connect_success_tools">提供 %1$d 个工具</string>
+    <string name="mcp_connect_done">完成</string>
+    <string name="mcp_connect_view_tools">查看工具</string>
+    <string name="mcp_connect_data_note">你的请求和数据会发送到该服务。</string>
+    <string name="mcp_connect_package_title">需要下载</string>
+    <string name="mcp_connect_package_body">要使用此服务器，Mika 会在设备上下载并缓存该包：\n%1$s %2$s\n来源：%3$s</string>
+    <string name="mcp_connect_package_confirm">下载并连接</string>
+    <string name="mcp_connect_help">获取 API 密钥</string>
+    <string name="mcp_connect_official">官方文档</string>
+    <string name="mcp_connect_about">关于此服务</string>
+    <string name="mcp_manage_test">立即测试</string>
+    <string name="mcp_manage_reauthorize">重新登录</string>
+    <string name="mcp_manage_replace">更换凭据</string>
+    <string name="mcp_manage_replace_hint">留空表示保留当前值。</string>
+    <string name="mcp_manage_edit">编辑详情</string>
+    <string name="mcp_manage_delete_note">删除会从 Mika 移除该服务器及其保存的凭据,但不会撤销你在该服务官网上授予的访问权限。</string>
+    <string name="mcp_custom_headers">请求头</string>
+    <string name="mcp_custom_header_name">请求头名称</string>
+    <string name="mcp_custom_header_value">请求头值</string>
+    <string name="mcp_custom_add_header">添加请求头</string>
+    <string name="mcp_custom_advanced">高级</string>
+    <string name="mcp_custom_timeout">连接超时(秒)</string>
+    <string name="mcp_custom_preview">结果预览长度</string>
+    <string name="mcp_custom_budget">单次任务成本预算</string>
     <string name="settings_show_task_cost">显示任务费用</string>
     <string name="settings_show_task_cost_sub">按人民币估算新任务的 DeepSeek API 费用。</string>
     <string name="quit_title">完全退出 Mika</string>
@@ -239,5 +291,21 @@
     <string name="settings_trigger_run_limit_sub">定时任务跑的时候没人看着。关着表示不限制；到时间任务会停下，并说明是超时。</string>
     <plurals name="settings_trigger_run_minutes_n">
         <item quantity="other">%1$d 分钟</item>
+    </plurals>
+
+    <string name="settings_sandbox_budget">每个任务的沙箱时间上限</string>
+    <string name="settings_sandbox_budget_sub">一个任务里沙箱命令累计最多能跑多久（装依赖、编译这类活）。默认 30 分钟；改了之后下一个任务起生效。</string>
+    <plurals name="settings_sandbox_budget_minutes_n">
+        <item quantity="other">%1$d 分钟</item>
+    </plurals>
+    <string name="settings_attachment_file_limit">单个上传文件上限</string>
+    <string name="settings_attachment_file_limit_sub">聊天附件与设备文件导入接受的单个文件最大体积;微信图片与电脑传输仍是固定限额。默认 200 MB。</string>
+    <plurals name="settings_attachment_file_limit_mb_n">
+        <item quantity="other">%1$d MB</item>
+    </plurals>
+    <string name="settings_workspace_size_limit">单个工作区上限</string>
+    <string name="settings_workspace_size_limit_sub">聊天附件与设备文件导入可用的工作区空间;默认 4 GB。</string>
+    <plurals name="settings_workspace_size_limit_gb_n">
+        <item quantity="other">%1$d GB</item>
     </plurals>
 </resources>

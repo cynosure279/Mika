@@ -232,7 +232,7 @@ private fun load(context: Context, uri: Uri, kind: ViewerKind): Loaded = when (k
             buf.copyOf(n)
         }
         val truncated = bytes.size > TEXT_CAP
-        val text = String(bytes, 0, minOf(bytes.size, TEXT_CAP), Charsets.UTF_8).removePrefix("﻿")
+        val text = String(bytes, 0, minOf(bytes.size, TEXT_CAP), Charsets.UTF_8).removePrefix("\uFEFF")
         Loaded.Text(text, truncated)
     }
 }
