@@ -11,6 +11,8 @@ import java.util.Locale
 /** 手动编辑器和模型编辑共用的重复方式。 */
 enum class PlanRepeat { Once, Interval, Daily, Weekly }
 
+enum class PlanExecutionWindow { Anytime, DeepSeekOffPeak, Custom }
+
 enum class PlanValidation {
     MissingContent,
     ContentTooLong,
@@ -23,6 +25,7 @@ enum class PlanValidation {
     InvalidZone,
     InvalidWeekdays,
     InvalidCooldown,
+    InvalidExecutionWindow,
 }
 
 class PlanValidationException(val reason: PlanValidation) : IllegalArgumentException(reason.name)
@@ -37,11 +40,15 @@ data class PlanDraft(
     val intervalMinutes: String = "60",
     val clock: String = "09:00",
     val zone: String,
+    val executionZone: String = zone,
     val weekdays: Set<Int> = emptySet(),
     val whenIdle: Boolean = false,
     val enabled: Boolean = true,
     val notifyWhen: ConditionNotify = ConditionNotify.BecomesMet,
     val cooldownMinutes: String = "",
+    val executionWindow: PlanExecutionWindow = PlanExecutionWindow.Anytime,
+    val windowStart: String = "22:00",
+    val windowEnd: String = "02:00",
 )
 
 private val EDIT_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm")
@@ -85,7 +92,14 @@ fun newPlanDraft(nowMs: Long, zone: ZoneId = ZoneId.systemDefault()): PlanDraft 
 }
 
 fun TriggerDefinition.toPlanDraft(): PlanDraft {
-    val zone = calendarZone ?: ZoneId.systemDefault().id
+    val executionWindow = when {
+        reminderText != null || executionWindows.isEmpty() -> PlanExecutionWindow.Anytime
+        executionWindowZone == DEEPSEEK_OFF_PEAK_ZONE && executionWindows == DEEPSEEK_OFF_PEAK_WINDOWS -> PlanExecutionWindow.DeepSeekOffPeak
+        else -> PlanExecutionWindow.Custom
+    }
+    val zone = calendarZone ?: executionWindowZone.takeIf { executionWindow == PlanExecutionWindow.Custom }
+        ?: ZoneId.systemDefault().id
+    val custom = executionWindows.firstOrNull().takeIf { executionWindow == PlanExecutionWindow.Custom }
     return PlanDraft(
         content = reminderText ?: goal,
         reminder = reminderText != null,
@@ -100,11 +114,15 @@ fun TriggerDefinition.toPlanDraft(): PlanDraft {
         intervalMinutes = intervalMs?.let { (it / 60_000).toString() } ?: "60",
         clock = calendarClocks().takeIf { it.isNotEmpty() }?.joinToString(", ") ?: "09:00",
         zone = zone,
+        executionZone = executionWindowZone.takeIf { executionWindow == PlanExecutionWindow.Custom } ?: zone,
         weekdays = calendarDays.toSet(),
         whenIdle = idleOnly,
         enabled = enabled,
         notifyWhen = notifyWhen,
         cooldownMinutes = cooldownMs?.let { (it / 60_000).toString() }.orEmpty(),
+        executionWindow = executionWindow,
+        windowStart = custom?.let { formatExecutionWindowMinute(it.startMinute) } ?: "22:00",
+        windowEnd = custom?.let { formatExecutionWindowMinute(it.endMinute) } ?: "02:00",
     )
 }
 
@@ -151,6 +169,16 @@ fun editedTrigger(
     val zone = try { ZoneId.of(draft.zone.trim()) } catch (e: Exception) {
         invalid(PlanValidation.InvalidZone)
     }
+    val execution = when {
+        draft.reminder || draft.executionWindow == PlanExecutionWindow.Anytime -> null
+        draft.executionWindow == PlanExecutionWindow.DeepSeekOffPeak ->
+            DEEPSEEK_OFF_PEAK_ZONE to DEEPSEEK_OFF_PEAK_WINDOWS
+        else -> try {
+            ZoneId.of(draft.executionZone.trim()).id to listOf(customExecutionWindow(draft.windowStart, draft.windowEnd))
+        } catch (e: Exception) {
+            invalid(PlanValidation.InvalidExecutionWindow)
+        }
+    }
     val nextAt: Long
     var intervalMs: Long? = null
     var calendarTime: String? = null
@@ -162,7 +190,7 @@ fun editedTrigger(
             val firstAt = draft.firstAt.trim()
             // 表单只显示到分钟；当地时间和时区未修改时保留原计划的秒与毫秒。
             val originalTime = original?.takeIf {
-                it.calendarTime == null && zone.id == (it.calendarZone ?: ZoneId.systemDefault().id) &&
+                it.calendarTime == null && zone.id == it.toPlanDraft().zone &&
                     firstAt == formatPlanEditorTime(it.nextAtMs, zone.id)
             }?.nextAtMs
             nextAt = originalTime ?: try {
@@ -221,6 +249,8 @@ fun editedTrigger(
         calendarTimes = calendarTimes,
         notifyWhen = draft.notifyWhen,
         cooldownMs = cooldownMs,
+        executionWindowZone = execution?.first,
+        executionWindows = execution?.second.orEmpty(),
     )
     return if (original == null) updated else updated.withConditionHistoryFrom(original)
 }

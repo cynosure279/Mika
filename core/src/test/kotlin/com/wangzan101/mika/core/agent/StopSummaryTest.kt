@@ -5,7 +5,7 @@ import com.wangzan101.mika.core.model.Message
 import com.wangzan101.mika.core.model.ModelReply
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.model.ToolSpec
-import com.wangzan101.mika.core.record.RunEvent
+import com.wangzan101.mika.core.run.record.RunEvent
 import com.wangzan101.mika.core.testing.answerReply
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.runTest
@@ -165,5 +165,73 @@ class StopSummaryTest {
         val esText = StopSummary.plain("Enviar mensajes", greeting, null, ::label, ::app, language = "es")
         assertTrue(esText, esText.startsWith("Detenida. Antes de detener:"))
         assertTrue(esText, esText.contains("Visitado: jobs.example.com"))
+    }
+
+    @Test fun localizeCancelledHeaderHandlesSpacingAndFullWidthPunctuation() {
+        val expected = "Stopped. Actions before stop:\n- WhatsApp"
+        val rawHeaders = listOf(
+            "已经停下。停止前:\n- WhatsApp",
+            "已经停下。 停止前：\n- WhatsApp",
+            "已经停下， 停止前：\n- WhatsApp",
+            "已经停下,停止前做了这些:\n- WhatsApp",
+            "已经停下．　停止前：\n- WhatsApp",
+            "已經停下。停止前：\n- WhatsApp",
+            "已經停下，停止前做了這些：\n- WhatsApp",
+        )
+        for (raw in rawHeaders) assertEquals(raw, expected, StopSummary.localizeCancelledHeader(raw, "en"))
+        assertEquals("Stopped before starting any actions.", StopSummary.localizeCancelledHeader("已经停下，还没开始操作。", "en"))
+        assertEquals("Stopped before starting any actions.", StopSummary.localizeCancelledHeader("已经停下，　还没开始操作。", "en"))
+        assertEquals("Stopped before starting any actions.", StopSummary.localizeCancelledHeader("已經停下，還沒開始操作。", "en"))
+    }
+
+    @Test fun localizeCancelledHeaderIsIdempotentAndLeavesChineseUnchanged() {
+        val raw = "已经停下。 停止前：\n- WhatsApp"
+        val localized = StopSummary.localizeCancelledHeader(raw, "en")
+        assertEquals(localized, StopSummary.localizeCancelledHeader(localized, "en"))
+        for (language in listOf("zh-Hans", "zh-Hant")) {
+            assertEquals(raw, StopSummary.localizeCancelledHeader(raw, language))
+        }
+        val traditional = "已經停下，還沒開始操作。"
+        assertEquals(traditional, StopSummary.localizeCancelledHeader(traditional, "zh-Hant"))
+    }
+
+    @Test fun allLocalesLocalizeHeadersAndUnknownFallsBackToEnglish() {
+        val raw = "已经停下。停止前：\n- WhatsApp"
+        val expected = mapOf(
+            "en" to "Stopped. Actions before stop:",
+            "ja" to "停止しました。停止前:",
+            "ko" to "중지됨. 중지 전:",
+            "es" to "Detenida. Antes de detener:",
+            "pt" to "Parado. Antes de parar:",
+            "ru" to "Остановлено. До остановки:",
+            "ar" to "تم الإيقاف. قبل التوقف:",
+            "fa" to "متوقف شد. قبل از توقف:",
+            "tr" to "Durduruldu. Durdurulmadan önce:",
+            "id" to "Dihentikan. Sebelum berhenti:",
+            "in" to "Dihentikan. Sebelum berhenti:",
+            "vi" to "Stopped. Actions before stop:",
+            "unknown" to "Stopped. Actions before stop:",
+        )
+        for ((tag, header) in expected) {
+            assertEquals(tag, "$header\n- WhatsApp", StopSummary.localizeCancelledHeader(raw, tag))
+        }
+    }
+
+    @Test fun nullBlankAndSystemKeepChineseCompatibilityWithoutInference() = runTest {
+        val expectedFacts = StopSummary.facts("open WhatsApp", greeting, null, ::label, ::app, language = null)
+        val expectedPlain = StopSummary.plain("open WhatsApp", greeting, null, ::label, ::app, language = null)
+        for (language in listOf(null, "", "system")) {
+            val facts = StopSummary.facts("open WhatsApp", greeting, null, ::label, ::app, language = language)
+            val plain = StopSummary.plain("open WhatsApp", greeting, null, ::label, ::app, language = language)
+            assertEquals(expectedFacts, facts)
+            assertEquals(expectedPlain, plain)
+            assertTrue(facts, facts.contains("第 1 步"))
+            assertFalse(facts, facts.contains("Step 1"))
+            assertTrue(plain, plain.startsWith("已经停下,停止前做了这些:"))
+            val model = FakeModel(answerReply("summary"))
+            StopSummary(model, language = language).summarize("open WhatsApp", greeting, null, ::label, ::app)
+            assertTrue(model.system!!.contains("Always mirror the language of the user's prompt"))
+            assertFalse(model.system!!.contains("final replies in English."))
+        }
     }
 }

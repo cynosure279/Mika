@@ -29,9 +29,9 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.Surface
-import com.wangzan101.mika.core.shell.DevtoolsSocket
-import com.wangzan101.mika.core.uistate.AppCopies
-import com.wangzan101.mika.core.uistate.PressKeys
+import com.wangzan101.mika.core.device.shell.DevtoolsSocket
+import com.wangzan101.mika.core.screen.uistate.AppCopies
+import com.wangzan101.mika.core.screen.uistate.PressKeys
 import java.io.File
 import java.lang.reflect.Method
 import java.util.concurrent.ConcurrentHashMap
@@ -399,6 +399,26 @@ class ShellService(
         }
     } catch (t: Throwable) {
         Log.e(TAG, "packageOfTask failed", t)
+        null
+    }
+
+    override fun findTaskForPackage(packageName: String, userId: Int, displayId: Int): IntArray? = try {
+        val user = TASK_INFO.getField("userId")
+        val display = TASK_INFO.getField("displayId")
+        val appUser = userId.takeIf { it >= 0 } ?: myUser
+        val current = allTasks().asSequence()
+            .filter { user.getInt(it) == appUser && packageName in packagesOf(it) }
+            .minByOrNull {
+                when (display.getInt(it)) {
+                    displayId -> 0
+                    Display.DEFAULT_DISPLAY -> 1
+                    else -> 2
+                }
+            }
+        if (current == null) intArrayOf()
+        else intArrayOf(TASK_INFO.getField("taskId").getInt(current), display.getInt(current))
+    } catch (e: Exception) {
+        Log.w(TAG, "findTaskForPackage failed", e)
         null
     }
 

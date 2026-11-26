@@ -8,9 +8,9 @@ import com.wangzan101.mika.core.agent.AgentLoop
 import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.core.assembly.toolDispatcher
 import com.wangzan101.mika.core.model.Part
-import com.wangzan101.mika.core.observation.Trust
-import com.wangzan101.mika.core.record.RunEvent
-import com.wangzan101.mika.core.record.RunSink
+import com.wangzan101.mika.core.screen.observation.Trust
+import com.wangzan101.mika.core.run.record.RunEvent
+import com.wangzan101.mika.core.run.record.RunSink
 import com.wangzan101.mika.core.run.Attendance
 import com.wangzan101.mika.core.run.RunId
 import com.wangzan101.mika.core.run.RunOrigin
@@ -74,7 +74,7 @@ class McpClientTest {
         val endpoint = FakeEndpoint().apply { instructions = "Use search before fetching a result." }
         val tools = toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(endpoint)))
         val sections = tools.promptSections(tools.definitions()).joinToString("\n")
-        assertTrue(sections, com.wangzan101.mika.core.observation.Untrusted.wrap(endpoint.instructions!!) in sections)
+        assertTrue(sections, com.wangzan101.mika.core.screen.observation.Untrusted.wrap(endpoint.instructions!!) in sections)
         assertEquals(ActionRisk.Change, tools.approvalRisk("mcp_demo__search")?.level)
     }
 
@@ -459,6 +459,281 @@ class McpClientTest {
         assertEquals(5, definitions.map { it.name }.toSet().size)
         assertTrue("mcp_demo__resource_read" in definitions.map { it.name })
         assertTrue("mcp_demo__prompt_get" in definitions.map { it.name })
+    }
+
+    @Test fun resolvesLocalDefsAndDefinitionsRefs() = runBlocking {
+        val ep = endpointWithSchema("""
+            {
+              "type": "object",
+              "${'$'}defs": {
+                "Filter": {
+                  "type": "object",
+                  "properties": {"object": {"type": "string", "enum": ["page", "database"]}},
+                  "required": ["object"]
+                }
+              },
+              "definitions": {
+                "Limit": {"type": "integer", "description": "Max items"}
+              },
+              "properties": {
+                "filter": {"${'$'}ref": "#/${'$'}defs/Filter", "description": "Search filter"},
+                "limit": {"${'$'}ref": "#/definitions/Limit"}
+              },
+              "required": ["filter"]
+            }
+        """.trimIndent())
+        val schema = parameters(toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(ep))))
+        val text = schema.toString()
+        assertFalse(text.contains("\$defs"))
+        assertFalse(text.contains("\$ref"))
+        assertFalse(text.contains("definitions"))
+        val props = schema["properties"]!!.jsonObject
+        val filter = props["filter"]!!.jsonObject
+        assertEquals("object", filter["type"]!!.jsonPrimitive.content)
+        assertEquals("Search filter", filter["description"]!!.jsonPrimitive.content)
+        assertEquals("string", filter["properties"]!!.jsonObject["object"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        val limit = props["limit"]!!.jsonObject
+        assertEquals("integer", limit["type"]!!.jsonPrimitive.content)
+        assertEquals("Max items", limit["description"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun cycleAndDanglingRefsFallBackToStringPreservingDescription() = runBlocking {
+        val ep = endpointWithSchema("""
+            {
+              "type": "object",
+              "${'$'}defs": {
+                "Node": {
+                  "type": "object",
+                  "properties": {
+                    "name": {"type": "string"},
+                    "children": {"type": "array", "items": {"${'$'}ref": "#/${'$'}defs/Node"}}
+                  }
+                }
+              },
+              "properties": {
+                "root": {"${'$'}ref": "#/${'$'}defs/Node"},
+                "dangling": {"${'$'}ref": "#/${'$'}defs/DoesNotExist", "description": "Fallback field"}
+              }
+            }
+        """.trimIndent())
+        val schema = parameters(toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(ep))))
+        assertFalse(schema.toString().contains("\$ref"))
+        val props = schema["properties"]!!.jsonObject
+        val childrenItems = props["root"]!!.jsonObject["properties"]!!.jsonObject["children"]!!.jsonObject["items"]!!.jsonObject
+        assertEquals("string", childrenItems["type"]!!.jsonPrimitive.content)
+        val dangling = props["dangling"]!!.jsonObject
+        assertEquals("string", dangling["type"]!!.jsonPrimitive.content)
+        assertEquals("Fallback field", dangling["description"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun flattensCombinatorsTypeArraysConstAndMissingItems() = runBlocking {
+        val ep = endpointWithSchema("""
+            {
+              "type": "object",
+              "allOf": [
+                {"properties": {"extra": {"type": "string"}}, "required": ["extra"]}
+              ],
+              "properties": {
+                "nullableQuery": {"type": ["string", "null"]},
+                "kind": {"const": "text"},
+                "tags": {"type": "array"},
+                "parent": {
+                  "oneOf": [
+                    {"type": "object", "properties": {"page_id": {"type": "string"}}, "required": ["page_id"]},
+                    {"type": "object", "properties": {"database_id": {"type": "string"}}, "required": ["database_id"]}
+                  ]
+                },
+                "optText": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+              }
+            }
+        """.trimIndent())
+        val schema = parameters(toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(ep))))
+        val text = schema.toString()
+        assertFalse(text.contains("allOf"))
+        assertFalse(text.contains("oneOf"))
+        assertFalse(text.contains("anyOf"))
+        assertFalse(text.contains("\"const\""))
+        val props = schema["properties"]!!.jsonObject
+        assertTrue(props.containsKey("extra"))
+        assertEquals(listOf("extra"), schema["required"]!!.jsonArray.map { it.jsonPrimitive.content })
+        assertEquals("string", props["nullableQuery"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals("string", props["kind"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        assertEquals("text", props["kind"]!!.jsonObject["enum"]!!.jsonArray[0].jsonPrimitive.content)
+        assertEquals("string", props["tags"]!!.jsonObject["items"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        val parent = props["parent"]!!.jsonObject
+        assertEquals("object", parent["type"]!!.jsonPrimitive.content)
+        assertTrue(parent["properties"]!!.jsonObject.containsKey("page_id"))
+        assertTrue(parent["properties"]!!.jsonObject.containsKey("database_id"))
+        assertFalse(parent.containsKey("required"))
+        assertEquals("string", props["optText"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun capsDeeplyNestedRefSchemas() = runBlocking {
+        val ep = endpointWithSchema("""
+            {
+              "type": "object",
+              "${'$'}defs": {
+                "L1": {"type": "object", "properties": {"next": {"${'$'}ref": "#/${'$'}defs/L2"}}},
+                "L2": {"type": "object", "properties": {"next": {"${'$'}ref": "#/${'$'}defs/L3"}}},
+                "L3": {"type": "object", "properties": {"next": {"${'$'}ref": "#/${'$'}defs/L4"}}},
+                "L4": {"type": "object", "properties": {"next": {"${'$'}ref": "#/${'$'}defs/L5"}}},
+                "L5": {"type": "object", "properties": {"next": {"${'$'}ref": "#/${'$'}defs/L6"}}},
+                "L6": {"type": "object", "properties": {"next": {"${'$'}ref": "#/${'$'}defs/L7"}}},
+                "L7": {"type": "object", "properties": {"next": {"${'$'}ref": "#/${'$'}defs/L8"}}},
+                "L8": {"type": "object", "properties": {"next": {"${'$'}ref": "#/${'$'}defs/L9"}}},
+                "L9": {"type": "object", "properties": {"next": {"${'$'}ref": "#/${'$'}defs/L10"}}},
+                "L10": {"type": "object", "properties": {"leaf": {"type": "string"}}}
+              },
+              "properties": {"deep": {"${'$'}ref": "#/${'$'}defs/L1"}}
+            }
+        """.trimIndent())
+        val schema = parameters(toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(ep))))
+        assertFalse(schema.toString().contains("\$ref"))
+        assertEquals("object", schema["properties"]!!.jsonObject["deep"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+    }
+
+    @Test fun normalizesRealisticNotionStyleSchemaWithoutDanglingPointers() = runBlocking {
+        val ep = endpointWithSchema("""
+            {
+              "${'$'}schema": "https://json-schema.org/draft/2020-12/schema",
+              "type": "object",
+              "${'$'}defs": {
+                "PageParent": {
+                  "oneOf": [
+                    {"type": "object", "properties": {"page_id": {"type": "string"}}, "required": ["page_id"]},
+                    {"type": "object", "properties": {"data_source_id": {"type": "string"}}, "required": ["data_source_id"]}
+                  ]
+                },
+                "RichText": {
+                  "type": "object",
+                  "properties": {
+                    "type": {"type": "string", "const": "text"},
+                    "text": {"type": "string"}
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "properties": {
+                "parent": {"${'$'}ref": "#/${'$'}defs/PageParent"},
+                "title": {"type": ["string", "null"]},
+                "items": {"type": "array", "items": {"${'$'}ref": "#/${'$'}defs/RichText"}}
+              },
+              "additionalProperties": false
+            }
+        """.trimIndent())
+        val schema = parameters(toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(ep))))
+        val text = schema.toString()
+        assertFalse(text.contains("\$schema"))
+        assertFalse(text.contains("\$defs"))
+        assertFalse(text.contains("\$ref"))
+        val props = schema["properties"]!!.jsonObject
+        assertTrue(props["parent"]!!.jsonObject["properties"]!!.jsonObject.containsKey("page_id"))
+        assertTrue(props["parent"]!!.jsonObject["properties"]!!.jsonObject.containsKey("data_source_id"))
+        assertEquals("string", props["title"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        val itemProps = props["items"]!!.jsonObject["items"]!!.jsonObject["properties"]!!.jsonObject
+        assertEquals("text", itemProps["type"]!!.jsonObject["enum"]!!.jsonArray[0].jsonPrimitive.content)
+    }
+
+    @Test fun topLevelRequiredOnlyOneOfDoesNotForceFirstBranchRequired() = runBlocking {
+        val ep = endpointWithSchema("""
+            {
+              "type": "object",
+              "properties": {
+                "target": {"type": "string"},
+                "mode": {"type": "string"}
+              },
+              "oneOf": [
+                {"required": ["target"]},
+                {"required": ["mode"]}
+              ]
+            }
+        """.trimIndent())
+        val schema = parameters(toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(ep))))
+        assertFalse(schema.toString().contains("oneOf"))
+        assertEquals(emptyList<String>(), schema["required"]!!.jsonArray.map { it.jsonPrimitive.content })
+        val props = schema["properties"]!!.jsonObject
+        assertTrue(props.containsKey("target"))
+        assertTrue(props.containsKey("mode"))
+    }
+
+    @Test fun discriminatedUnionMergesCollidingPropertySchemasWithoutLockingFirstBranch() = runBlocking {
+        val ep = endpointWithSchema("""
+            {
+              "type": "object",
+              "properties": {
+                "parent": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {"const": "page_id"},
+                        "page_id": {"type": "string"}
+                      },
+                      "required": ["type", "page_id"]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {"const": "database_id"},
+                        "database_id": {"type": "string"}
+                      },
+                      "required": ["type", "database_id"]
+                    }
+                  ]
+                }
+              },
+              "required": ["parent"]
+            }
+        """.trimIndent())
+        val schema = parameters(toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(ep))))
+        val parent = schema["properties"]!!.jsonObject["parent"]!!.jsonObject
+        val typeEnum = parent["properties"]!!.jsonObject["type"]!!.jsonObject["enum"]!!.jsonArray.map { it.jsonPrimitive.content }
+        assertEquals(listOf("page_id", "database_id"), typeEnum)
+        assertEquals(listOf("type"), parent["required"]!!.jsonArray.map { it.jsonPrimitive.content })
+    }
+
+    @Test fun refMergesSiblingKeywordsAndPrefersUsageDescription() = runBlocking {
+        val ep = endpointWithSchema("""
+            {
+              "type": "object",
+              "${'$'}defs": {
+                "My Type": {"type": "string", "description": "Generic ID"},
+                "BaseObj": {
+                  "type": "object",
+                  "description": "Generic object",
+                  "properties": {"id": {"type": "string"}},
+                  "required": ["id"]
+                }
+              },
+              "properties": {
+                "authorId": {"${'$'}ref": "#/${'$'}defs/My%20Type", "description": "Specific author ID"},
+                "item": {
+                  "${'$'}ref": "#/${'$'}defs/BaseObj",
+                  "description": "Item payload",
+                  "properties": {"title": {"type": "string"}, "badNested": {"type": "object", "properties": {"a": {"type": "string"}}, "required": ["a", "missingKey"]}},
+                  "required": ["title"]
+                },
+                "mixedConst": {
+                  "anyOf": [
+                    {"type": "string", "const": "auto"},
+                    {"type": "integer", "const": 1}
+                  ]
+                }
+              }
+            }
+        """.trimIndent())
+        val schema = parameters(toolDispatcher(FakeScreen(), mcpServers = listOf(McpConnection(ep))))
+        val props = schema["properties"]!!.jsonObject
+        assertEquals("Specific author ID", props["authorId"]!!.jsonObject["description"]!!.jsonPrimitive.content)
+        val item = props["item"]!!.jsonObject
+        assertEquals("Item payload", item["description"]!!.jsonPrimitive.content)
+        assertTrue(item["properties"]!!.jsonObject.containsKey("id"))
+        assertTrue(item["properties"]!!.jsonObject.containsKey("title"))
+        val badNested = item["properties"]!!.jsonObject["badNested"]!!.jsonObject
+        assertEquals(listOf("a"), badNested["required"]!!.jsonArray.map { it.jsonPrimitive.content })
+        val mixedConst = props["mixedConst"]!!.jsonObject
+        assertEquals("string", mixedConst["type"]!!.jsonPrimitive.content)
+        assertEquals(listOf("auto"), mixedConst["enum"]!!.jsonArray.map { it.jsonPrimitive.content })
     }
 
     @Test fun duplicateListingsKeepTheFirstDeclarationAndReportDegradation() {

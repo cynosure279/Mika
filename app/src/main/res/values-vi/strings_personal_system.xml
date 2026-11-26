@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="personal_system_interrupted">Câu trả lời trước đã bị gián đoạn. Lịch sử trò chuyện của bạn đã được lưu, và bạn có thể tiếp tục cuộc trò chuyện. Các tác vụ hiện có nằm trong Hoạt động.</string>
+    <string name="personal_system_timeout">Câu trả lời này đã hết thời gian chờ. Các tác vụ hiện có sẽ không bị lặp lại vì việc này, và bạn có thể tiếp tục gửi tin nhắn.</string>
+    <string name="personal_system_reply_failed">Trả lời thất bại. Vui lòng thử lại sau.</string>
+    <string name="personal_system_task_start_failed">Không thể bắt đầu tác vụ</string>
+    <string name="personal_system_task_cancelled">Đã hủy tác vụ</string>
+    <string name="personal_system_task_completed">Đã hoàn thành tác vụ</string>
+    <string name="personal_system_task_failed">Tác vụ thất bại</string>
+    <string name="personal_system_task_running">Tác vụ đang thực hiện</string>
+    <string name="personal_system_task_queued">Tác vụ đang chờ</string>
+    <string name="personal_system_no_model">Vui lòng chọn mô hình chính trong Cài đặt, rồi quay lại để tiếp tục cuộc trò chuyện.</string>
+    <string name="personal_system_context_long">Tin nhắn này vượt quá giới hạn ngữ cảnh của mô hình hiện tại. Vui lòng chia thành nhiều tin nhắn.</string>
+    <string name="personal_system_empty_reply">Mô hình không trả về câu trả lời có thể hiển thị. Vui lòng thử lại.</string>
+    <string name="personal_system_too_many_actions">Lượt này có nhiều thao tác, nên quá trình xử lý đã dừng. Các tác vụ đã tạo vẫn còn trong Hoạt động.</string>
+    <string name="personal_system_message_long">Tin nhắn này quá dài. Vui lòng chia thành nhiều tin nhắn.</string>
+    <string name="personal_system_task_done_detail">Tác vụ đã kết thúc. Mở nó để xem kết quả.</string>
+    <string name="personal_system_task_stopped_detail">Tác vụ đã dừng. Tiến độ hiện tại được giữ trong bản ghi tác vụ.</string>
+    <string name="personal_system_task_failed_detail">Không thể hoàn thành tác vụ. Mở nó để xem lý do.</string>
+    <string name="personal_system_history_unreadable">Hiện không đọc được lịch sử trò chuyện. Một bản sao lưu của tệp gốc đã được giữ. Bạn có thể tiếp tục trò chuyện; hãy giữ bản sao lưu để khôi phục.</string>
+    <string name="personal_system_task_interrupted">Lần chạy trước đã bị gián đoạn. Bản ghi trò chuyện và tác vụ đã được giữ, và bạn có thể giải thích lại yêu cầu.</string>
+    <string name="personal_system_wait_confirmation">Cần xác nhận của bạn. Mở tác vụ để phản hồi.</string>
+    <string name="personal_system_saving">Đang lưu kết quả</string>
+    <string name="personal_system_waiting">Đang chờ bắt đầu</string>
+    <string name="personal_system_stop_not_ready">Tác vụ chưa sẵn sàng hoặc đã kết thúc. Mở tác vụ để kiểm tra chi tiết.</string>
+    <string name="personal_system_stop_failed">Không thể dừng tác vụ. Mở tác vụ và thử lại.</string>
+    <string name="personal_system_task_amendment">Hướng dẫn bổ sung: %1$s</string>
+</resources>

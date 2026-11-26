@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metrics_model">Mô hình đang suy nghĩ</string>
+    <string name="metrics_observe">Đang đọc màn hình</string>
+    <string name="metrics_act">Hành động</string>
+    <string name="metrics_other">Khác (chờ, thử lại)</string>
+    <string name="metrics_title">Thống kê lần chạy</string>
+    <string name="metrics_sub">Thời gian, số lượt qua lại với mô hình và token của các lần chạy gần đây</string>
+    <string name="metrics_empty">Chưa có thống kê lần chạy nào. Hãy nhờ Mika làm gì đó và số liệu sẽ được ghi lại ở đây.</string>
+    <string name="metrics_note">Chỉ %1$d lần chạy gần nhất trên điện thoại này được tính. Thời gian bắt đầu khi Mika bắt đầu làm việc; phản hồi đầu tiên là lúc bạn lần đầu thấy Mika đang làm gì.</string>
+    <string name="metrics_copy">Sao chép JSON</string>
+    <string name="metrics_share">Chia sẻ JSON</string>
+    <string name="metrics_last_10">10 lần gần nhất</string>
+    <plurals name="metrics_runs">
+        <item quantity="other">%1$d</item>
+    </plurals>
+    <string name="duration_h_m">%1$d giờ %2$d phút</string>
+    <string name="metrics_total">Tổng %1$s</string>
+    <plurals name="metrics_round_trips">
+        <item quantity="other">%1$d lượt qua lại với mô hình</item>
+    </plurals>
+    <string name="metrics_first_feedback_at">phản hồi đầu tiên %1$s</string>
+    <string name="metrics_retry_wait">Trong đó thời gian chờ thử lại</string>
+    <string name="metrics_input_tokens">Token đầu vào</string>
+    <string name="metrics_output_tokens">Token đầu ra</string>
+    <string name="usage_cached">Lượt trúng bộ nhớ đệm</string>
+    <string name="metrics_no_usage">Không có mức dùng được báo cáo</string>
+    <string name="metrics_all_calls">Tất cả lượt gọi mô hình logic</string>
+    <string name="metrics_all_http_calls">Tất cả yêu cầu HTTP</string>
+    <plurals name="metrics_all_calls_value">
+        <item quantity="other">%1$d (bao gồm lượt gọi phụ và thử lại)</item>
+    </plurals>
+    <string name="metrics_steps">Các bước</string>
+    <string name="metrics_observe_act">Lượt đọc / hành động</string>
+    <string name="metrics_observe_act_value">%1$d / %2$d</string>
+    <string name="metrics_counted">Đã tính</string>
+    <plurals name="metrics_n_runs">
+        <item quantity="other">%1$d lần chạy</item>
+    </plurals>
+    <string name="metrics_success_rate">Tỷ lệ thành công</string>
+    <string name="metrics_success_value">%1$s (%2$d/%3$d)</string>
+    <string name="metrics_median_time">Thời gian trung vị</string>
+    <string name="metrics_median_feedback">Phản hồi đầu tiên trung vị</string>
+    <string name="metrics_avg_round_trips">Lượt qua lại với mô hình trung bình</string>
+    <string name="metrics_avg_round_trips_value">%1$s</string>
+    <string name="metrics_avg_tokens">Token trung bình</string>
+    <plurals name="metrics_copied">
+        <item quantity="other">Đã sao chép bản tóm tắt của %1$d lần chạy</item>
+    </plurals>
+    <string name="metrics_export_failed">Không xuất được; dữ liệu có thể quá lớn. Hãy thử phạm vi nhỏ hơn.</string>
+    <string name="metrics_where_time">Xem thời gian đã dùng vào đâu</string>
+    <string name="metrics_overview">Tổng quan</string>
+    <string name="metrics_time_split">Thời gian đã dùng vào đâu</string>
+    <string name="metrics_export">Xuất</string>
+    <plurals name="metrics_summary_of">
+        <item quantity="other">Bản tóm tắt của %1$d lần chạy này</item>
+    </plurals>
+    <string name="metrics_summary_sub">Mỗi lần chạy một mục, để bạn tự phân tích</string>
+    <plurals name="chat_steps_n">
+        <item quantity="other">%1$d bước</item>
+    </plurals>
+</resources>

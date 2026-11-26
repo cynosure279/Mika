@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_voice_service">Dịch vụ giọng nói thời gian thực</string>
+    <string name="calls_voice_profiles_intro">Lưu nhiều cấu hình giọng nói thời gian thực. Cuộc gọi đến và đi dùng cấu hình mặc định; một cuộc gọi đi có thể dùng cấu hình khác. Kiểm tra kết nối và xác minh âm thanh cuộc gọi trên thiết bị là hai việc riêng.</string>
+    <string name="calls_voice_profile_subtitle">%1$s · %2$s</string>
+    <string name="calls_voice_audio_verified">Đã xác minh âm thanh điện thoại</string>
+    <string name="calls_voice_audio_unverified">Chưa xác minh âm thanh điện thoại</string>
+    <string name="calls_voice_selected">Cấu hình mặc định</string>
+    <string name="calls_voice_status_untested">Cần kiểm tra kết nối</string>
+    <string name="calls_voice_status_tested">Đã kiểm tra kết nối</string>
+    <string name="calls_voice_select">Dùng làm mặc định</string>
+    <string name="calls_voice_delete">Xóa cấu hình</string>
+    <string name="calls_voice_delete_confirm">Xóa %1$s và thông tin đăng nhập lưu cục bộ của nó? Bản ghi cuộc gọi hiện có không bị xóa.</string>
+    <string name="calls_voice_test">Kiểm tra kết nối</string>
+    <string name="calls_voice_testing">Đang kiểm tra…</string>
+    <string name="calls_voice_add">Thêm cấu hình giọng nói thời gian thực</string>
+    <string name="calls_voice_edit">Sửa cấu hình giọng nói thời gian thực</string>
+    <string name="calls_voice_test_note">Kiểm tra kết nối thành công không xác minh âm thanh cuộc gọi hai chiều qua nhà mạng. Hãy thực hiện một cuộc gọi thử thật trước khi bật trả lời tự động.</string>
+    <string name="calls_voice_name">Tên cấu hình</string>
+    <string name="calls_voice_endpoint">Endpoint (wss)</string>
+    <string name="calls_voice_model">Mô hình đối thoại thời gian thực</string>
+    <string name="calls_voice_default_name">Giọng nói thời gian thực mặc định</string>
+    <string name="calls_voice_protocol">Giọng nói thời gian thực tích hợp: nhận dạng, đối thoại và tổng hợp tiếng nói do một dịch vụ xử lý.</string>
+    <string name="calls_voice_credentials_keep">Để trống để giữ thông tin đăng nhập đã lưu; nhập thông tin mới sẽ thay thế và cần kiểm tra kết nối lại.</string>
+    <string name="calls_back_settings">Quay lại cài đặt</string>
+    <string name="calls_enabled_summary">Trả lời và quay số bằng AI đã bật; trả lời tự động có công tắc riêng.</string>
+    <string name="calls_settings_device_group">Thiết bị và môi trường chạy</string>
+    <string name="calls_settings_data_group">Dữ liệu</string>
+    <string name="calls_history_entry_summary">Tóm tắt, việc cần theo dõi và bản ghi gốc</string>
+    <string name="calls_voice_setup">Cấu hình và kiểm tra dịch vụ giọng nói</string>
+</resources>

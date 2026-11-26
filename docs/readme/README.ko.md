@@ -1,4 +1,4 @@
-<!-- translated-from: README.md @ 7b09b8113580 -->
+<!-- translated-from: README.md @ 4dc4add5f2b9 -->
 <div align="center">
 
 <img src="../media/logo.png" alt="Mika" width="88" />
@@ -26,7 +26,7 @@
 
 <br/>
 
-[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · 한국어 · [Español](README.es.md) · [Türkçe](README.tr.md)
+[English](../../README.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-Hant.md) · [日本語](README.ja.md) · 한국어 · [Español](README.es.md) · [Türkçe](README.tr.md) · [Tiếng Việt](README.vi.md)
 
 <sub>이 한국어판은 중국어(간체) 원문을 번역한 것입니다. 어색한 표현이나 원문과 다른 부분이 보이면 PR로 고쳐 주세요.</sub>
 
@@ -150,7 +150,7 @@ API 키 없이 ChatGPT(Plus / Pro), xAI / Grok, OpenRouter 계정으로 로그�
 
 **내 컴퓨터에서 돌리는 모델도 쓸 수 있나요?** 네. 제공업체로 "Custom"을 고르고 로컬 네트워크 주소를 입력하면 됩니다.
 
-**앱이 한국어를 지원하나요?** 네. 앱 화면은 한국어와 영어, 아랍어, 중국어 간체, 중국어 번체, 일본어, 스페인어, 포르투갈어, 러시아어, 인도네시아어로 제공되며 시스템 언어를 따라갑니다(설정 › 언어에서도 바꿀 수 있습니다). Mika에게는 한국어로 말하면 됩니다. 내장된 앱·사이트 지식은 중국어로 쓰여 있지만 모델이 문제없이 읽습니다.
+**앱이 한국어를 지원하나요?** 네. 앱 화면은 한국어와 영어, 아랍어, 페르시아어, 중국어 간체, 중국어 번체, 일본어, 스페인어, 포르투갈어, 러시아어, 인도네시아어, 베트남어로 제공되며 시스템 언어를 따라갑니다(설정 › 언어에서도 바꿀 수 있습니다). Mika에게는 한국어로 말하면 됩니다. 내장된 앱·사이트 지식은 중국어로 쓰여 있지만 모델이 문제없이 읽습니다.
 
 **업데이트는 어디서 받나요?** 이 저장소의 [Releases](https://github.com/wangzan101/Mika/releases)에서만 배포합니다. 앱의 Mika 정보 › 업데이트 확인에서도 바로 업데이트할 수 있습니다.
 
@@ -172,8 +172,8 @@ API 키 없이 ChatGPT(Plus / Pro), xAI / Grok, OpenRouter 계정으로 로그�
 
 <a href="https://star-history.com/#wangzan101/Mika&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&theme=dark&v=20261110-2017" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&v=20261110-2017" width="600" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&theme=dark&v=20261125-2135" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=wangzan101/Mika&type=Date&v=20261125-2135" width="600" />
   </picture>
 </a>
 

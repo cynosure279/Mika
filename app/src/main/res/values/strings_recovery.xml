@@ -22,4 +22,7 @@
     <string name="rec_not_recovered">Couldn’t reconnect automatically at the last startup. Make sure you’re on trusted Wi-Fi with Wireless debugging on, and Mika will connect.</string>
     <string name="rec_needs_pairing">Only works after pairing Wireless debugging. The helper was started with the USB command, so run the command again after a phone restart.</string>
     <string name="rec_shizuku_no_wireless">Wireless debugging isn’t used while Shizuku is selected. Mika reconnects through Shizuku once Shizuku is running.</string>
+    <string name="rec_exclude_recents">Hide from Recents</string>
+    <string name="rec_exclude_recents_sub">Don’t show Mika in the system’s recent apps list.</string>
+    <string name="rec_exclude_recents_failed">Couldn’t change Recents visibility. Your saved choice is unchanged; try again.</string>
 </resources>

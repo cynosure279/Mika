@@ -3,9 +3,9 @@ package com.wangzan101.mika.plugin
 import android.content.Context
 import com.wangzan101.mika.BuildConfig
 import com.wangzan101.mika.core.net.NetProxy
-import com.wangzan101.mika.core.plugin.WasmInvocation
-import com.wangzan101.mika.core.plugin.WasmRunner
-import com.wangzan101.mika.core.plugin.WasmCallResult as CoreWasmResult
+import com.wangzan101.mika.core.tool.WasmInvocation
+import com.wangzan101.mika.core.tool.WasmRunner
+import com.wangzan101.mika.core.tool.WasmCallResult as CoreWasmResult
 import okhttp3.OkHttpClient
 import java.io.File
 import java.util.concurrent.TimeUnit

@@ -238,6 +238,7 @@
     <string name="attach_recent">الصور الأخيرة</string>
     <string name="attach_recent_partial">الصور التي سمحت لـ Mika بالوصول إليها</string>
     <string name="attach_all">كل الصور</string>
+    <string name="attach_more">المزيد</string>
     <string name="attach_change">تغيير إمكانية الوصول</string>
     <string name="attach_no_photos">لا توجد صور بعد</string>
     <string name="attach_need_access">لاختيار الصور هنا، اسمح لـ Mika بالوصول إلى صورك</string>
@@ -300,6 +301,8 @@
     <string name="chat_retry_failed">%1$s: تعذّر النسخ</string>
     <string name="chat_conversation_tokens">هذه المحادثة: %1$s</string>
     <string name="chat_conversation_tokens_partial">هذه المحادثة: %1$s على الأقل</string>
+    <string name="chat_current_model">النموذج الحالي</string>
+    <string name="chat_usage_view_details">عرض استخدام الرموز</string>
     <string name="chat_select_hint">اضغط مطولًا على النص لتحديده</string>
     <string name="chat_quote_remove">إزالة الاقتباس</string>
     <string name="chat_quoting_mika">اقتباس من Mika: %1$s</string>
@@ -355,7 +358,7 @@
     <string name="chat_example_schedule_title">اضبط تذكيرًا يوميًا</string>
     <string name="chat_example_pdf">لخّص ملف PDF الذي سأرسله في ملخص قصير</string>
     <string name="chat_example_schedule">كل صباح في الثامنة، ذكّرني بمراجعة الطقس</string>
-    <string name="chat_empty_value">قلها بجملة واحدة، وسأشغّل تطبيقاتك وأتصفح الويب وأنجزها.</string>
+    <string name="chat_empty_value">قل جملة واحدة وسأتولى الأمر على هاتفك</string>
     <string name="saved_task_save">حفظ كمهمة</string>
     <string name="task_field_add">إضافة حقل</string>
     <string name="task_field_name">اسم الحقل</string>
@@ -380,4 +383,25 @@
     <string name="plus_skills_empty">لا توجد مهارات شخصية بعد. المهارات التي يتعلّمها Mika من المهام المكتملة ستظهر هنا.</string>
     <string name="plus_clipboard_empty">لا يوجد نص للصقه من الحافظة</string>
     <string name="plus_skill_directive">استخدم مهارة «%1$s»: </string>
+    <string name="plus_reuse">المحفوظات</string>
+    <string name="plus_reuse_hint">عبارات · قوائم · مسارات</string>
+    <string name="plus_reuse_phrases">العبارات المحفوظة</string>
+    <string name="drawer_calls">مكالمات الذكاء الاصطناعي</string>
+    <!-- 空对话滚动条里的灵感示例;点了填进输入框 -->
+    <string name="chat_idea_maps">وجّهني إلى أقرب مقهى</string>
+    <string name="chat_idea_camera">افتح الكاميرا والتقط صورة</string>
+    <string name="chat_idea_sms">أرسل لأمي: وصلت إلى البيت</string>
+    <string name="chat_idea_news">ابحث عن أخبار التقنية اليوم</string>
+    <string name="chat_idea_dark">فعّل الوضع الداكن</string>
+    <string name="chat_idea_music">شغّل موسيقى هادئة</string>
+    <string name="chat_idea_email">ماذا تقول أحدث رسائل بريدي؟</string>
+    <string name="chat_idea_screenshot">اعثر على آخر لقطة شاشة</string>
+    <string name="chat_idea_meeting">أضف اجتماعًا غدًا الساعة 3 مساءً</string>
+    <!-- 空对话推广卡上的一句话说明;完整提示词点了才填进输入框 -->
+    <string name="chat_example_github_star_blurb">ادعم مشروع Mika مفتوح المصدر</string>
+    <string name="chat_example_follow_blurb">تابع المطوّر وانضم إلى المحادثة</string>
+    <string name="chat_example_group_summary_blurb">ملخّص رسائل اليوم غير المقروءة في سطر</string>
+    <string name="chat_example_share_title">شارك Mika مع صديق</string>
+    <string name="chat_example_share_blurb">انصح به من سيستفيد منه</string>
+    <string name="chat_example_share">شارك رابط مشروع Mika https://github.com/wangzan101/mika مع صديق، وأخبره أنه يستطيع تشغيل الهاتف نيابةً عنه.</string>
 </resources>

@@ -20,6 +20,7 @@
     <string name="language_arabic" translatable="false">العربية</string>
     <string name="language_persian" translatable="false">فارسی</string>
     <string name="language_turkish" translatable="false">Türkçe</string>
+    <string name="language_vietnamese" translatable="false">Tiếng Việt</string>
     <string name="settings_language_appearance">Language &amp; appearance</string>
     <string name="settings_personal_start">Open Personal Assistant on launch</string>
     <string name="settings_personal_start_sub">Use Personal Assistant as your first screen</string>

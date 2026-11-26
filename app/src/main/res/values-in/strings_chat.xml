@@ -183,6 +183,7 @@
     <string name="attach_recent">Foto terbaru</string>
     <string name="attach_recent_partial">Foto yang Anda izinkan diakses Mika</string>
     <string name="attach_all">Semua foto</string>
+    <string name="attach_more">Lainnya</string>
     <string name="attach_change">Ubah akses</string>
     <string name="attach_no_photos">Belum ada foto</string>
     <string name="attach_need_access">Untuk memilih foto di sini, izinkan Mika mengakses foto Anda</string>
@@ -253,6 +254,8 @@
     <string name="pip_closed_hint">Ditutup untuk tugas ini. Ketuk “Tampilkan layar” di kanan bawah, atau buka “Layar latar belakang” di menu samping.</string>
     <string name="chat_conversation_tokens">Percakapan ini: %1$s</string>
     <string name="chat_conversation_tokens_partial">Percakapan ini: setidaknya %1$s</string>
+    <string name="chat_current_model">Model saat ini</string>
+    <string name="chat_usage_view_details">Lihat penggunaan token</string>
     <string name="chat_task_cost_estimate">Perkiraan %1$s</string>
     <string name="chat_task_cost_partial">%1$s (sebagian)</string>
     <string name="chat_task_cost_unavailable">Biaya tidak tersedia</string>
@@ -285,7 +288,7 @@
     <string name="chat_example_schedule_title">Atur pengingat harian</string>
     <string name="chat_example_pdf">Ringkas PDF yang saya kirim menjadi intisari singkat.</string>
     <string name="chat_example_schedule">Setiap pagi jam 8, ingatkan saya untuk memeriksa cuaca.</string>
-    <string name="chat_empty_value">Katakan dalam satu kalimat, dan saya akan menjalankan aplikasi, menjelajah web, dan menyelesaikannya.</string>
+    <string name="chat_empty_value">Cukup satu kalimat, saya urus di ponselmu</string>
     <string name="saved_task_save">Simpan sebagai tugas</string>
     <string name="task_field_add">Tambah isian</string>
     <string name="task_field_name">Nama isian</string>
@@ -310,4 +313,25 @@
     <string name="plus_skills_empty">Belum ada skill pribadi. Skill yang dipelajari Mika dari tugas yang selesai akan muncul di sini.</string>
     <string name="plus_clipboard_empty">Tidak ada teks untuk ditempel dari papan klip</string>
     <string name="plus_skill_directive">Gunakan skill “%1$s”: </string>
+    <string name="plus_reuse">Tersimpan</string>
+    <string name="plus_reuse_hint">Frasa · daftar · alur</string>
+    <string name="plus_reuse_phrases">Frasa tersimpan</string>
+    <string name="drawer_calls">Panggilan AI</string>
+    <!-- 空对话滚动条里的灵感示例;点了填进输入框 -->
+    <string name="chat_idea_maps">Arahkan ke kedai kopi terdekat</string>
+    <string name="chat_idea_camera">Buka kamera dan ambil foto</string>
+    <string name="chat_idea_sms">SMS ke Ibu: aku sudah di rumah</string>
+    <string name="chat_idea_news">Cari berita teknologi hari ini</string>
+    <string name="chat_idea_dark">Nyalakan mode gelap</string>
+    <string name="chat_idea_music">Putar musik yang santai</string>
+    <string name="chat_idea_email">Apa isi email terbaru saya?</string>
+    <string name="chat_idea_screenshot">Temukan tangkapan layar terbaru saya</string>
+    <string name="chat_idea_meeting">Tambahkan rapat besok pukul 15.00</string>
+    <!-- 空对话推广卡上的一句话说明;完整提示词点了才填进输入框 -->
+    <string name="chat_example_github_star_blurb">Dukung proyek sumber terbuka Mika</string>
+    <string name="chat_example_follow_blurb">Ikuti pembuatnya dan gabung obrolan</string>
+    <string name="chat_example_group_summary_blurb">Ringkas pesan belum dibaca hari ini</string>
+    <string name="chat_example_share_title">Bagikan Mika ke teman</string>
+    <string name="chat_example_share_blurb">Rekomendasikan ke yang butuh</string>
+    <string name="chat_example_share">Bagikan tautan proyek Mika https://github.com/wangzan101/mika ke seorang teman, dan bilang Mika bisa mengoperasikan ponsel untuknya.</string>
 </resources>

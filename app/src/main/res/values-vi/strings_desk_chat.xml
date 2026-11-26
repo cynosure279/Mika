@@ -1,0 +1,30 @@
+<resources>
+    <!-- 聊天页走前台:前台回话的工具小标签、任务卡片、输入栏上方的「在办」 -->
+    <string name="desk_tool_added">Đã thêm vào “%1$s”</string>
+    <string name="desk_tool_answered">Đã trả lời “%1$s”</string>
+    <string name="desk_tool_cancelled">Đã hủy “%1$s”</string>
+    <string name="desk_reply_failed">Vừa rồi không trả lời được. Bạn nói lại nhé?</string>
+    <string name="desk_thinking">Đang suy nghĩ</string>
+    <string name="desk_phase_running">Đang xử lý</string>
+    <string name="desk_phase_queued">Đang chờ</string>
+    <string name="desk_phase_queued_at">Đang chờ · #%1$d</string>
+    <string name="desk_phase_needs_you">Cần bạn xử lý</string>
+    <string name="desk_phase_done">Xong</string>
+    <string name="desk_phase_failed">Không thành công</string>
+    <string name="desk_phase_cancelled">Đã hủy</string>
+    <string name="desk_tray_expand">Hiện tác vụ</string>
+    <string name="desk_tray_collapse">Ẩn tác vụ</string>
+    <string name="chat_time_yesterday">Hôm qua %1$s</string>
+    <string name="desk_need_choose">Chọn một mục · %1$s</string>
+    <string name="desk_need_answer">Cần câu trả lời của bạn · %1$s</string>
+    <string name="desk_need_takeover">Tiếp quản · %1$s</string>
+    <string name="desk_need_handle">Cần bạn xử lý · %1$s</string>
+    <string name="desk_need_choose_foot">Không mục nào phù hợp? Nhập bên dưới hoặc giữ để nói.</string>
+    <string name="desk_need_answer_foot">Nhập bên dưới hoặc giữ để nói.</string>
+    <string name="desk_need_takeover_foot">Sau khi bạn nhấn xong trên màn hình, tôi sẽ tiếp tục.</string>
+    <string name="desk_need_stop">Dừng tác vụ này</string>
+    <string name="desk_tray_stop">Dừng</string>
+    <string name="desk_tray_detail">Xem toàn bộ quá trình ›</string>
+    <string name="chat_menu_tasks">Tác vụ trong cuộc trò chuyện này</string>
+    <string name="desk_tasks_empty">Chưa có tác vụ nào được giao trong cuộc trò chuyện này.</string>
+</resources>

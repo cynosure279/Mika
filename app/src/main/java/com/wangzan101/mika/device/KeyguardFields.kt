@@ -12,7 +12,8 @@ internal object KeyguardFields {
     fun matches(kind: CredentialKind, id: String, className: String, password: Boolean, editable: Boolean, numeric: Boolean,
         untyped: Boolean = false, digitPad: Boolean = false): Boolean {
         if (!password || !id.startsWith("com.android.systemui:id/") || "sim" in id.lowercase()) return false
-        val pinView = id == "com.android.systemui:id/pinEntry" && className == "com.android.keyguard.PasswordTextView"
+        val pinView = id == "com.android.systemui:id/pinEntry" &&
+            (className == "com.android.keyguard.PasswordTextView" || untyped && digitPad)
         val pinField = numeric || untyped && digitPad
         return when (kind) {
             CredentialKind.Pin -> pinView || editable && pinField

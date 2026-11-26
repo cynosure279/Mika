@@ -2,8 +2,8 @@ package com.wangzan101.mika.core.model
 
 import com.wangzan101.mika.core.net.NetProxy
 import com.wangzan101.mika.core.net.ProxyFailure
-import com.wangzan101.mika.core.trace.TraceCall
-import com.wangzan101.mika.core.usage.ModelHttpAttempts
+import com.wangzan101.mika.core.run.trace.TraceCall
+import com.wangzan101.mika.core.model.usage.ModelHttpAttempts
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Call
@@ -45,7 +45,7 @@ internal object HttpSupport {
         val attempt = call.sending(wire) ?: return send(null)
         val response = send(attempt)
         if (response.status !in 200..299) {
-            call.finish("error", null)
+            call.finishError(response.body)
         } else if (response.body.isNotEmpty()) {
             attempt.packet(response.body)
             return response.copy(onPacket = attempt::packet)

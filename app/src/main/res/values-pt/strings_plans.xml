@@ -43,6 +43,15 @@
     <string name="plans_notify_each">Sempre</string>
     <string name="plans_cooldown_minutes">Minutos mínimos entre execuções (opcional)</string>
     <string name="plans_when_idle">Executar somente quando o Mika estiver livre</string>
+    <string name="plans_execution_window">Janela de execução</string>
+    <string name="plans_window_anytime">A qualquer momento</string>
+    <string name="plans_window_off_peak">Fora do horário de pico</string>
+    <string name="plans_window_custom">Personalizado</string>
+    <string name="plans_window_off_peak_hint">Horário fora do pico do DeepSeek: dias úteis, 00:00–01:00, 04:00–06:00 e 10:00–24:00 UTC; fins de semana, o dia todo. Não é necessário considerar descontos extras de feriados ao agendar.</string>
+    <string name="plans_window_start">Início da janela (HH:mm)</string>
+    <string name="plans_window_end">Fim da janela (HH:mm ou 24:00)</string>
+    <string name="plans_window_custom_hint">Fuso horário: %1$s. Se o horário de término for anterior ao de início, a janela passa pela meia-noite.</string>
+    <string name="plans_error_window">Digite uma janela válida; o início e o fim devem ser diferentes</string>
     <string name="plans_enabled">Ativada</string>
     <string name="plans_error_content">Digite uma tarefa ou um lembrete</string>
     <string name="plans_error_content_long">Use no máximo 4.000 caracteres, ou 2.000 para um lembrete</string>

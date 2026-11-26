@@ -217,6 +217,42 @@ class ScheduleTaskTest {
         assertTrue(saved!!.nextAtMs > System.currentTimeMillis())
     }
 
+    @Test fun modelCanCreateEditListAndClearExecutionWindows() = runBlocking {
+        var saved: TriggerDefinition? = null
+        val create = toolDispatcher(FakeScreen(), conversationId = "conversation", scheduleTrigger = { saved = it; Scheduled(true) })
+            .execute(Part.ToolCall("c", "schedule_task", """{"goal":"check","at":"2099-01-01T00:00:00Z","executionWindow":"deepseek_off_peak"}"""), ActionPass())
+        assertEquals("true", create.content["scheduled"].toString())
+        assertEquals(DEEPSEEK_OFF_PEAK_WINDOWS, saved?.executionWindows)
+
+        val created = checkNotNull(saved)
+        val admin = EditingAdmin(created)
+        val tools = toolDispatcher(FakeScreen(), conversationId = "conversation", scheduleAdmin = admin)
+        val listed = tools.execute(Part.ToolCall("l", "schedule_task", """{"op":"list"}"""), ActionPass()).content.toString()
+        assertTrue(listed, listed.contains("\"executionWindow\":\"deepseek_off_peak\""))
+
+        tools.execute(Part.ToolCall("e", "schedule_task", """{"op":"edit","triggerId":"${created.id}","executionWindow":"custom","executionStart":"22:00","executionEnd":"02:00","executionZone":"Asia/Shanghai"}"""), ActionPass())
+        assertEquals("Asia/Shanghai", admin.plan.executionWindowZone)
+        assertEquals(listOf(ExecutionWindow(22 * 60, 2 * 60)), admin.plan.executionWindows)
+
+        tools.execute(Part.ToolCall("a", "schedule_task", """{"op":"edit","triggerId":"${created.id}","executionWindow":"anytime"}"""), ActionPass())
+        assertTrue(admin.plan.executionWindows.isEmpty())
+        assertEquals(null, admin.plan.executionWindowZone)
+    }
+
+    @Test fun invalidCustomExecutionWindowDoesNotCreateOrEditPlans() = runBlocking {
+        var saved: TriggerDefinition? = null
+        val result = toolDispatcher(FakeScreen(), conversationId = "conversation", scheduleTrigger = { saved = it; Scheduled(true) })
+            .execute(Part.ToolCall("c", "schedule_task", """{"goal":"check","at":"2099-01-01T00:00:00Z","executionWindow":"custom","executionStart":"22:00","executionEnd":"22:00"}"""), ActionPass())
+        assertEquals("\"invalid_execution_window\"", result.content["reason"].toString())
+        assertEquals(null, saved)
+
+        val admin = EditingAdmin(TriggerDefinition("plan", "conversation", "do", Long.MAX_VALUE))
+        val edited = toolDispatcher(FakeScreen(), conversationId = "conversation", scheduleAdmin = admin)
+            .execute(Part.ToolCall("e", "schedule_task", """{"op":"edit","triggerId":"plan","executionWindow":"custom","executionStart":"bad","executionEnd":"02:00"}"""), ActionPass())
+        assertEquals("false", edited.content["changed"].toString())
+        assertEquals(0, admin.edits)
+    }
+
     @Test fun conditionPlanKeepsNotifyModeAndCooldown() = runBlocking {
         var saved: TriggerDefinition? = null
         val tools = toolDispatcher(FakeScreen(), conversationId = "conversation", scheduleTrigger = { saved = it; Scheduled(true) })

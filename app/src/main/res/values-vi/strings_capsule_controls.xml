@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capsule_edge_reveal">Hiện capsule</string>
+    <string name="capsule_hide_at_edge">Tự động ẩn ở cạnh màn hình</string>
+    <string name="capsule_hide_fullscreen">Ẩn capsule khi toàn màn hình</string>
+    <string name="capsule_tile_label">Capsule Mika</string>
+    <string name="capsule_tile_enabled">Khả dụng trong Cài đặt nhanh</string>
+    <string name="capsule_tile_setup">Mở Mika và thiết lập điều khiển điện thoại để dùng capsule nổi.</string>
+    <string name="pip_size_smaller">Xem trước nhỏ hơn</string>
+    <string name="pip_size_larger">Xem trước lớn hơn</string>
+    <string name="pip_size_reset">Đặt lại kích thước xem trước</string>
+</resources>

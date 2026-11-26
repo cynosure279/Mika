@@ -4,8 +4,8 @@ import android.content.Context
 import com.wangzan101.mika.core.agent.GroupWeights
 import com.wangzan101.mika.core.agent.ModelHealthRegistry
 import com.wangzan101.mika.core.agent.StickyTable
-import com.wangzan101.mika.core.chatgpt.ChatGptAuth
-import com.wangzan101.mika.core.chatgpt.ChatGptTokens
+import com.wangzan101.mika.core.model.chatgpt.ChatGptAuth
+import com.wangzan101.mika.core.model.chatgpt.ChatGptTokens
 import com.wangzan101.mika.core.model.Capabilities
 import com.wangzan101.mika.core.model.ChatModel
 import com.wangzan101.mika.core.model.ClientHeaders
@@ -16,12 +16,12 @@ import com.wangzan101.mika.core.model.ModelListResult
 import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.model.ToolSpec
 import com.wangzan101.mika.core.net.NetProxy
-import com.wangzan101.mika.core.oauth.AccountTokens
-import com.wangzan101.mika.core.oauth.OpenRouterAuth
-import com.wangzan101.mika.core.oauth.XaiAuth
-import com.wangzan101.mika.core.usage.ProactiveBudget
-import com.wangzan101.mika.core.usage.UsageSink
-import com.wangzan101.mika.core.usage.metered
+import com.wangzan101.mika.core.model.oauth.AccountTokens
+import com.wangzan101.mika.core.model.oauth.OpenRouterAuth
+import com.wangzan101.mika.core.model.oauth.XaiAuth
+import com.wangzan101.mika.core.model.usage.ProactiveBudget
+import com.wangzan101.mika.core.model.usage.UsageSink
+import com.wangzan101.mika.core.model.usage.metered
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -71,6 +71,8 @@ class ProviderStore(
     internal val proactiveUsage: () -> Long = { 0L },
     internal val proactiveLimit: () -> Long = { ProactiveBudget.DEFAULT_DAILY_LIMIT },
     internal val proactiveCalls: () -> Long = { 0L },
+    /** 角色和组以外仍拥有配置的外部引用；组合根只提供 id 集，不让设置层依赖聊天或界面。 */
+    internal val externalConfigReferences: () -> Set<String> = { emptySet() },
     /**
      * 建可调用的模型:配置、Key、服务商列表里给这个模型单独指定的接口(没有为 null,按配置的接口类型和地址)、请求头等。
      * 为 null 时用内置的适配器(测试里换成假的)。
@@ -166,8 +168,8 @@ class ProviderStore(
         val configs = if (existing == null) _configs.value + selected else _configs.value.map {
             if (it.id == existing.id) selected else it
         }
-        // 没有用途、也不在任何组里的配置删掉(和 [prune] 一样)
-        val used = roles.referenced + _groups.value.flatMap { g -> g.members.map { it.configId } }
+        // 没有用途、组或对话引用的配置删掉(和 [prune] 一样)
+        val used = roles.referenced + _groups.value.flatMap { g -> g.members.map { it.configId } } + externalConfigReferences()
         return saveRoleSelection(_providers.value, configs.filter { it.id in used }, roles)
     }
 
@@ -244,11 +246,11 @@ class ProviderStore(
         fun create(
             context: Context, usage: UsageSink, userAgent: String, dailyUsage: (String) -> Long = { 0L },
             proactiveUsage: () -> Long = { 0L }, proactiveLimit: () -> Long = { ProactiveBudget.DEFAULT_DAILY_LIMIT },
-            proactiveCalls: () -> Long = { 0L },
+            proactiveCalls: () -> Long = { 0L }, externalConfigReferences: () -> Set<String> = { emptySet() },
         ): ProviderStore =
             ProviderStore(File(context.applicationContext.filesDir, "settings"), KeystoreKeyCipher(), usage,
                 dailyUsage = dailyUsage, userAgent = userAgent, proactiveUsage = proactiveUsage, proactiveLimit = proactiveLimit,
-                proactiveCalls = proactiveCalls)
+                proactiveCalls = proactiveCalls, externalConfigReferences = externalConfigReferences)
 
         /** App 内共用的那份(经 [Owner] 给出)。 */
         fun get(context: Context): ProviderStore = (context.applicationContext as? Owner)?.providers

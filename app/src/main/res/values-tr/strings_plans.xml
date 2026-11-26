@@ -43,6 +43,15 @@
     <string name="plans_notify_each">Her seferinde</string>
     <string name="plans_cooldown_minutes">Çalıştırmalar arası minimum dakika (isteğe bağlı)</string>
     <string name="plans_when_idle">Yalnızca Mika boştayken çalıştır</string>
+    <string name="plans_execution_window">Çalıştırma aralığı</string>
+    <string name="plans_window_anytime">Her zaman</string>
+    <string name="plans_window_off_peak">Yoğun olmayan saatler</string>
+    <string name="plans_window_custom">Özel</string>
+    <string name="plans_window_off_peak_hint">DeepSeek yoğun olmayan saatleri: hafta içi 00:00–01:00, 04:00–06:00 ve 10:00–24:00 UTC; hafta sonları tüm gün. Zamanlama yaparken tatillere özel ek indirimleri dikkate almanız gerekmez.</string>
+    <string name="plans_window_start">Aralık başlangıcı (HH:mm)</string>
+    <string name="plans_window_end">Aralık sonu (HH:mm veya 24:00)</string>
+    <string name="plans_window_custom_hint">Saat dilimi: %1$s. Bitiş saati başlangıç saatinden önceyse aralık gece yarısını aşar.</string>
+    <string name="plans_error_window">Geçerli bir aralık girin; başlangıç ve bitiş saatleri farklı olmalıdır</string>
     <string name="plans_enabled">Etkin</string>
     <string name="plans_error_content">Bir görev veya hatırlatma girin</string>
     <string name="plans_error_content_long">En fazla 4.000 karakter ya da hatırlatma için 2.000 kullanın</string>
@@ -61,6 +70,7 @@
     <string name="plans_result_pending">Sonucun kontrol edilmesi gerekiyor</string>
     <string name="plans_every_day">Her gün</string>
     <plurals name="plans_every_minutes">
+        <item quantity="one">Her %1$d dakikada bir</item>
         <item quantity="other">Her %1$d dakikada bir</item>
     </plurals>
     <string name="plans_once">Bir kez</string>

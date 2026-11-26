@@ -183,6 +183,7 @@
     <string name="attach_recent">최근 사진</string>
     <string name="attach_recent_partial">Mika에게 허용한 사진</string>
     <string name="attach_all">모든 사진</string>
+    <string name="attach_more">더보기</string>
     <string name="attach_change">접근 변경</string>
     <string name="attach_no_photos">아직 사진이 없어요</string>
     <string name="attach_need_access">여기서 사진을 고르려면 Mika가 사진에 접근하도록 허용하세요</string>
@@ -253,6 +254,8 @@
     <string name="pip_closed_hint">이 작업에서는 닫았어요. 오른쪽 아래의 “화면 표시”를 누르거나 사이드 메뉴에서 “백그라운드 화면”을 여세요.</string>
     <string name="chat_conversation_tokens">이 대화: %1$s</string>
     <string name="chat_conversation_tokens_partial">이 대화: %1$s 이상</string>
+    <string name="chat_current_model">현재 모델</string>
+    <string name="chat_usage_view_details">토큰 사용량 보기</string>
     <string name="chat_task_cost_estimate">약 %1$s</string>
     <string name="chat_task_cost_partial">%1$s(일부)</string>
     <string name="chat_task_cost_unavailable">비용을 추정할 수 없음</string>
@@ -285,7 +288,7 @@
     <string name="chat_example_schedule_title">매일 알림 설정</string>
     <string name="chat_example_pdf">보내드린 PDF를 짧은 요약으로 정리해 줘</string>
     <string name="chat_example_schedule">매일 아침 8시에 오늘 날씨 확인하라고 알림해 줘</string>
-    <string name="chat_empty_value">한마디만 하면 앱을 조작하고 웹을 탐색해서 일을 끝내드려요.</string>
+    <string name="chat_empty_value">한마디면 휴대폰 조작은 제가 할게요</string>
     <string name="saved_task_save">작업으로 저장</string>
     <string name="task_field_add">입력 항목 추가</string>
     <string name="task_field_name">항목 이름</string>
@@ -310,4 +313,25 @@
     <string name="plus_skills_empty">아직 개인 스킬이 없습니다. 완료한 작업에서 Mika가 배운 스킬이 여기에 표시됩니다.</string>
     <string name="plus_clipboard_empty">클립보드에 붙여넣을 텍스트가 없습니다</string>
     <string name="plus_skill_directive">"%1$s" 스킬 사용:</string>
+    <string name="plus_reuse">자주 쓰는 항목</string>
+    <string name="plus_reuse_hint">문구 · 목록 · 흐름</string>
+    <string name="plus_reuse_phrases">자주 쓰는 문구</string>
+    <string name="drawer_calls">AI 전화</string>
+    <!-- 空对话滚动条里的灵感示例;点了填进输入框 -->
+    <string name="chat_idea_maps">가장 가까운 카페로 길 안내해 줘</string>
+    <string name="chat_idea_camera">카메라 열고 사진 찍어 줘</string>
+    <string name="chat_idea_sms">엄마한테 \'집에 도착했어\' 문자 보내 줘</string>
+    <string name="chat_idea_news">오늘의 IT 뉴스 검색해 줘</string>
+    <string name="chat_idea_dark">다크 모드 켜 줘</string>
+    <string name="chat_idea_music">편안한 음악 틀어 줘</string>
+    <string name="chat_idea_email">최근 메일 내용 알려 줘</string>
+    <string name="chat_idea_screenshot">가장 최근 스크린샷 찾아 줘</string>
+    <string name="chat_idea_meeting">내일 오후 3시에 회의 일정 추가해 줘</string>
+    <!-- 空对话推广卡上的一句话说明;完整提示词点了才填进输入框 -->
+    <string name="chat_example_github_star_blurb">오픈 소스 Mika 프로젝트 응원하기</string>
+    <string name="chat_example_follow_blurb">개발자를 팔로우하고 대화에 참여하기</string>
+    <string name="chat_example_group_summary_blurb">오늘 읽지 않은 메시지를 한 줄로</string>
+    <string name="chat_example_share_title">친구에게 Mika 공유</string>
+    <string name="chat_example_share_blurb">필요한 친구에게 추천하기</string>
+    <string name="chat_example_share">Mika 프로젝트 링크 https://github.com/wangzan101/mika를 친구에게 공유하고, 휴대폰을 대신 조작해 준다고 알려 줘</string>
 </resources>

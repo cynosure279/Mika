@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Compose 的这条检查在 Kotlin 2(K2)下认不出 lambda 里的 `value = ...`,
+         项目里报的每一处其实都赋了值;等 lint 修好再打开 -->
+    <issue id="ProduceStateDoesNotAssignValue" severity="ignore" />
+</lint>

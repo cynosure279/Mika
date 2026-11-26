@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dev_adaptive">Đọc phần tử trước, hình ảnh khi cần</string>
+    <string name="dev_adaptive_sub">Bỏ qua việc gửi hình ảnh khi cây giao diện đã đủ; thêm hình ảnh khi chưa đủ</string>
+    <string name="dev_inline">Trả về thay đổi màn hình sau mỗi thao tác</string>
+    <string name="dev_inline_sub">Xem nhanh màn hình sau mỗi thao tác, giúp tiết kiệm một lần đọc riêng</string>
+    <string name="dev_batch">Thực hiện nhiều bước khi chắc chắn</string>
+    <string name="dev_batch_sub">Thực hiện các bước chắc chắn trong một lần mà không dừng lại để hỏi mô hình</string>
+    <string name="dev_deep_links">Mở trực tiếp trang đích</string>
+    <string name="dev_deep_links_sub">Dùng liên kết để nhảy thẳng tới các trang trong ứng dụng thay vì nhấn qua từng bước</string>
+    <string name="dev_light">Bước dễ giao cho mô hình nhẹ</string>
+    <string name="dev_light_sub">Mô hình nhẹ nhanh hơn xử lý các bước dễ; mô hình chính giữ các bước khó</string>
+    <string name="dev_replay">Lặp lại cách đã hiệu quả lần trước</string>
+    <string name="dev_replay_sub">Phát lại các tuyến đường đã lưu cho những việc đã làm trước đây; trả lại cho mô hình nếu không khớp</string>
+    <string name="dev_parallel">Chạy các cuộc trò chuyện song song</string>
+    <string name="dev_parallel_sub">Tác vụ từ các cuộc trò chuyện khác nhau mỗi tác vụ có một màn hình ảo và chạy cùng lúc</string>
+    <string name="dev_compaction">Tóm tắt có cấu trúc cho tác vụ dài</string>
+    <string name="dev_compaction_sub">Khi nhiều bước cần nén lại, ghi lại mục tiêu, dữ kiện, tiến độ và bước tiếp theo</string>
+    <string name="dev_group">Cách Mika hoạt động</string>
+    <string name="dev_autonomy">Chế độ tự chủ</string>
+    <string name="dev_autonomy_sub">Khi bật, Mika không hỏi ngay cả trước khi thanh toán và cứ hoàn thành; khi tắt, chỉ hỏi trước khi thanh toán</string>
+    <string name="dev_note">Các công tắc này ảnh hưởng cách Mika hoạt động và tốc độ của Mika. Thường nên để ở mặc định.</string>
+    <string name="dev_grounding">Đã xác minh định vị bằng thị giác</string>
+    <string name="dev_grounding_sub">Bật khi mô hình thị giác %1$s đã được kiểm tra là xác định vị trí chính xác; khi tắt, các vị trí nó đánh dấu cần bằng chứng khác trước khi Mika nhấn vào.</string>
+    <string name="dev_speed">Tốc độ</string>
+    <string name="dev_experiments">Thử nghiệm</string>
+    <string name="dev_run_log">Bản ghi lần chạy</string>
+    <string name="dev_screen_tables">Thu gọn phần tử màn hình mới</string>
+    <string name="dev_screen_tables_sub">Gửi các trường lặp lại dưới dạng cột bảng trong lần đầu đọc màn hình. Tham chiếu phần tử và cây đầy đủ vẫn được giữ.</string>
+    <string name="dev_device_files">Nhập tệp từ thiết bị</string>
+    <string name="dev_device_files_sub">Cho phép Mika sao chép tệp từ bộ nhớ lưu trữ dùng chung của thiết bị vào không gian làm việc. Thay đổi áp dụng cho tác vụ mới.</string>
+</resources>

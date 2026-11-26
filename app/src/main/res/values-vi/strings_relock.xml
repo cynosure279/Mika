@@ -1,0 +1,8 @@
+<resources>
+    <string name="relock_guard_title">Tác vụ đã mở khóa điện thoại</string>
+    <string name="relock_guard_body">Mika sẽ khóa lại điện thoại khi tác vụ kết thúc. Nếu Mika dừng bất ngờ, hãy kiểm tra điện thoại đã khóa chưa.</string>
+    <string name="relock_failed_title">Điện thoại có thể vẫn chưa khóa</string>
+    <string name="relock_failed_body">Mika không thể xác nhận điện thoại đã được khóa lại. Vui lòng kiểm tra và tự khóa nó.</string>
+    <string name="unlock_recovery_title">Mở khóa để tiếp tục tác vụ</string>
+    <string name="unlock_recovery_body">Điện thoại đã khóa trong lúc tác vụ đang chạy và mở khóa tự động không hoạt động. Hãy tự mở khóa và tác vụ sẽ tiếp tục.</string>
+</resources>

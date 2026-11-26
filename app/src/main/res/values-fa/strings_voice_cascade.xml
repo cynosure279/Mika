@@ -15,6 +15,7 @@
     <string name="call_mode_speak">گفتن</string>
     <string name="call_mode_think_light">مدل سبک</string>
     <string name="call_mode_think_main">مدل اصلی</string>
+    <string name="call_mode_think_note">مدلی که Mika با آن پاسخ می‌دهد (گفتگو و تماس‌ها)</string>
     <string name="call_mode_think_light_note">پاسخ سریع‌تر؛ بدون مدل سبک از مدل اصلی استفاده می‌کند</string>
     <string name="call_mode_listen_device">تشخیص داخلی گوشی صدای تماس را نمی‌شنود. برای «شنیدن» یک مدل از سرویس‌ها انتخاب کنید.</string>
     <string name="call_mode_rhythm">نوبت گفتگو</string>
@@ -55,4 +56,12 @@
     <string name="calls_voice_for_calls">فقط برای تلفن</string>
     <string name="voicecall_standard_title">انتخاب کنید Mika چطور بشنود و صحبت کند</string>
     <string name="voicecall_standard_body">تماس صوتی: شنیدن ← فکر ← گفتن. مدل تشخیص یک سرویس صدای شما را می‌شنود، مدل گفتگو پاسخ می‌دهد و مدل گفتار آن را می‌خواند.</string>
+    <string name="call_mode_idle">قطع خودکار</string>
+    <string name="call_mode_idle_minutes">%1$d دقیقه</string>
+    <string name="call_mode_idle_custom">سفارشی</string>
+    <string name="call_mode_idle_custom_sub">پس از %1$d دقیقه سکوت</string>
+    <string name="call_mode_idle_never">هرگز</string>
+    <string name="call_mode_idle_note">اگر در این مدت چیز تازه‌ای در تماس رخ ندهد (کسی حرف نزند یا ننویسد و هیچ کاری پیش نرود)، تماس قطع می‌شود. Mika سی ثانیه پیش از آن می‌پرسد هنوز هستی یا نه.</string>
+    <string name="call_mode_idle_dialog_title">قطع پس از</string>
+    <string name="call_mode_idle_dialog_hint">۱ تا ۱۲۰ دقیقه</string>
 </resources>

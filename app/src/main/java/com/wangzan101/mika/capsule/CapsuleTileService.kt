@@ -58,7 +58,8 @@ class CapsuleTileService : TileService() {
                 if (Build.VERSION.SDK_INT >= 34) startActivityAndCollapse(PendingIntent.getActivity(
                     this, 7410, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
                 else {
-                    @Suppress("DEPRECATION")
+                    // 34 以下没有 PendingIntent 版本,只能用旧接口
+                    @Suppress("DEPRECATION", "StartActivityAndCollapseDeprecated")
                     startActivityAndCollapse(intent)
                 }
             }

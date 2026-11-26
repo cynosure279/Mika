@@ -4,6 +4,7 @@ import contextlib
 import hashlib
 import importlib.util
 import io
+import json
 from pathlib import Path
 import sys
 import tarfile
@@ -202,6 +203,20 @@ class PipLockTest(unittest.TestCase):
         self.assertIn("pip-requires.lock", err)
         self.assertIn("missing", err)
         self.assertIsNone(wheels)
+
+    def test_a_wheel_with_no_license_is_a_build_error(self):
+        # runtime-sources.py reads this field to decide which wheels the source pack owes a source for,
+        # so an entry without it would be skipped there in silence.
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        lock = Path(directory.name) / "pip-requires.lock"
+        lock.write_text(json.dumps({"spec": "mika.pip-requires/v1", "wheels": [
+            {"pkg": "fpdf2", "version": "2.9.0", "filename": "fpdf2-2.9.0-py3-none-any.whl",
+             "sha256": "0" * 64, "url": "https://example.invalid/fpdf2-2.9.0-py3-none-any.whl"}]}),
+            encoding="utf-8")
+        code, err, wheels = self.read(lock)
+        self.assertEqual(1, code, wheels)
+        self.assertIn("missing license", err)
 
     def test_the_committed_lock_is_read(self):
         code, err, wheels = self.read(build_runtime.PIP_LOCK)

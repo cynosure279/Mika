@@ -16,9 +16,9 @@ import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.model.ModelSession
 import com.wangzan101.mika.core.model.OpenAiCompatModel
 import com.wangzan101.mika.core.model.ResponsesModel
-import com.wangzan101.mika.core.usage.UsagePurpose
-import com.wangzan101.mika.core.usage.UsageSource
-import com.wangzan101.mika.core.usage.metered
+import com.wangzan101.mika.core.model.usage.UsagePurpose
+import com.wangzan101.mika.core.model.usage.UsageSource
+import com.wangzan101.mika.core.model.usage.metered
 import java.util.concurrent.TimeUnit
 import com.wangzan101.mika.settings.ProviderStore.Companion.http
 import com.wangzan101.mika.settings.ProviderStore.Companion.XAI_ACCOUNT
@@ -31,21 +31,44 @@ import com.wangzan101.mika.settings.ProviderStore.Companion.get
  * 看图这一路总是 true(用户选了它来看图);别的用途按 [ModelOptions.seesImages]——用户在这个模型上说过的为准,
  * 没说过而看图也用这条配置(选了同一个模型,或「用主模型」)的,同样算能看,截图直接附给它,不必另调一次看图。
  */
-fun ProviderStore.configFor(role: ModelRole): ProviderConfig? {
-    val choices = _roles.value
+fun ProviderStore.configFor(role: ModelRole): ProviderConfig? = configFor(role, _roles.value)
+
+/** 按一份有效的角色选择解析代表配置；对话覆盖不会写回全局角色。 */
+internal fun ProviderStore.configFor(role: ModelRole, choices: RoleChoices): ProviderConfig? {
     // 组按「排在最前的启用成员」给界面一个代表;真正的路由在 modelFor 里按成员走
-    val id = choices.resolveConfig(role) ?: groupFor(role)?.enabledMembers?.firstOrNull()?.configId ?: return null
+    val id = choices.resolveConfig(role)
+        ?: choices.resolveGroup(role)?.let(::group)?.enabledMembers?.firstOrNull()?.configId ?: return null
     val cfg = _configs.value.firstOrNull { it.id == id } ?: return null
     val sees = role == ModelRole.Vision || ModelOptions.seesImages(cfg.capabilities.vision,
         provider(cfg.providerId)?.visionOverrides?.get(cfg.model), usedForVision = choices.resolveConfig(ModelRole.Vision) == cfg.id)
     return if (sees == cfg.capabilities.vision) cfg else cfg.copy(capabilities = cfg.capabilities.copy(vision = sees))
 }
 
-/** 主模型在它那家还没测试通过时给出那一家(见 [Provider.untested]);任务因模型失败时据此提示去「重新测试」。 */
-fun ProviderStore.untestedMainProvider(): Provider? {
-    val cfg = configFor(ModelRole.Main) ?: return null
-    val candidates = groupFor(ModelRole.Main)?.enabledMembers?.mapNotNull { m -> _configs.value.firstOrNull { it.id == m.configId } }
-        ?: listOf(cfg)
+/** 一个覆盖此刻是否仍能当主模型；失效覆盖保留在对话旁文件里，仅解析时退回全局。 */
+fun ProviderStore.usableMainChoice(choice: ModelChoice?): ModelChoice? = when (choice) {
+    is ModelChoice.Model -> choice.takeIf { c ->
+        _configs.value.any { it.id == c.configId && it.canUseForChat() && it.capabilities.toolCalls }
+    }
+    is ModelChoice.Group -> choice.takeIf { groupUsable(it.groupId, ModelRole.Main) }
+    null -> null
+}
+
+/** 主模型、SameAsMain、备援和提示元数据共用的唯一覆盖解析入口。 */
+internal fun ProviderStore.effectiveRoles(mainOverride: ModelChoice? = null): RoleChoices {
+    val current = _roles.value
+    return when (val usable = usableMainChoice(mainOverride)) {
+        is ModelChoice.Model -> current.copy(main = usable.configId, mainGroup = null)
+        is ModelChoice.Group -> current.copy(main = null, mainGroup = usable.groupId)
+        null -> current
+    }
+}
+
+/** 主模型在它那家还没测试通过时给出那一家；使用与本次运行相同的覆盖解析。 */
+fun ProviderStore.untestedMainProvider(mainOverride: ModelChoice? = null): Provider? {
+    val choices = effectiveRoles(mainOverride)
+    val cfg = configFor(ModelRole.Main, choices) ?: return null
+    val candidates = choices.resolveGroup(ModelRole.Main)?.let(::group)?.enabledMembers
+        ?.mapNotNull { m -> _configs.value.firstOrNull { it.id == m.configId } } ?: listOf(cfg)
     return candidates.firstNotNullOfOrNull { c -> provider(c.providerId)?.takeIf { it.untested(c.model) } }
 }
 
@@ -55,18 +78,36 @@ fun ProviderStore.untestedMainProvider(): Provider? {
  * 选了模型组时返回 [GroupPool]:成员各自计量,组本身只负责选择和转移。
  * [session] 是这次调用属于的对话(同一段对话里建的模型都给同一个);服务商声明了会话头的,每个请求都带上它。
  */
-fun ProviderStore.modelFor(role: ModelRole, session: ModelSession = ModelSession.fresh()): ChatModel? {
-    groupFor(role)?.let { group -> return groupModelFor(role, group, session) }
-    return meteredFor(role, session, UsagePurpose.of(role), ::checkDailyBudget)
+fun ProviderStore.modelFor(
+    role: ModelRole,
+    session: ModelSession = ModelSession.fresh(),
+    mainOverride: ModelChoice? = null,
+): ChatModel? {
+    val choices = effectiveRoles(mainOverride)
+    // 无论组来自对话覆盖还是全局设置，都必须满足这个用途（例如 Vision 至少一个成员能看图）。
+    choices.resolveGroup(role)?.let(::group)?.let { group ->
+        if (!groupUsable(group, role)) return null
+        return groupModelFor(role, group, session, choices)
+    }
+    val cfg = configFor(role, choices) ?: return null
+    val effort = choices.reasoningEffort(role)?.takeIf { ReasoningOptions.of(cfg, listedOf(cfg))?.levels?.contains(it) == true }
+    return meteredWith(cfg, role, session, UsagePurpose.of(role), ::checkDailyBudget,
+        effortOverride = effort, useRoleEffort = false)
 }
 
 /** 按组的成员顺序建出每个成员;成员的上下文设置、思考档位、请求头都按各自的配置来。 */
-internal fun ProviderStore.groupModelFor(role: ModelRole, group: ModelGroup, session: ModelSession): ChatModel? {
+internal fun ProviderStore.groupModelFor(
+    role: ModelRole,
+    group: ModelGroup,
+    session: ModelSession,
+    choices: RoleChoices = _roles.value,
+): ChatModel? {
     val members = group.members.filter { it.enabled }.mapNotNull { m ->
         val cfg = _configs.value.firstOrNull { it.id == m.configId } ?: return@mapNotNull null
         val p = provider(cfg.providerId) ?: return@mapNotNull null
-        val effort = memberReasoningEffort(cfg, p, m.reasoningEffort ?: _roles.value.reasoningEffort(role))
-        val model = meteredWith(cfg, role, session, UsagePurpose.of(role), ::checkDailyBudget, effortOverride = effort)
+        val effort = memberReasoningEffort(cfg, p, m.reasoningEffort ?: choices.reasoningEffort(role))
+        val model = meteredWith(cfg, role, session, UsagePurpose.of(role), ::checkDailyBudget,
+            effortOverride = effort, useRoleEffort = false)
         PoolMember(
             key = MemberKey(p.id, cfg.model), model = model, priority = m.priority,
             weight = m.weight.takeIf { it > 0 } ?: 1, costRank = m.costRank, providerName = p.name,
@@ -138,11 +179,16 @@ fun ProviderStore.modelForConfig(configId: String, session: ModelSession = Model
  * 按指定角色的备援链顺序返回备援模型及其服务商 ID，供故障转移判断预算归属。
  * 配置没了、建不出的位子跳过,链短一点照样能跑。
  */
-fun ProviderStore.fallbackChain(role: ModelRole, session: ModelSession = ModelSession.fresh()): Pair<List<ChatModel>, List<String?>> {
+fun ProviderStore.fallbackChain(
+    role: ModelRole,
+    session: ModelSession = ModelSession.fresh(),
+    mainOverride: ModelChoice? = null,
+): Pair<List<ChatModel>, List<String?>> {
     val models = ArrayList<ChatModel>()
     val providerIds = ArrayList<String>()
-    val rolePrimaryId = _roles.value.resolve(role)
-    for (id in _roles.value.fallbacks(role)) {
+    val choices = effectiveRoles(mainOverride)
+    val rolePrimaryId = choices.resolve(role)
+    for (id in choices.fallbacks(role)) {
         if (id == rolePrimaryId) continue
         val cfg = configById(id) ?: continue
         val m = modelForRoleConfig(role, id, session) ?: continue
@@ -155,18 +201,25 @@ fun ProviderStore.fallbackChain(role: ModelRole, session: ModelSession = ModelSe
 /**
  * 按 [RoleChoices.mainFallbacks] 的顺序返回备援模型及其服务商 ID，供故障转移判断预算归属。
  */
-fun ProviderStore.mainFallbackChain(session: ModelSession = ModelSession.fresh()): Pair<List<ChatModel>, List<String?>> =
-    fallbackChain(ModelRole.Main, session)
+fun ProviderStore.mainFallbackChain(
+    session: ModelSession = ModelSession.fresh(),
+    mainOverride: ModelChoice? = null,
+): Pair<List<ChatModel>, List<String?>> = fallbackChain(ModelRole.Main, session, mainOverride)
 
-/** 视觉模型备援链 */
-fun ProviderStore.visionFallbackChain(session: ModelSession = ModelSession.fresh()): List<ChatModel> =
-    fallbackChain(ModelRole.Vision, session).first
+/** 视觉模型备援链；SameAsMain 按本次有效主模型排除主配置自身。 */
+fun ProviderStore.visionFallbackChain(
+    session: ModelSession = ModelSession.fresh(),
+    mainOverride: ModelChoice? = null,
+): List<ChatModel> = fallbackChain(ModelRole.Vision, session, mainOverride).first
 
-/** 轻量模型备援链 */
-fun ProviderStore.lightFallbackChain(session: ModelSession = ModelSession.fresh()): List<ChatModel> =
-    fallbackChain(ModelRole.Light, session).first
+/** 轻量模型备援链；SameAsMain 按本次有效主模型排除主配置自身。 */
+fun ProviderStore.lightFallbackChain(
+    session: ModelSession = ModelSession.fresh(),
+    mainOverride: ModelChoice? = null,
+): List<ChatModel> = fallbackChain(ModelRole.Light, session, mainOverride).first
 
-fun ProviderStore.mainProviderId(): String? = configFor(ModelRole.Main)?.providerId
+fun ProviderStore.mainProviderId(mainOverride: ModelChoice? = null): String? =
+    configFor(ModelRole.Main, effectiveRoles(mainOverride))?.providerId
 
 /** 每次实际请求前重查配置和账本；达到预算时不发请求，也不记一笔虚假调用。 */
 internal fun ProviderStore.checkDailyBudget(source: UsageSource) {

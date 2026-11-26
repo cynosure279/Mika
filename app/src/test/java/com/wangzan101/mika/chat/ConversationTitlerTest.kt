@@ -25,7 +25,9 @@ class ConversationTitlerTest {
     private class Titler(private val reply: String = "", private val fail: Boolean = false, private val hang: Boolean = false) : ChatModel {
         override val capabilities = Capabilities(toolCalls = true, vision = false, contextTokens = 8_000, reasoning = false)
         val requests = mutableListOf<List<Message>>()
+        var system: String? = null
         override suspend fun complete(system: String, messages: List<Message>, tools: List<ToolSpec>): ModelReply {
+            this.system = system
             requests += messages
             if (fail) error("offline")
             if (hang) delay(60_000)
@@ -40,11 +42,11 @@ class ConversationTitlerTest {
         val s = store()
         val id = s.newConversation()
         val m = Titler("附近的川菜")
-        ConversationTitler.ensure(s, id, "帮我看看附近评分最高的川菜") { listOf(m) }
+        ConversationTitler.ensure(s, id, "帮我看看附近评分最高的川菜", models = { listOf(m) })
         assertEquals("附近的川菜", s.title(id))
         // 再来一次(模型换了说法)也不改、不再请求
         val again = Titler("别的名字")
-        ConversationTitler.ensure(s, id, "第二句话") { listOf(again) }
+        ConversationTitler.ensure(s, id, "第二句话", models = { listOf(again) })
         assertEquals("附近的川菜", s.title(id))
         assertTrue(again.requests.isEmpty())
     }
@@ -70,7 +72,7 @@ class ConversationTitlerTest {
         val id = s.newConversation()
         s.append(id, Turn("查天气", "晴", "succeeded"))
         val m = Titler("天气")
-        ConversationTitler.ensure(s, id, "查天气") { listOf(m) }
+        ConversationTitler.ensure(s, id, "查天气", models = { listOf(m) })
         assertNull(s.title(id))
         assertTrue(m.requests.isEmpty())
         // 老对话没有标题,列表里仍是第一句话
@@ -80,7 +82,7 @@ class ConversationTitlerTest {
     @Test fun failureLeavesNoTitle() = runBlocking {
         val s = store()
         val id = s.newConversation()
-        ConversationTitler.ensure(s, id, "查天气") { listOf(Titler(fail = true)) }
+        ConversationTitler.ensure(s, id, "查天气", models = { listOf(Titler(fail = true)) })
         assertNull(s.title(id))
         s.append(id, Turn("查天气", "晴", "succeeded"))
         assertEquals("查天气", s.list().single().title)
@@ -94,7 +96,7 @@ class ConversationTitlerTest {
 
     @Test fun screenOnlyMessageIsNotTitled() = runBlocking {
         val m = Titler("屏幕")
-        val line = com.wangzan101.mika.core.userscreen.UserScreenMessage.line("abc")
+        val line = com.wangzan101.mika.core.screen.user.UserScreenMessage.line("abc")
         assertNull(ConversationTitler.generate(listOf(m), line))
         assertTrue(m.requests.isEmpty())
         // 带附言时只把附言给模型
@@ -109,6 +111,44 @@ class ConversationTitlerTest {
         assertEquals(16, ConversationTitler.clean("一".repeat(40))!!.length)
         assertNull(ConversationTitler.clean("  \n "))
         assertNull(ConversationTitler.clean("「」"))
+    }
+
+    @Test fun titleCarriesLanguageDirective() = runBlocking {
+        val s = store()
+        val id = s.newConversation()
+        val m = Titler("Open WhatsApp")
+        ConversationTitler.ensure(s, id, "open whatsapp say hello to Ved", models = { listOf(m) }, language = "en")
+        val capturedSystemPrompt = m.system!!
+        assertTrue(capturedSystemPrompt.contains("Communication & Reasoning Language"))
+        assertTrue(capturedSystemPrompt.contains("final replies in English"))
+        assertEquals("Open WhatsApp", s.title(id))
+    }
+
+    @Test fun nullAndSystemMirrorUserPromptWithoutFabricatedTag() = runBlocking {
+        for (language in listOf(null, "", "system")) {
+            val m = Titler("Open WhatsApp")
+            ConversationTitler.generate(listOf(m), "open whatsapp say hello to Ved", language = language)
+            val capturedSystemPrompt = m.system!!
+            assertTrue(capturedSystemPrompt.contains("Always mirror the language of the user's prompt"))
+            assertFalse(capturedSystemPrompt.contains("final replies in English."))
+            assertFalse(capturedSystemPrompt.contains("## 语言设定"))
+        }
+    }
+
+    @Test fun cjkAndAlphabeticTitlesUseDifferentLimits() = runBlocking {
+        val generatedCjkTitle = ConversationTitler.generate(listOf(Titler("界".repeat(40))), "name this", language = "en")
+        val generatedAlphabeticTitle = ConversationTitler.generate(listOf(Titler("a".repeat(60))), "name this", language = "en")
+        assertEquals(16, generatedCjkTitle!!.length)
+        assertEquals(40, generatedAlphabeticTitle!!.length)
+    }
+
+    @Test fun mixedScriptTitleUsesDeterministicLimit() = runBlocking {
+        for (cjk in listOf("界", "豈", "𠀀")) {
+            val reply = "a".repeat(20) + cjk + "b".repeat(30)
+            val generatedTitle = ConversationTitler.generate(listOf(Titler(reply)), "name this", language = "en")
+            assertEquals(cjk, 16, generatedTitle!!.length)
+            assertEquals(cjk, "a".repeat(16), generatedTitle)
+        }
     }
 
     @Test fun titleRoundTripsAndShowsInTheList() {

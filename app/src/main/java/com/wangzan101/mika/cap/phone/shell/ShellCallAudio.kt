@@ -889,6 +889,8 @@ internal class ShellCallAudio(private val context: Context) {
             .setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(rate).setChannelMask(mask).build()
 
         private fun nonBlocking(fd: FileDescriptor) {
+            // 只在 Android 13 起的通话转接里用到;Os.fcntlInt 从 Android 11 才有
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) error("Non-blocking pipes need Android 11+.")
             val flags = Os.fcntlInt(fd, OsConstants.F_GETFL, 0)
             Os.fcntlInt(fd, OsConstants.F_SETFL, flags or OsConstants.O_NONBLOCK)
         }

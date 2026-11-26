@@ -22,4 +22,7 @@
     <string name="rec_not_recovered">تعذرت إعادة الاتصال تلقائيًا عند بدء التشغيل الأخير. تأكد من اتصالك بشبكة Wi-Fi موثوقة ومن تشغيل تصحيح الأخطاء لاسلكيًا، وستتصل Mika.</string>
     <string name="rec_needs_pairing">لا يعمل إلا بعد إقران تصحيح الأخطاء لاسلكيًا. بدأ المساعد باستخدام أمر USB، لذا أعد تشغيل الأمر بعد إعادة تشغيل الهاتف.</string>
     <string name="rec_shizuku_no_wireless">لا يُستخدم التصحيح اللاسلكي أثناء اختيار Shizuku. يعيد Mika الاتصال عبر Shizuku بمجرد أن يعمل Shizuku.</string>
+    <string name="rec_exclude_recents">الإخفاء من التطبيقات الحديثة</string>
+    <string name="rec_exclude_recents_sub">عدم إظهار Mika في قائمة التطبيقات الحديثة بالنظام.</string>
+    <string name="rec_exclude_recents_failed">تعذر تغيير الظهور في التطبيقات الحديثة. لم يتغير اختيارك المحفوظ؛ حاول مجددًا.</string>
 </resources>

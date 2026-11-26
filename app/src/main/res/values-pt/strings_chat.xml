@@ -205,6 +205,7 @@
     <string name="attach_recent">Fotos recentes</string>
     <string name="attach_recent_partial">Fotos que você permitiu o Mika acessar</string>
     <string name="attach_all">Todas as fotos</string>
+    <string name="attach_more">Mais</string>
     <string name="attach_change">Alterar acesso</string>
     <string name="attach_no_photos">Ainda não há fotos</string>
     <string name="attach_need_access">Para escolher fotos aqui, permita que o Mika acesse suas fotos</string>
@@ -277,6 +278,8 @@
     <string name="pip_closed_hint">Fechada para esta tarefa. Toque em “Mostrar tela” no canto inferior direito ou abra “Telas em segundo plano” no menu lateral.</string>
     <string name="chat_conversation_tokens">Esta conversa: %1$s</string>
     <string name="chat_conversation_tokens_partial">Esta conversa: pelo menos %1$s</string>
+    <string name="chat_current_model">Modelo atual</string>
+    <string name="chat_usage_view_details">Ver uso de tokens</string>
     <string name="chat_task_cost_estimate">Aprox. %1$s</string>
     <string name="chat_task_cost_partial">%1$s (parcial)</string>
     <string name="chat_task_cost_unavailable">Custo indisponível</string>
@@ -313,7 +316,7 @@
     <string name="chat_example_schedule_title">Defina um lembrete diário</string>
     <string name="chat_example_pdf">Resuma o PDF que eu enviar em um resumo curto.</string>
     <string name="chat_example_schedule">Toda manhã às 8h, lembre-me de ver o tempo.</string>
-    <string name="chat_empty_value">Diga em uma frase, e eu uso seus apps, navego na web e concluo a tarefa.</string>
+    <string name="chat_empty_value">Diga uma vez e eu resolvo no seu celular</string>
     <string name="saved_task_save">Salvar como tarefa</string>
     <string name="task_field_add">Adicionar campo</string>
     <string name="task_field_name">Nome do campo</string>
@@ -338,4 +341,25 @@
     <string name="plus_skills_empty">Ainda não há habilidades pessoais. As que o Mika aprender com tarefas concluídas aparecerão aqui.</string>
     <string name="plus_clipboard_empty">Nada para colar da área de transferência</string>
     <string name="plus_skill_directive">Usar a habilidade “%1$s”: </string>
+    <string name="plus_reuse">Salvos</string>
+    <string name="plus_reuse_hint">Frases · listas · fluxos</string>
+    <string name="plus_reuse_phrases">Frases salvas</string>
+    <string name="drawer_calls">Chamadas IA</string>
+    <!-- 空对话滚动条里的灵感示例;点了填进输入框 -->
+    <string name="chat_idea_maps">Me leve à cafeteria mais próxima</string>
+    <string name="chat_idea_camera">Abra a câmera e tire uma foto</string>
+    <string name="chat_idea_sms">Mande para a mãe: cheguei em casa</string>
+    <string name="chat_idea_news">Pesquise as notícias de tecnologia de hoje</string>
+    <string name="chat_idea_dark">Ative o modo escuro</string>
+    <string name="chat_idea_music">Toque uma música relaxante</string>
+    <string name="chat_idea_email">O que dizem meus últimos e-mails?</string>
+    <string name="chat_idea_screenshot">Encontre minha captura de tela mais recente</string>
+    <string name="chat_idea_meeting">Adicione uma reunião amanhã às 15h</string>
+    <!-- 空对话推广卡上的一句话说明;完整提示词点了才填进输入框 -->
+    <string name="chat_example_github_star_blurb">Apoie o projeto de código aberto Mika</string>
+    <string name="chat_example_follow_blurb">Siga o autor e entre no chat</string>
+    <string name="chat_example_group_summary_blurb">Resuma as mensagens não lidas de hoje</string>
+    <string name="chat_example_share_title">Compartilhe o Mika com um amigo</string>
+    <string name="chat_example_share_blurb">Indique para quem vai usar</string>
+    <string name="chat_example_share">Compartilhe o link do projeto Mika https://github.com/wangzan101/mika com um amigo e diga que ele opera o celular por você.</string>
 </resources>

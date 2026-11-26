@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="chat_model_chip_follow">Theo cài đặt</string>
+    <string name="chat_model_chip_follow_named">Theo · %1$s</string>
+    <string name="chat_model_chip_model">Mô hình: %1$s</string>
+    <string name="chat_model_chip_group">Nhóm: %1$s</string>
+    <string name="chat_model_chip_fallback">Đã quay lại: %1$s</string>
+    <string name="chat_model_sheet_title">Mô hình chính cho cuộc trò chuyện này</string>
+    <string name="chat_model_sheet_note">Áp dụng cho tác vụ tiếp theo trong cuộc trò chuyện này. Tác vụ đang chạy vẫn giữ nguyên mô hình.</string>
+    <string name="chat_model_follow_note">Mô hình chính: %1$s</string>
+    <string name="chat_model_follow_none">Chưa chọn mô hình chính</string>
+    <string name="chat_model_group_members">%1$d thành viên</string>
+    <string name="chat_model_more">Thêm mô hình</string>
+    <string name="chat_model_next_task">Áp dụng cho tác vụ tiếp theo</string>
+    <string name="chat_model_unavailable">Lựa chọn này không còn khả dụng; tác vụ tiếp theo sẽ theo Cài đặt.</string>
+    <string name="chat_model_switch">Đổi mô hình chính</string>
+</resources>

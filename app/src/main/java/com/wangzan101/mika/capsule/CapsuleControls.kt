@@ -1,11 +1,34 @@
 package com.wangzan101.mika.capsule
 
+/**
+ * What a capsule looks like at a glance, plus which run it is showing. Only a change here wakes a tucked ball:
+ * a new step's text does not, but another run with the same kind and counts does ([runKey]).
+ */
+internal data class CapsuleLook(
+    val kind: CapsuleKind, val pill: Boolean, val count: Int, val needCount: Int, val runKey: String? = null,
+) {
+    companion object {
+        fun of(view: CapsuleView.Shown): CapsuleLook = CapsuleLook(view.kind, view.pill, view.count, view.needCount, view.runKey)
+    }
+}
+
 /** A docked ball may tuck away; requests, speech and open cards stay fully visible. */
 object CapsuleEdge {
     fun hidden(enabled: Boolean, kind: CapsuleKind, pill: Boolean, needs: Int,
         expanded: Boolean, dragging: Boolean, talking: Boolean, note: Boolean, idleFor: Long): Boolean =
         enabled && !pill && !kind.needsYou && kind != CapsuleKind.HandedOver && needs == 0 &&
             !expanded && !dragging && !talking && !note && idleFor >= CapsuleFade.IDLE_MS
+
+    internal fun shouldWake(
+        hideAtEdge: Boolean,
+        visible: Boolean,
+        previous: CapsuleLook?,
+        current: CapsuleLook,
+    ): Boolean = when {
+        visible -> current != previous
+        !hideAtEdge -> true
+        else -> current.kind != CapsuleKind.Idle && current != previous
+    }
 
     /** The visible half touches the safe physical edge, with no invisible horizontal touch area. */
     fun offset(side: DockSide, area: DockArea, room: Int): Int =

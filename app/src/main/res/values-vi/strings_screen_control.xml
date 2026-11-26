@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screen_control_hint">Mika đang điều khiển · Nhấn để tiếp quản</string>
+    <string name="screen_control_wait">Đang chờ thao tác hiện tại hoàn tất…</string>
+    <string name="screen_control_active">Bạn đang điều khiển · Nhấn để trả lại</string>
+    <string name="screen_control_failed">Điều khiển không khả dụng hoặc màn hình đã thay đổi. Vui lòng thử lại.</string>
+    <string name="screen_control_resume">Tiếp tục Mika</string>
+    <string name="screen_control_start">Tiếp quản điều khiển</string>
+    <string name="screen_control_text">Văn bản cho trường đang được chọn</string>
+    <string name="screen_control_send_text">Nhập văn bản</string>
+    <string name="screen_resize_panes">Đổi kích thước khung</string>
+</resources>

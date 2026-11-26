@@ -268,4 +268,100 @@ class GeminiModelTest {
         val texts = contents[2].arr("parts").map { it.jsonObject.str("text") }
         assertEquals(listOf(InterruptedHistory.STEER, InterruptedHistory.RUNTIME), texts)
     }
+
+    @Test fun sanitizesExtendedKeywordsCombinatorsAndMalformedContainers() = runTest {
+        server.enqueue(ok(cand("""[]""")))
+        val schema = """
+            {
+              "type": "object",
+              "${'$'}schema": "https://json-schema.org/draft/2020-12/schema",
+              "definitions": {"A": {"type": "string"}},
+              "title": "RootTitle",
+              "properties": {
+                "nullableText": {"type": ["string", "null"], "default": "fallback", "minLength": 1},
+                "nullScalar": {"type": "null"},
+                "nullableUnion": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                "kind": {"const": "page"},
+                "countConst": {"const": 42},
+                "defaultObj": {"type": "string", "default": {"nestedKey": "v"}},
+                "tags": {"type": "array"},
+                "emptyObj": {"type": "object", "properties": {}},
+                "strWithProps": {"type": "string", "properties": {"ignored": {"type": "string"}}, "required": ["ignored"]},
+                "nested": {"oneOf": [{"type": "string"}], "${'$'}comment": "x", "examples": ["a"]}
+              },
+              "required": ["nullableText", "kind"]
+            }
+        """.trimIndent()
+        model().complete("s", user, listOf(ToolSpec("t", "d", schema)))
+        val p = sentBody().arr("tools")[0].jsonObject.arr("functionDeclarations")[0].jsonObject.obj("parameters")
+        assertFalse(p.containsKey("\$schema"))
+        assertFalse(p.containsKey("definitions"))
+        assertEquals("RootTitle", p.str("title"))
+        val props = p.obj("properties")
+        val nullableText = props.obj("nullableText")
+        assertEquals("string", nullableText.str("type"))
+        assertEquals("true", nullableText["nullable"]!!.jsonPrimitive.content)
+        assertEquals("fallback", nullableText.str("default"))
+        assertEquals("1", nullableText["minLength"]!!.jsonPrimitive.content)
+        val nullScalar = props.obj("nullScalar")
+        assertEquals("string", nullScalar.str("type"))
+        assertEquals("true", nullScalar["nullable"]!!.jsonPrimitive.content)
+        val nullableUnion = props.obj("nullableUnion")
+        assertEquals("integer", nullableUnion.str("type"))
+        assertEquals("true", nullableUnion["nullable"]!!.jsonPrimitive.content)
+        assertFalse(nullableUnion.containsKey("anyOf"))
+        val kind = props.obj("kind")
+        assertEquals("string", kind.str("type"))
+        assertFalse(kind.containsKey("const"))
+        assertEquals("page", kind.arr("enum")[0].jsonPrimitive.content)
+        val countConst = props.obj("countConst")
+        assertEquals("integer", countConst.str("type"))
+        assertFalse(countConst.containsKey("enum"))
+        val defaultObj = props.obj("defaultObj")
+        assertEquals("v", defaultObj.obj("default").str("nestedKey"))
+        val tags = props.obj("tags")
+        assertEquals("string", tags.obj("items").str("type"))
+        val emptyObj = props.obj("emptyObj")
+        assertEquals("object", emptyObj.str("type"))
+        assertFalse(emptyObj.containsKey("properties"))
+        val strWithProps = props.obj("strWithProps")
+        assertFalse(strWithProps.containsKey("properties"))
+        assertFalse(strWithProps.containsKey("required"))
+        val nested = props.obj("nested")
+        assertEquals("string", nested.str("type"))
+        assertFalse(nested.containsKey("oneOf"))
+        assertFalse(nested.containsKey("\$comment"))
+        assertFalse(nested.containsKey("examples"))
+    }
+
+    // do_steps 的 steps[].args、read_script 的 args 都是不写 properties 的「任意键值」object;
+    // 降成 string 后模型会传字符串,工具按「必须是对象」拒掉
+    @Test fun freeFormNestedObjectsStayObjects() = runTest {
+        server.enqueue(ok(cand("""[]""")))
+        val schema = """
+            {
+              "type": "object",
+              "properties": {
+                "steps": {"type": "array", "items": {"type": "object", "properties": {
+                  "tool": {"type": "string"},
+                  "args": {"type": "object", "description": "arguments for the tool"}
+                }, "required": ["tool"]}},
+                "choice": {"oneOf": [{"type": "string"}, {"type": "integer"}]},
+                "pointer": {"${'$'}ref": "#/${'$'}defs/A"},
+                "anything": {"description": "no type"}
+              }
+            }
+        """.trimIndent()
+        model().complete("s", user, listOf(ToolSpec("t", "d", schema)))
+        val props = sentBody().arr("tools")[0].jsonObject.arr("functionDeclarations")[0].jsonObject
+            .obj("parameters").obj("properties")
+        val args = props.obj("steps").obj("items").obj("properties").obj("args")
+        assertEquals("object", args.str("type"))
+        assertEquals("arguments for the tool", args.str("description"))
+        val choice = props.obj("choice")
+        assertFalse(choice.containsKey("oneOf"))
+        assertEquals(listOf("string", "integer"), choice.arr("anyOf").map { it.jsonObject.str("type") })
+        assertEquals("string", props.obj("pointer").str("type"))
+        assertFalse(props.obj("anything").containsKey("type"))
+    }
 }

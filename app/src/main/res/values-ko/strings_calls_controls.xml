@@ -22,4 +22,13 @@
     <string name="calls_voice_briefing_permission_denied">마이크 권한이 없습니다. 텍스트로 입력할 수 있습니다.</string>
     <string name="calls_voice_briefing_incomplete">기존 설명을 완성하거나 지운 후 시작하세요.</string>
     <string name="calls_voice_briefing_configure">먼저 설정에서 실시간 음성을 구성하세요.</string>
+    <string name="calls_owner_ask_title">통화 상대가 답변을 기다리고 있어요</string>
+    <string name="calls_owner_ask_reply">답장</string>
+    <string name="calls_owner_ask_hint">답장 내용</string>
+    <string name="calls_transcript_owner_unrelayed">주인 답장(전달 안 됨)</string>
+    <string name="calls_owner_ask_channel">통화 중 질문</string>
+    <string name="calls_owner_ask_line">통화 상대의 질문: %1$s\n여기에 답하면 상대에게 전해 드릴게요.</string>
+    <string name="calls_owner_ask_notify_off">「통화 중 질문」 알림이 꺼져 있어 놓칠 수 있어요. 시스템 설정 → 알림에서 켤 수 있어요.</string>
+    <string name="calls_owner_ask_answered">통화에 전달했어요.</string>
+    <string name="calls_owner_ask_withdrawn">통화가 끝나서 이 질문은 취소했어요. 답하지 않아도 돼요.</string>
 </resources>

@@ -13,7 +13,7 @@ import android.os.Process
 import android.view.Surface
 import androidx.annotation.Keep
 import com.wangzan101.mika.BuildConfig
-import com.wangzan101.mika.core.shell.HelperHandoff
+import com.wangzan101.mika.core.device.shell.HelperHandoff
 import com.wangzan101.mika.shell.IMikaShell
 import kotlin.system.exitProcess
 
@@ -74,6 +74,9 @@ class ShizukuShellUserService : IMikaShell.Stub {
     override fun displayOfTask(taskId: Int): Int = delegate.displayOfTask(taskId)
 
     override fun packageOfTask(taskId: Int): String? = delegate.packageOfTask(taskId)
+
+    override fun findTaskForPackage(packageName: String, userId: Int, displayId: Int): IntArray? =
+        delegate.findTaskForPackage(packageName, userId, displayId)
 
     override fun setClipText(text: String): Int = delegate.setClipText(text)
 

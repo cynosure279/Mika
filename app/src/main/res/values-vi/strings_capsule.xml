@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="card_approve_once">Chỉ phê duyệt lần này</string>
+    <string name="card_see_process">Quay lại Mika để xem toàn bộ quy trình</string>
+    <string name="card_back_to_mika">Quay lại Mika</string>
+    <string name="card_continue_last">Tiếp tục cuộc trò chuyện gần nhất</string>
+    <string name="card_screen">Màn hình nền, nhấn để phóng to</string>
+    <string name="card_screen_label">Nền</string>
+    <string name="card_zoomed">Màn hình nền đã phóng to, nhấn để đóng</string>
+    <string name="card_zoom_hint">Mika đang làm việc ở nền · nhấn để đóng</string>
+    <string name="card_continuing">Tiếp tục “%1$s”</string>
+    <string name="card_queued_ahead">Hoàn thành lần tiếp quản khác trước, rồi đến lần này</string>
+    <string name="card_hint_answer">Trả lời Mika…</string>
+    <string name="card_hint_continue">Tiếp tục trò chuyện…</string>
+    <plurals name="capsule_behind">
+        <item quantity="other">Sau mục này, còn %1$d mục nữa đang đợi bạn</item>
+    </plurals>
+    <string name="capsule_hold">Đang tạm giữ</string>
+    <string name="capsule_handed_over">Bạn đang xử lý</string>
+    <string name="capsule_running">Đang làm việc</string>
+    <string name="capsule_done">Xong</string>
+    <string name="capsule_failed">Không thành công</string>
+    <string name="capsule_stopped">Đã dừng</string>
+    <string name="capsule_stop">Dừng việc này</string>
+    <string name="capsule_expand">Mở rộng tác vụ này</string>
+    <string name="capsule_talk">Trò chuyện với Mika</string>
+    <string name="capsule_swap_side">Chuyển sang phía bên kia</string>
+    <string name="capsule_desc_needs">%1$s, nhấn để xử lý</string>
+    <string name="capsule_desc_running">Mika đang làm việc: %1$s, nhấn để xem chi tiết</string>
+    <string name="capsule_desc_other">Mika: %1$s, nhấn để xem chi tiết</string>
+    <string name="capsule_then_tap_right">Nhấn phía bên phải khi xong</string>
+    <string name="capsule_need_of_total">%1$d mục cần bạn · tổng cộng %2$d</string>
+    <string name="capsule_of_total">%1$s · tổng cộng %2$d</string>
+    <string name="capsule_done_tap">Xong · nhấn để xem kết quả</string>
+    <string name="capsule_failed_tap">Không thành công · nhấn để xem lý do</string>
+    <string name="capsule_needs_you">Cần bạn: %1$s</string>
+    <string name="capsule_handle_it">xem qua</string>
+    <string name="capsule_needs_ok">Cần bạn xác nhận: %1$s</string>
+    <string name="capsule_asks">Mika hỏi: %1$s</string>
+    <string name="capsule_hold_why">Đang tạm giữ: %1$s</string>
+    <string name="capsule_you_handle">Đến lượt bạn</string>
+    <string name="capsule_thinking">Đang nghĩ bước tiếp theo</string>
+    <string name="capsule_continuing">Đang tiếp tục</string>
+    <string name="capsule_replay">Đang đi theo lộ trình %1$d/%2$d</string>
+    <plurals name="capsule_batch">
+        <item quantity="other">%1$d bước cùng lúc</item>
+    </plurals>
+    <string name="and_more">" và hơn nữa"</string>
+    <string name="capsule_hide">Tắt viên nang</string>
+    <string name="capsule_hidden_hint">Đã tắt viên nang nổi. Bạn có thể bật lại trong %1$s › %2$s.</string>
+</resources>

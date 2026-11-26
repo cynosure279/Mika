@@ -22,4 +22,7 @@
     <string name="rec_not_recovered">در آخرین راه‌اندازی اتصال خودکار برقرار نشد. مطمئن شوید به Wi-Fi مورد اعتماد متصل هستید و اشکال‌زدایی بی‌سیم روشن است تا میکا متصل شود.</string>
     <string name="rec_needs_pairing">فقط پس از جفت‌سازی اشکال‌زدایی بی‌سیم کار می‌کند. برنامهٔ کمکی با دستور USB شروع شده است، پس پس از راه‌اندازی مجدد گوشی دستور را دوباره اجرا کنید.</string>
     <string name="rec_shizuku_no_wireless">وقتی Shizuku انتخاب شده، از اشکال‌زدایی بی‌سیم استفاده نمی‌شود. به‌محض اجرای Shizuku، Mika از طریق Shizuku دوباره وصل می‌شود.</string>
+    <string name="rec_exclude_recents">پنهان کردن از برنامه‌های اخیر</string>
+    <string name="rec_exclude_recents_sub">Mika در فهرست برنامه‌های اخیر سیستم نشان داده نمی‌شود.</string>
+    <string name="rec_exclude_recents_failed">تغییر نمایش در برنامه‌های اخیر انجام نشد. انتخاب ذخیره‌شده تغییری نکرده است؛ دوباره تلاش کنید.</string>
 </resources>

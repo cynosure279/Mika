@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="install_check">Đang kiểm tra thiết bị</string>
+    <string name="install_extract">Đang giải nén</string>
+    <string name="install_configure">Đang cấu hình</string>
+    <string name="install_skills">Đang đồng bộ script kỹ năng</string>
+    <string name="install_interrupted">Thiết lập bị gián đoạn; bạn có thể thử lại</string>
+    <string name="install_checksum">Tổng kiểm tra tệp không khớp</string>
+    <string name="install_unpack_failed">Không thể giải nén môi trường; hãy cài lại Mika: %1$s</string>
+    <string name="install_unsupported">Không hỗ trợ trên thiết bị này (cần arm64)</string>
+    <string name="install_no_space">Không đủ dung lượng: cần %1$d MB (còn trống %2$d MB)</string>
+    <string name="install_cannot_start">Môi trường không khởi động được: %1$s</string>
+    <string name="install_exit_code">mã thoát %1$d</string>
+    <string name="install_no_client">Thiếu lệnh mika (gói chưa hoàn chỉnh)</string>
+    <string name="sandbox_resetting">Đang đặt lại</string>
+    <string name="sandbox_reset_failed">Đặt lại thất bại: %1$s</string>
+    <string name="sandbox_incomplete">Tệp môi trường chưa hoàn chỉnh; bạn có thể đặt lại trong Cài đặt → Nâng cao</string>
+    <string name="sandbox_not_finished">Thiết lập chưa hoàn tất; bạn có thể thử lại</string>
+    <string name="sandbox_network">Cho phép script truy cập mạng</string>
+    <string name="sandbox_network_sub">Bật theo mặc định</string>
+    <string name="sandbox_network_explain">Theo mặc định Mika làm việc với tệp và chạy script trực tuyến. Khi bật, script có thể dùng mạng (ví dụ để tra cứu tài liệu hoặc bản đồ) và cũng có thể gửi tệp từ cuộc trò chuyện ra ngoài.</string>
+    <string name="sandbox_isolation_unavailable">Thiết bị này không thể giữ script ngoại tuyến: Mika chỉ có thể làm việc với tệp và chạy script khi “Cho phép script truy cập mạng” đang bật</string>
+    <string name="sandbox_reset_title">Đặt lại môi trường?</string>
+    <string name="sandbox_reset_body">Xóa môi trường Mika dùng cho tệp và script, cùng các tệp tạo trong mỗi cuộc trò chuyện (kể cả tệp bạn đính kèm), rồi thiết lập lại tự động. Cuộc trò chuyện và cài đặt không bị ảnh hưởng.</string>
+    <string name="sandbox_broken">Thiết lập chưa hoàn tất: %1$s</string>
+    <string name="sandbox_reset_sub">Dùng khi có sự cố: xóa và thiết lập lại</string>
+    <string name="sandbox_reset">Đặt lại môi trường</string>
+    <string name="reset">Đặt lại</string>
+</resources>

@@ -1,0 +1,15 @@
+<resources>
+    <string name="device_browser_title">Tệp trên thiết bị</string>
+    <string name="device_browser_roots">Thư mục đã cấp phép</string>
+    <string name="device_browser_back">Quay lại</string>
+    <string name="device_browser_retry">Không thể tải tệp. Nhấn để thử lại.</string>
+    <string name="device_browser_empty">Không có tệp hoặc thư mục đã cấp phép</string>
+    <string name="device_browser_more">Tải thêm</string>
+    <string name="device_browser_add">Thêm mục đã chọn (%1$d)</string>
+    <string name="device_browser_cancel">Hủy</string>
+    <string name="device_browser_history">Mục đã nhập từ cuộc trò chuyện</string>
+    <string name="device_browser_show_files">Duyệt tệp</string>
+    <string name="device_browser_history_hint">Lịch sử nhập; bản sao có thể đã bị xóa. Mở thư viện tệp để xem tệp.</string>
+    <string name="device_browser_search">Tìm kiếm tệp</string>
+    <string name="device_browser_truncated">Tìm kiếm đã dừng ở giới hạn độ sâu, thời gian hoặc số tệp; kết quả có thể chưa đầy đủ.</string>
+</resources>

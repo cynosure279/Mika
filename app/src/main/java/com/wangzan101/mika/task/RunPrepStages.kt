@@ -6,17 +6,15 @@ import com.wangzan101.mika.MikaApp
 import com.wangzan101.mika.i18n.AppLanguage
 import com.wangzan101.mika.core.agent.SystemPrompt
 import com.wangzan101.mika.core.prompt.PersonaPrompt
-import com.wangzan101.mika.core.record.Redactor
-import com.wangzan101.mika.core.memory.UserUtterances
-import com.wangzan101.mika.settings.ProviderStore
-import com.wangzan101.mika.core.model.ModelRole
+import com.wangzan101.mika.core.run.record.Redactor
+import com.wangzan101.mika.core.learn.memory.UserUtterances
 import com.wangzan101.mika.core.agent.Turn
 import com.wangzan101.mika.core.run.RunId
 import com.wangzan101.mika.core.run.RunSpec
 import com.wangzan101.mika.core.run.RunOrigin
-import com.wangzan101.mika.core.knowledge.KnowledgeStore
-import com.wangzan101.mika.core.knowledge.GuideCatalog
-import com.wangzan101.mika.core.record.RunSink
+import com.wangzan101.mika.core.learn.knowledge.KnowledgeStore
+import com.wangzan101.mika.core.learn.knowledge.GuideCatalog
+import com.wangzan101.mika.core.run.record.RunSink
 import com.wangzan101.mika.record.RunStore
 import com.wangzan101.mika.settings.FeatureFlags
 import kotlinx.coroutines.CancellationException
@@ -38,20 +36,18 @@ import com.wangzan101.mika.task.TaskRun.Companion.WEB_FRAME_MS
 import com.wangzan101.mika.task.TaskRun.Companion.TAG
 
 // 运行装配:模型、运行记录、记忆与知识、网页、提示词
-internal suspend fun TaskRun.assembleModels(): RunModels? {
-    val model = env.modelFactory(service, session) ?: return null
+internal suspend fun TaskRun.assembleModels(snapshot: TaskModelSnapshot): RunModels? {
+    val model = snapshot.main ?: return null
     // 用户在浏览器页上对着一页问的:那一页借给这个任务当当前网页标签(见 PageLoans);开跑时页面还开着才借得到
     val pageLoan = if (provenance.origin == RunOrigin.Ui) withContext(Dispatchers.Main) { UserBrowser.existing()?.claim(conversationId, key) } else null
-    val light = env.lightModelFactory(service, session)
+    val light = snapshot.light
     val decision = env.decisionModel(service)
     // 同一模型分成两个实例并不会更便宜或更快;禁止它给批量/收尾工具反而只会增加改派和逐步操作。
     // 这只跳过逐步分工,轻量角色仍可用于意图判断、标题和收尾等辅助调用。
-    val routedLight = light?.takeIf {
-        !ProviderStore.get(service).roles.value.sameModel(ModelRole.Main, ModelRole.Light)
-    }
-    val vision = env.visionModelFactory(service, session)
-    val visionFallbacks = env.visionFallbackFactory(service, session)
-    val lightFallbacks = env.lightFallbackFactory(service, session)
+    val routedLight = light?.takeIf { snapshot.routeLightSeparately }
+    val vision = snapshot.vision
+    val visionFallbacks = snapshot.visionFallbacks
+    val lightFallbacks = snapshot.lightFallbacks
 
     val (knowledge, skills) = withContext(Dispatchers.IO) {
         // 用户对某个 App/站点的补充放在私有目录 personal/apps、personal/sites 下
@@ -60,7 +56,8 @@ internal suspend fun TaskRun.assembleModels(): RunModels? {
         val learnedNotes = legacyNames().let { legacy -> memoryRuntime.appKnowledge().notes().mapValues { it.value.copy(text = legacy.rewrite(it.value.text)) } }
         KnowledgeStore(KnowledgeStore.loadBundled(), userNotes, learnedNotes) to GuideCatalog.loadBundled()
     }
-    return RunModels(model, pageLoan, light, decision, routedLight, vision, visionFallbacks, lightFallbacks, knowledge, skills)
+    return RunModels(model, pageLoan, light, decision, routedLight, vision, visionFallbacks, lightFallbacks,
+        snapshot.mainFallbacks, snapshot.mainProviderIds, knowledge, skills)
 }
 
 internal suspend fun TaskRun.assembleRecord(a: RunAssembly): RunRecord {

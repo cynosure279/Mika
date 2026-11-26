@@ -16,6 +16,7 @@ import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
 import com.wangzan101.mika.MikaApp
 import com.wangzan101.mika.R
 import com.wangzan101.mika.calls.instructions.CallInstructionStore
+import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.shell.IMikaShell
 import com.wangzan101.mika.voice.cascade.CallUse
 import com.wangzan101.mika.voice.cascade.CascadeEngine
@@ -193,6 +194,7 @@ class CallRuntime(internal val app: MikaApp) {
                 publish()
                 if (settings.state.value.enabled && current != null) probeAudio()
                 maybeStartAutoAnswer()
+                restorePrepareAfterRestart()
             }
         }
         scope.launch {
@@ -274,6 +276,7 @@ class CallRuntime(internal val app: MikaApp) {
             readSims()
             publish()
             maybeStartAutoAnswer()
+            restorePrepareAfterRestart()
         }
         scope.launch {
             val resume = CallStandbyResumeGate()
@@ -306,6 +309,20 @@ class CallRuntime(internal val app: MikaApp) {
         maybeStartAutoAnswer()
         if (state.value.prepared) ok("系统通话管理权限可用；连接状态以实际电话回调为准")
         else fail("AI 电话尚未准备好")
+    }
+
+    /**
+     * Android forgets the call-companion setup on every restart. When AI calls were set up before and
+     * not turned off since, redo it quietly once the on-device helper is back, instead of waiting for
+     * the user to find the checklist. A failed attempt rolls the record back, so it is not retried in a loop.
+     */
+    private fun restorePrepareAfterRestart() {
+        if (!settings.state.value.enabled || shell == null || armed || configuring || work != null) return
+        scope.launch {
+            if (!withContext(Dispatchers.IO) { access.preparedOnEarlierBoot() }) return@launch
+            if (liveCalls().isNotEmpty()) return@launch
+            prepare()
+        }
     }
 
     suspend fun prepare(): CallActionResult = onMain {
@@ -446,6 +463,10 @@ class CallRuntime(internal val app: MikaApp) {
         val expectedCallId: String? = null,
         val task: CallTaskBrief? = null,
         val lockedDialTicket: LockedDialGate.Ticket? = null,
+        /** 这通电话所属的后台任务(由任务拨出时才有);电话前台把它的状态放进上下文。 */
+        val ownerTask: StateFlow<TaskState>? = null,
+        /** 主人看得到的那条会话(请示写在这里、也能在这里回);没有所属任务的电话为 null,只能从通知里回。 */
+        val ownerConversationId: String? = null,
     ) {
         val id = UUID.randomUUID().toString()
         val result = CompletableDeferred<CallActionResult>()

@@ -27,7 +27,8 @@ class StringResourcesTest {
         Other("values-ru", Locale.forLanguageTag("ru"), setOf("one", "few", "many", "other")),
         // 印尼语的资源文件夹沿用安卓的旧语言代码 in
         Other("values-in", Locale.forLanguageTag("id"), setOf("other")),
-        Other("values-tr", Locale.forLanguageTag("tr"), setOf("other")),
+        Other("values-tr", Locale.forLanguageTag("tr"), setOf("one", "other")),
+        Other("values-vi", Locale.forLanguageTag("vi"), setOf("other")),
     )
 
     private val en = ResFileTexts.english
@@ -146,6 +147,7 @@ class StringResourcesTest {
         assertEquals(AppLanguage.Arabic, of("ar"))
         assertEquals(AppLanguage.Arabic, of("ar-MA"))
         assertEquals(AppLanguage.Persian, of("fa-IR"))
+        assertEquals(AppLanguage.Vietnamese, of("vi-VN"))
         // 其他语言只看语言代码,地区不管
         assertEquals(AppLanguage.Japanese, of("ja-JP"))
         assertEquals(AppLanguage.Portuguese, of("pt-PT"))

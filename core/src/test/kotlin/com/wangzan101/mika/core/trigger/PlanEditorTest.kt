@@ -197,6 +197,69 @@ class PlanEditorTest {
         assertInvalid(draft().copy(reminder = true, condition = "something changed"), PlanValidation.ReminderWithCondition)
     }
 
+    @Test fun executionWindowPresetsAndCustomTimesSurviveEditing() {
+        val offPeak = editedTrigger(draft().copy(
+            executionWindow = PlanExecutionWindow.DeepSeekOffPeak,
+        ), null, "off-peak", "thread", now)
+        assertEquals("UTC", offPeak.executionWindowZone)
+        assertEquals(DEEPSEEK_OFF_PEAK_WINDOWS, offPeak.executionWindows)
+        assertEquals(PlanExecutionWindow.DeepSeekOffPeak, offPeak.toPlanDraft().executionWindow)
+
+        val custom = editedTrigger(draft().copy(
+            executionWindow = PlanExecutionWindow.Custom,
+            windowStart = "22:00", windowEnd = "02:00",
+        ), null, "custom", "thread", now)
+        assertEquals(zone, custom.executionWindowZone)
+        assertEquals(listOf(ExecutionWindow(22 * 60, 2 * 60)), custom.executionWindows)
+        assertEquals("22:00", custom.toPlanDraft().windowStart)
+        assertEquals("02:00", custom.toPlanDraft().windowEnd)
+
+        val copy = editedTrigger(custom.toCopyPlanDraft(now), null, "copy", "thread", now)
+        assertEquals(custom.executionWindows, copy.executionWindows)
+        assertEquals(custom.executionWindowZone, copy.executionWindowZone)
+    }
+
+    @Test fun unchangedOneShotKeepsSecondsWithIndependentCustomZone() {
+        val customZone = if (java.time.ZoneId.systemDefault().id == "UTC") "Asia/Shanghai" else "UTC"
+        val nextAt = Instant.parse("2026-11-07T01:30:45.123Z").toEpochMilli()
+        val original = TriggerDefinition(
+            "plan", "thread", "goal", nextAt,
+            executionWindowZone = customZone, executionWindows = listOf(ExecutionWindow(22 * 60, 2 * 60)),
+        )
+
+        val edited = editedTrigger(original.toPlanDraft().copy(content = "new goal"), original, "ignored", "ignored", now)
+
+        assertEquals(nextAt, edited.nextAtMs)
+        assertEquals(customZone, edited.executionWindowZone)
+    }
+
+    @Test fun calendarAndCustomExecutionZonesSurviveEditingIndependently() {
+        val original = TriggerDefinition(
+            "plan", "thread", "goal", now,
+            calendarTime = "09:00", calendarZone = "UTC",
+            executionWindowZone = "Asia/Shanghai", executionWindows = listOf(ExecutionWindow(22 * 60, 2 * 60)),
+        )
+
+        val edited = editedTrigger(original.toPlanDraft(), original, "ignored", "ignored", now)
+
+        assertEquals("UTC", edited.calendarZone)
+        assertEquals("Asia/Shanghai", edited.executionWindowZone)
+    }
+
+    @Test fun remindersClearExecutionWindowsAndInvalidCustomTimesAreRejected() {
+        val original = editedTrigger(draft().copy(
+            executionWindow = PlanExecutionWindow.Custom,
+            windowStart = "22:00", windowEnd = "02:00",
+        ), null, "windowed", "thread", now)
+        val reminder = editedTrigger(original.toPlanDraft().copy(reminder = true), original, "ignored", "ignored", now)
+        assertTrue(reminder.executionWindows.isEmpty())
+        assertNull(reminder.executionWindowZone)
+
+        assertInvalid(draft().copy(executionWindow = PlanExecutionWindow.Custom, windowStart = "22:00", windowEnd = "22:00"), PlanValidation.InvalidExecutionWindow)
+        assertInvalid(draft().copy(executionWindow = PlanExecutionWindow.Custom, windowStart = "24:00"), PlanValidation.InvalidExecutionWindow)
+        assertInvalid(draft().copy(executionWindow = PlanExecutionWindow.Custom, windowEnd = "25:00"), PlanValidation.InvalidExecutionWindow)
+    }
+
     @Test fun rejectsInvalidTimesRangesAndWeekdays() {
         assertInvalid(draft().copy(content = " "), PlanValidation.MissingContent)
         assertInvalid(draft().copy(firstAt = "2026-02-30 08:30"), PlanValidation.InvalidFirstTime)

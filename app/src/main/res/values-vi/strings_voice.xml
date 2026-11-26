@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chat composer: hold to talk -->
+    <string name="voice_placeholder_idle">Nhập chữ, hoặc giữ để nói</string>
+    <string name="voice_placeholder_busy">Nhập cho tác vụ, hoặc giữ để nói</string>
+    <string name="voice_placeholder_answer">Nhập câu trả lời của bạn, hoặc giữ để nói</string>
+    <string name="voice_listening">Đang nghe</string>
+    <string name="voice_steer_to">Đang nói với “%1$s”</string>
+    <string name="voice_engine_phone">Điện thoại</string>
+    <string name="voice_engine_phone_offline">Điện thoại · ngoại tuyến</string>
+    <string name="voice_say_now">Cứ nói đi, tôi đang nghe…</string>
+    <string name="voice_recording">Đang ghi âm. Thả ra và nó sẽ thành văn bản…</string>
+    <string name="voice_foot_live">Thả ra · lời nói đi vào ô để sửa</string>
+    <string name="voice_foot_convert">Thả ra · chuyển thành văn bản, rồi đưa vào ô</string>
+    <string name="voice_left">Còn %1$d giây</string>
+    <string name="voice_slide_send_cancel">Trượt lên để gửi hoặc hủy</string>
+    <string name="voice_release_cancel">Thả ra để hủy</string>
+    <string name="voice_release_send">Thả ra để gửi</string>
+    <string name="voice_release_fill">Thả ra để điền vào</string>
+    <string name="voice_release_convert">Thả ra để chuyển đổi</string>
+    <string name="voice_converting">Đang chuyển đổi…</string>
+    <string name="voice_no_match">Không nghe rõ. Giữ và nói lại</string>
+    <string name="voice_busy">Nhận dạng giọng nói đang bận. Thử lại sau ít phút</string>
+    <string name="voice_network">Không có mạng, không chuyển được thành văn bản</string>
+    <string name="voice_mic_unavailable">Micrô không khả dụng. Ứng dụng khác có thể đang dùng nó</string>
+    <string name="voice_hold_to_talk">Giữ để nói</string>
+    <string name="voice_mic_blocked_title">Micrô vẫn không khả dụng</string>
+    <string name="voice_mic_blocked_body">Ghi âm đã được cho phép, nhưng Mika vẫn không ghi âm được. Kiểm tra công tắc truy cập micrô trong Cài đặt nhanh đã bật chưa (Android 12 trở lên), và micrô của Mika không bị tắt trong trình quản lý quyền của hệ thống. Ứng dụng khác cũng có thể đang dùng micrô.</string>
+    <string name="voice_provider_failed">Không chuyển được thành văn bản: %1$s</string>
+    <string name="voice_unavailable_title">Nhập liệu bằng giọng nói chưa sẵn sàng</string>
+    <string name="voice_unavailable_no_engine">Điện thoại này không có nhận dạng giọng nói tích hợp sẵn, và chưa chọn mô hình chuyển lời nói thành văn bản nào. Chọn mô hình giọng nói của một nhà cung cấp trong Cài đặt › Mô hình › Chuyển lời nói thành văn bản là sẽ dùng được.</string>
+    <string name="voice_unavailable_system_gone">Chuyển lời nói thành văn bản được đặt thành nhận dạng tích hợp của điện thoại, nhưng điện thoại này hiện không có nó. Chọn một cái khác trong Cài đặt › Mô hình › Chuyển lời nói thành văn bản.</string>
+    <string name="voice_unavailable_system_silent">Nhận dạng giọng nói tích hợp của điện thoại không phản hồi, nên không có lời nào tới được. Chọn mô hình giọng nói của một nhà cung cấp trong Cài đặt › Mô hình › Chuyển lời nói thành văn bản là sẽ dùng được.</string>
+    <string name="voice_unavailable_system_failed">Nhận dạng giọng nói tích hợp của điện thoại không khởi động được. Thử lại, hoặc chọn phương thức nhận dạng khác trong Cài đặt › Mô hình › Chuyển lời nói thành văn bản.</string>
+    <string name="voice_service_permission_title">Nhận dạng giọng nói của điện thoại chưa ghi âm được</string>
+    <string name="voice_service_permission_body">“%1$s” là ứng dụng thực hiện nhận dạng giọng nói trên điện thoại này, và nó chưa được phép ghi âm, nên nó không nghe được bạn. Quyền micrô của chính Mika vẫn ổn. Mở trang quyền của nó và bật micrô, rồi quay lại và giữ để nói lần nữa. Bạn cũng có thể chọn phương thức nhận dạng khác trong Cài đặt › Mô hình › Chuyển lời nói thành văn bản.</string>
+    <string name="voice_service_settings_failed">Không mở được trang cài đặt cho “%1$s”. Tìm nó trong danh sách ứng dụng của hệ thống và bật micrô.</string>
+    <string name="voice_unavailable_provider_gone">Nhà cung cấp của mô hình giọng nói đã chọn đã bị xóa. Chọn một cái khác trong Cài đặt › Mô hình › Chuyển lời nói thành văn bản.</string>
+    <string name="voice_unavailable_off">Chuyển lời nói thành văn bản đang tắt. Chọn một cái trong Cài đặt › Mô hình › Chuyển lời nói thành văn bản.</string>
+    <string name="voice_go_pick">Chọn một cái</string>
+    <string name="voice_permission_title">Mika cần micrô</string>
+    <string name="voice_permission_body">Để nghe bạn trong lúc bạn giữ để nói, Mika cần ghi âm. Quyền này đã bị từ chối trước đó, nên điện thoại sẽ không hỏi lại. Bật micrô trên trang quyền của Mika trong cài đặt hệ thống.</string>
+    <string name="voice_permission_open">Mở cài đặt</string>
+    <!-- Floating capsule: long press to talk -->
+    <string name="capsule_voice_talk">Nói</string>
+    <string name="capsule_voice_send">Gửi</string>
+    <string name="capsule_voice_answer_title">Đang trả lời Mika</string>
+    <string name="capsule_voice_continue_title">Đang tiếp tục “%1$s”</string>
+    <string name="capsule_voice_cancel">Hủy</string>
+    <string name="capsule_voice_edit">Sửa</string>
+    <string name="capsule_voice_foot_send_up">Thả ra để gửi · kéo lên để hủy hoặc sửa</string>
+    <string name="capsule_voice_foot_send_down">Thả ra để gửi · kéo xuống để hủy hoặc sửa</string>
+    <string name="capsule_voice_foot_convert_up">Thả ra để chuyển đổi và gửi · kéo lên để hủy hoặc sửa</string>
+    <string name="capsule_voice_foot_convert_down">Thả ra để chuyển đổi và gửi · kéo xuống để hủy hoặc sửa</string>
+    <string name="capsule_voice_foot_edit">Thả ra · thẻ mở ra với lời nói trong ô</string>
+    <string name="capsule_voice_foot_cancel">Thả ra · bỏ cái này</string>
+    <string name="capsule_voice_foot_a11y">Khi xong, chọn “Gửi” trong các hành động của viên nang</string>
+    <string name="capsule_voice_steered">Đã nói với tác vụ: %1$s</string>
+    <string name="capsule_voice_answered">Đã trả lời: %1$s</string>
+    <string name="capsule_voice_sent">Đã gửi: %1$s</string>
+    <string name="capsule_voice_need_mic">Nhấn để cho phép micrô trong Mika</string>
+    <string name="capsule_voice_not_ready">Nhập liệu bằng giọng nói chưa sẵn sàng · nhấn</string>
+    <string name="capsule_voice_service_need_mic">Nhận dạng giọng nói chưa ghi âm được · nhấn</string>
+    <string name="capsule_voice_open">Mở Mika</string>
+</resources>

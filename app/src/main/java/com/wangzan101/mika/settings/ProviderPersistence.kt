@@ -12,7 +12,7 @@ import com.wangzan101.mika.core.model.ModelProtocol
 import com.wangzan101.mika.core.model.ModelRole
 import com.wangzan101.mika.core.model.OpenAiServiceTier
 import com.wangzan101.mika.core.model.PromptCaching
-import com.wangzan101.mika.core.usage.TokenBudgetLimits
+import com.wangzan101.mika.core.model.usage.TokenBudgetLimits
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -28,7 +28,6 @@ import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
@@ -44,9 +43,9 @@ import com.wangzan101.mika.settings.ProviderStore.Companion.USE_NONE
 import com.wangzan101.mika.settings.ProviderStore.Companion.get
 
 // 服务商存储:读写配置文件、迁移与修复旧数据
-/** 删掉没有用途、也没有组在用的模型配置。Key 存在服务商上,不受影响。 */
+/** 删掉没有用途、组或对话在用的模型配置。Key 存在服务商上,不受影响。 */
 internal fun ProviderStore.prune() {
-    val used = _roles.value.referenced + _groups.value.flatMap { g -> g.members.map { it.configId } }
+    val used = _roles.value.referenced + _groups.value.flatMap { g -> g.members.map { it.configId } } + externalConfigReferences()
     _configs.value = _configs.value.filter { it.id in used }
 }
 

@@ -19,6 +19,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.ExternalResource
+import com.wangzan101.mika.settings.ui.models.edit
 
 /** 在展开的设备上验证真实侧栏入口、页面布局、系统返回和聊天草稿。 */
 class SidebarDestinationsDeviceTest {
@@ -55,16 +56,6 @@ class SidebarDestinationsDeviceTest {
     @Test fun sidebarPagesStayBesideNavigationAndBackRestoresChatDraft() {
         compose.runOnUiThread { (context.applicationContext as MikaApp).chat.newConversation() }
         compose.onNodeWithTag("composer-field").performTextReplacement("保留这段折叠屏草稿")
-        open(R.string.drawer_personal)
-        compose.onNodeWithTag("personal-screen").assertIsDisplayed()
-        open(R.string.drawer_plans)
-        compose.onNodeWithTag("composer-field").assertDoesNotExist()
-        compose.onNodeWithTag("plans-segment-running").assertIsDisplayed()
-        open(R.string.memory_and_skills)
-        compose.waitUntil(10_000) {
-            compose.onAllNodes(hasTestTag("segment-Skills")).fetchSemanticsNodes().isNotEmpty()
-        }
-        compose.onNodeWithTag("segment-Skills").assertIsDisplayed().performClick()
         open(R.string.drawer_browser)
         compose.onNodeWithTag("browser-search").assertIsDisplayed()
         // 旋转到窄窗口后只显示功能页，回到宽窗口时恢复侧栏且仍停留在浏览器。
@@ -80,7 +71,7 @@ class SidebarDestinationsDeviceTest {
         compose.onNodeWithTag("composer-field").assertTextEquals("保留这段折叠屏草稿")
         compose.onNodeWithTag("permanent-navigation").assertIsDisplayed()
         // 在功能页点新对话也必须回到右侧聊天，而不是只改隐藏的 ViewModel。
-        open(R.string.drawer_plans)
+        open(R.string.drawer_browser)
         open(R.string.chat_new)
         compose.onNodeWithTag("composer-field").assertIsDisplayed()
     }

@@ -1,23 +1,24 @@
 package com.wangzan101.mika.core.action
 
 import com.wangzan101.mika.core.tool.Risk
-import com.wangzan101.mika.core.gate.ConfirmationGate
-import com.wangzan101.mika.core.gate.Irreversible
-import com.wangzan101.mika.core.guard.DIAGNOSTIC_VERBS
-import com.wangzan101.mika.core.guard.GuardVerdict
-import com.wangzan101.mika.core.guard.OperationGuards
-import com.wangzan101.mika.core.guard.PAGE_READ_VERBS
-import com.wangzan101.mika.core.guard.GuardScope
-import com.wangzan101.mika.core.guard.elementsHash
-import com.wangzan101.mika.core.guard.resultFingerprint
+import com.wangzan101.mika.core.safety.gate.ConfirmationGate
+import com.wangzan101.mika.core.safety.gate.Irreversible
+import com.wangzan101.mika.core.safety.gate.TargetAppRestoreFailed
+import com.wangzan101.mika.core.safety.guard.DIAGNOSTIC_VERBS
+import com.wangzan101.mika.core.safety.guard.GuardVerdict
+import com.wangzan101.mika.core.safety.guard.OperationGuards
+import com.wangzan101.mika.core.safety.guard.PAGE_READ_VERBS
+import com.wangzan101.mika.core.safety.guard.GuardScope
+import com.wangzan101.mika.core.safety.guard.elementsHash
+import com.wangzan101.mika.core.safety.guard.resultFingerprint
 import com.wangzan101.mika.core.model.Part
-import com.wangzan101.mika.core.record.Redactor
-import com.wangzan101.mika.core.record.RunEvent
-import com.wangzan101.mika.core.replay.Anchors
-import com.wangzan101.mika.core.replay.effectiveWrite
-import com.wangzan101.mika.core.uistate.Described
-import com.wangzan101.mika.core.uistate.ScreenSnapshot
-import com.wangzan101.mika.core.uistate.interfaces
+import com.wangzan101.mika.core.run.record.Redactor
+import com.wangzan101.mika.core.run.record.RunEvent
+import com.wangzan101.mika.core.learn.replay.Anchors
+import com.wangzan101.mika.core.learn.replay.effectiveWrite
+import com.wangzan101.mika.core.screen.uistate.Described
+import com.wangzan101.mika.core.screen.uistate.ScreenSnapshot
+import com.wangzan101.mika.core.screen.uistate.interfaces
 import com.wangzan101.mika.core.tool.ActionPass
 import com.wangzan101.mika.core.tool.ToolDispatcher
 import com.wangzan101.mika.core.tool.ToolExecution
@@ -34,7 +35,7 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import com.wangzan101.mika.core.tool.SubActions
-import com.wangzan101.mika.core.guard.OffScreenGuard
+import com.wangzan101.mika.core.safety.guard.OffScreenGuard
 import com.wangzan101.mika.core.run.RunProvenance
 import com.wangzan101.mika.core.run.SKIPPED_FOR_NEW_MESSAGE
 import com.wangzan101.mika.core.run.waitOrSteer
@@ -102,7 +103,7 @@ class ActionExecutor(
         tools.aim(call.name, args)
         try {
             return aimed(call, origin, followUp, reads, args, offScreen, verb)
-        } catch (e: com.wangzan101.mika.core.access.AppAccessDenied) {
+        } catch (e: com.wangzan101.mika.core.device.access.AppAccessDenied) {
             val content = buildJsonObject {
                 put("ok", false); put("error", e.code); put("message", e.message); put("retryable", false)
                 e.packageName?.let { put("package", it) }
@@ -142,13 +143,19 @@ class ActionExecutor(
         val writing = tools.writesScreen(call.name)
         if (writing && !policy.gatedByCaller) try {
             gate()
-        } catch (_: com.wangzan101.mika.core.gate.ScreenRecoveryRequired) {
+        } catch (_: com.wangzan101.mika.core.safety.gate.ScreenRecoveryRequired) {
             // 等关卡时锁过屏:这一步按的是锁屏前的屏幕,不做;让模型重读现在的屏幕再决定
             val notice = ToolExecution(buildJsonObject {
                 put("ok", false); put("error", "screen_changed_during_lock"); put("executed", false)
                 put("message", "The phone locked and was unlocked while the task was running. This pending action was not executed. Read the current screen and verify whether the previous action already completed before taking another action.")
             })
             return ran(Step(call, args, origin, before, writing = false, offScreen, verb, null, followUp, reads, preset = notice))
+        } catch (e: TargetAppRestoreFailed) {
+            val failure = ToolExecution(buildJsonObject {
+                put("ok", false); put("error", TargetAppRestoreFailed.CODE); put("message", e.message)
+                put("package", e.packageName); put("executed", false); put("recoverable", true); put("counts_as_failure", false)
+            })
+            return ran(Step(call, args, origin, before, writing = false, offScreen, verb, null, followUp, reads, preset = failure))
         }
         // 没有可用的同意就不执行,也不计入失败熔断
         var d = decision.judge(call.name, args, origin)

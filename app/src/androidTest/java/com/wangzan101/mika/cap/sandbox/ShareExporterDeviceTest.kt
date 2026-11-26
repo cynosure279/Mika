@@ -99,10 +99,21 @@ class ShareExporterDeviceTest {
         }
     }
 
-    @Test fun installPackagesRejected() {
+    @Test fun installPackagesExported() = runBlocking {
+        val suffix = System.currentTimeMillis()
         val apk = File(ws, "app.apk").apply { writeText("PK") }
-        expectError("share_refused_type") { export(apk.name, "app.apk") }
+        val apkName = "mika-test-$suffix.apk"
+        val apkCard = export(apk.name, apkName)
+        exported += apkCard.uri
+        assertEquals("Download/Mika/$apkName", apkCard.savedAs)
+        assertEquals(apk.length(), apkCard.size)
+        assertEquals("PK", context.contentResolver.openInputStream(android.net.Uri.parse(apkCard.uri))!!.bufferedReader().use { it.readText() })
+
         File(ws, "out.txt").writeText("a")
-        expectError("share_refused_type") { export("out.txt", "x.aab") }
+        val aabName = "mika-test-$suffix.aab"
+        val aabCard = export("out.txt", aabName)
+        exported += aabCard.uri
+        assertEquals("Download/Mika/$aabName", aabCard.savedAs)
+        assertEquals("a", context.contentResolver.openInputStream(android.net.Uri.parse(aabCard.uri))!!.bufferedReader().use { it.readText() })
     }
 }

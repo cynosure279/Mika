@@ -1,6 +1,9 @@
 package com.wangzan101.mika.voice.cascade
 
 import com.wangzan101.mika.calls.VolcRealtimeEvent
+import com.wangzan101.mika.core.agent.Turn
+import com.wangzan101.mika.core.frontdesk.DeskBrain
+import com.wangzan101.mika.core.frontdesk.ReplyContext
 import com.wangzan101.mika.voice.Pcm16
 import com.wangzan101.mika.voice.SpeechEvent
 import com.wangzan101.mika.voice.SpeechSession
@@ -12,7 +15,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -46,19 +51,25 @@ class CascadeVoiceSessionTest {
         }
     }
 
-    private class ScriptBrain(val onReply: suspend (String, ReplyContext) -> Unit) : CascadeBrain {
+    private class ScriptBrain(val onReply: suspend (String, ReplyContext) -> Unit) : DeskBrain {
         val late = mutableListOf<JsonObject>()
         val remembered = mutableListOf<String>()
+        val notices = mutableListOf<String>()
         override suspend fun reply(userText: String, ctx: ReplyContext) = onReply(userText, ctx)
         override suspend fun lateResult(name: String, result: JsonObject, ctx: ReplyContext) {
             late += result
             ctx.say("Late: done.")
         }
+        override suspend fun notice(text: String, ctx: ReplyContext) {
+            notices += text
+            ctx.say("Update: $text")
+        }
         override fun remember(assistantText: String) { remembered += assistantText }
+        override fun seed(prior: List<Turn>) {}
     }
 
     private fun TestScope.session(
-        brain: CascadeBrain,
+        brain: DeskBrain,
         listen: (FeedRecorder) -> SpeechSession,
         bargeIn: Boolean = true,
         secondsPerPiece: Int = 1,
@@ -204,6 +215,127 @@ class CascadeVoiceSessionTest {
         advanceUntilIdle()
         assertEquals(0, listen.started)
         assertTrue(events.isEmpty())
+        session.close()
+    }
+
+    @Test
+    fun `noticeWaitsForCurrentReply`() = runTest {
+        val midway = CompletableDeferred<Unit>()
+        val resume = CompletableDeferred<Unit>()
+        val brain = ScriptBrain { _, ctx ->
+            ctx.say("One. ")
+            midway.complete(Unit)
+            resume.await()
+            ctx.say("Two.")
+        }
+        val (session, events) = session(brain, FakeListen("hello"))
+        session.talk(400)
+        advanceUntilIdle()
+        assertTrue(midway.isCompleted)
+        // 正在说的时候来了一条汇报:不打断这句,排在后面。
+        assertTrue(session.sendNotice("The booking is done."))
+        advanceUntilIdle()
+        assertTrue(brain.notices.isEmpty())
+        resume.complete(Unit)
+        advanceUntilIdle()
+        assertFalse(events.any { it is VolcRealtimeEvent.AssistantInterrupted })
+        assertEquals(listOf("The booking is done."), brain.notices)
+        assertEquals(
+            listOf("One.", "Two.", "Update: The booking is done."),
+            events.filterIsInstance<VolcRealtimeEvent.AssistantTranscript>().map { it.delta.trim() },
+        )
+        session.close()
+    }
+
+    @Test
+    fun `a cue goes to the brain as a note and is answered in its own words`() = runTest {
+        val brain = ScriptBrain { _, _ -> }
+        val (session, events) = session(brain, FakeListen())
+        assertTrue(session.sendCue("Owner replied seven."))
+        advanceUntilIdle()
+        assertEquals(listOf("Owner replied seven."), brain.notices)
+        assertEquals("Update: Owner replied seven.", events.filterIsInstance<VolcRealtimeEvent.AssistantTranscript>().joinToString("") { it.delta }.trim())
+        session.close()
+    }
+
+    @Test
+    fun `a notice with nothing being said starts right away`() = runTest {
+        val brain = ScriptBrain { _, _ -> }
+        val (session, events) = session(brain, FakeListen())
+        assertTrue(session.sendNotice("Started."))
+        advanceUntilIdle()
+        assertEquals("Update: Started.", events.filterIsInstance<VolcRealtimeEvent.AssistantTranscript>().single().delta)
+        session.close()
+    }
+
+    @Test
+    fun `a notice waits while the user is still speaking`() = runTest {
+        val brain = ScriptBrain { text, ctx -> ctx.say("You said $text.") }
+        val (session, events) = session(brain, FakeListen("hello"))
+        // 用户开口了、还没说完:汇报不插进来
+        session.talk(400, silenceMs = 0)
+        advanceUntilIdle()
+        assertTrue(session.sendNotice("The booking is done."))
+        advanceUntilIdle()
+        assertTrue(brain.notices.isEmpty())
+        // 说完了:先回这句话,再说汇报
+        session.talk(0, silenceMs = 700)
+        advanceUntilIdle()
+        assertEquals(
+            listOf("You said hello.", "Update: The booking is done."),
+            events.filterIsInstance<VolcRealtimeEvent.AssistantTranscript>().map { it.delta.trim() },
+        )
+        session.close()
+    }
+
+    @Test
+    fun `a notice cut off by barge-in reports it was not spoken, queued ones wait`() = runTest {
+        val brain = ScriptBrain { _, _ -> }
+        val (session, _) = session(brain, FakeListen("wait"), secondsPerPiece = 4)
+        val ends = mutableListOf<Pair<String, Boolean>>()
+        assertTrue(session.sendNotice("First. Second. Third.") { ends += "first" to it })
+        assertTrue(session.sendNotice("Later.") { ends += "later" to it })
+        advanceTimeBy(1_000)
+        runCurrent()
+        assertEquals(listOf("First. Second. Third."), brain.notices)
+        // 用户插话:正在说的这条算没说出去,排着的那条还排着
+        session.talk(600)
+        advanceUntilIdle()
+        assertEquals(listOf("first" to false, "later" to true), ends)
+        session.close()
+    }
+
+    @Test
+    fun `a notice spoken to the end reports it was spoken`() = runTest {
+        val (session, _) = session(ScriptBrain { _, _ -> }, FakeListen())
+        val ends = mutableListOf<Boolean>()
+        assertTrue(session.sendNotice("Done.") { ends += it })
+        advanceUntilIdle()
+        assertEquals(listOf(true), ends)
+        session.close()
+    }
+
+    @Test
+    fun `closing the call ends unspoken notices as not spoken`() = runTest {
+        val midway = CompletableDeferred<Unit>()
+        val brain = ScriptBrain { _, ctx -> midway.complete(Unit); kotlinx.coroutines.awaitCancellation() }
+        val (session, _) = session(brain, FakeListen("hello"))
+        session.talk(400)
+        advanceUntilIdle()
+        val ends = mutableListOf<Boolean>()
+        assertTrue(session.sendNotice("Queued.") { ends += it })
+        session.close()
+        advanceUntilIdle()
+        assertEquals(listOf(false), ends)
+    }
+
+    @Test
+    fun `typed text is answered like an utterance`() = runTest {
+        val brain = ScriptBrain { text, ctx -> ctx.say("You typed $text.") }
+        val (session, events) = session(brain, FakeListen())
+        assertTrue(session.sendUserText("hello"))
+        advanceUntilIdle()
+        assertEquals("You typed hello.", events.filterIsInstance<VolcRealtimeEvent.AssistantTranscript>().single().delta)
         session.close()
     }
 }

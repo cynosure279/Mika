@@ -10,10 +10,10 @@ import com.wangzan101.mika.capsule.CapsuleMode
 import com.wangzan101.mika.capsule.DockSide
 import com.wangzan101.mika.core.agent.SpeedFlags
 import com.wangzan101.mika.core.cap.phone.OperatingPace
-import com.wangzan101.mika.core.knowledge.GuideCatalog
+import com.wangzan101.mika.core.learn.knowledge.GuideCatalog
 import com.wangzan101.mika.chat.AutoArchive
-import com.wangzan101.mika.core.usage.ProactiveBudget
-import com.wangzan101.mika.core.usage.TokenBudgetLimits
+import com.wangzan101.mika.core.model.usage.ProactiveBudget
+import com.wangzan101.mika.core.model.usage.TokenBudgetLimits
 import com.wangzan101.mika.task.ParallelCapability
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -143,6 +143,11 @@ class FeatureFlags(private val prefs: SharedPreferences) {
     fun setKeepScreenOn(on: Boolean) {
         prefs.edit().putBoolean(KEEP_SCREEN_ON, on).commit()
     }
+
+    /** Hide this activity in Recents; changing it is synchronized with the system by RecentsExclusion. */
+    fun excludeFromRecents(): Boolean = prefs.getBoolean(EXCLUDE_FROM_RECENTS, false)
+
+    fun setExcludeFromRecents(on: Boolean): Boolean = prefs.edit().putBoolean(EXCLUDE_FROM_RECENTS, on).commit()
 
     fun showTaskCost(): Boolean = prefs.getBoolean(SHOW_TASK_COST, false)
 
@@ -425,7 +430,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
     }.distinctUntilChanged()
 
     /**
-     * 用户点了「完全退出」,要到下次打开 Mika 的界面为止([com.wangzan101.mika.quit.MikaQuit])。
+     * 用户点了「完全退出」,要到下次打开 Mika 的界面为止([com.wangzan101.mika.MikaQuit])。
      * 在这期间进程可能被无障碍服务重新拉起:胶囊不画、后台服务不补起、自动恢复也不做,直到用户自己打开 App。
      */
     fun quitRequested(): Boolean = prefs.getBoolean(QUIT_REQUESTED, false)
@@ -504,6 +509,7 @@ class FeatureFlags(private val prefs: SharedPreferences) {
         private const val TASK_TOKEN_BUDGET = "task_token_budget"
         private const val PROACTIVE_DAILY_TOKEN_BUDGET = "proactive_daily_token_budget"
         private const val KEEP_SCREEN_ON = "keep_screen_on"
+        private const val EXCLUDE_FROM_RECENTS = "exclude_from_recents"
         private const val SHOW_TASK_COST = "show_task_cost"
         private const val MUTE_TARGET = "mute_target"
         private const val OPERATING_PACE = "operating_pace"

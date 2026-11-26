@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_default_sim_settings">SIM gọi đi mặc định</string>
+    <string name="calls_device_and_permissions">Thiết bị và quyền</string>
+    <string name="calls_edit_rule">Sửa</string>
+    <string name="calls_nav_receive">Trả lời</string>
+    <string name="calls_nav_task">Quay số</string>
+    <string name="calls_pause_enable_first">Hãy bật trả lời tự động để tạm dừng tạm thời tính năng này.</string>
+    <string name="calls_rule_delay_summary">Độ trễ trả lời: %1$d giây</string>
+    <string name="calls_rule_pause">Tạm dừng tạm thời</string>
+    <string name="calls_rule_scope">AI trả lời ai</string>
+    <string name="calls_sim_ask_each_time">Không có SIM ưu tiên</string>
+    <string name="calls_task_back_to_edit">Quay lại chỉnh sửa</string>
+    <string name="calls_task_confirm_dial">Xác nhận và quay số</string>
+    <string name="calls_task_confirm_note">Mika dùng bản tóm tắt này cho cuộc gọi này. Việc quay số dùng SIM đã chọn và có thể phát sinh cước nhà mạng và phí giọng nói thời gian thực.</string>
+    <string name="calls_task_constraints">Những điều không được hứa</string>
+    <string name="calls_task_context">Ngữ cảnh bổ sung</string>
+    <string name="calls_task_filled">Đã thêm</string>
+    <string name="calls_task_goal">Cuộc gọi này cần đạt được điều gì? (bắt buộc)</string>
+    <string name="calls_task_goal_example">Ví dụ: xác nhận còn trống vào thứ Sáu và ghi lại giá.</string>
+    <string name="calls_task_limit">%1$d / %2$d ký tự</string>
+    <string name="calls_task_number_hint">Nhập số điện thoại thông thường gồm 7–15 chữ số.</string>
+    <string name="calls_task_one_off">Bản tóm tắt chỉ áp dụng cho cuộc gọi này. Tìm cuộc gọi và bản tóm tắt của nó trong Lịch sử.</string>
+    <string name="calls_task_optional">Không bắt buộc</string>
+    <string name="calls_task_pick_sim">Chọn SIM cho cuộc gọi này</string>
+    <string name="calls_task_questions">Câu hỏi cần hỏi</string>
+    <string name="calls_task_questions_hint">Mỗi dòng một câu hỏi</string>
+    <string name="calls_task_questions_limit">Tối đa %1$d câu hỏi, mỗi câu %2$d ký tự.</string>
+    <string name="calls_task_replace_action">Thay thế bản nháp</string>
+    <string name="calls_task_replace_note">Thao tác này thay bản nháp cuộc gọi hiện tại bằng một tác vụ từ Lịch sử. Thao tác này không quay số.</string>
+    <string name="calls_task_replace_title">Thay thế bản nháp này?</string>
+    <string name="calls_task_review">Xem lại tác vụ cuộc gọi</string>
+    <string name="calls_task_review_blocked">Để quay số, điện thoại phải sẵn sàng và đang rảnh, với một SIM đã chọn.</string>
+    <string name="calls_task_sim_override_summary">Cuộc gọi này: %1$s · Ưu tiên: %2$s</string>
+    <string name="calls_voice_settings">Giọng nói</string>
+    <string name="calls_contacts_tab">Danh bạ</string>
+    <string name="calls_manual_tab">Nhập thủ công</string>
+    <string name="calls_contacts_search">Tìm kiếm theo tên hoặc số</string>
+    <string name="calls_contacts_permission">Cho phép Mika đọc danh bạ để chọn số của họ. Bạn cũng có thể nhập số thủ công.</string>
+    <string name="calls_contacts_empty">Không có liên hệ nào có số điện thoại dùng được.</string>
+    <string name="calls_contacts_failed">Không tải được danh bạ.</string>
+</resources>

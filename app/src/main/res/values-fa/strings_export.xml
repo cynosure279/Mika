@@ -8,6 +8,7 @@
     <string name="export_format">قالب</string>
     <string name="export_format_markdown">Markdown</string>
     <string name="export_format_json">JSON</string>
+    <string name="export_format_html">HTML</string>
     <string name="export_include_tool_steps">مراحل ابزار</string>
     <string name="export_include_attachments">پیوست‌ها</string>
     <string name="export_include_screens">تصاویر صفحه</string>
@@ -16,6 +17,8 @@
     <string name="export_redact_pii">همچنین شماره تلفن‌ها، ایمیل‌ها و مسیرها را پنهان کن</string>
     <string name="export_bundle_note">پیوست یا تصویر صفحه گنجانده شده، بنابراین فایل به‌صورت zip است.</string>
     <string name="export_button">خروجی</string>
+    <string name="export_preview">پیش‌نمایش</string>
+    <string name="export_preview_truncated">پیش‌نمایش کوتاه شده است؛ فایل خروجی شامل محتوای کامل است.</string>
     <string name="export_cancel">انصراف</string>
     <string name="export_close">بستن</string>
     <string name="export_preparing">در حال آماده‌سازی…</string>

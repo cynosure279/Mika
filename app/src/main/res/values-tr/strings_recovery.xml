@@ -22,4 +22,7 @@
     <string name="rec_not_recovered">Son başlangıçta otomatik yeniden bağlanamadı. Kablosuz hata ayıklama açıkken güvenilir Wi-Fi\'da olduğunuzdan emin olun, Mika bağlanır.</string>
     <string name="rec_needs_pairing">Yalnızca Kablosuz hata ayıklamayı eşleştirdikten sonra çalışır. Yardımcı USB komutuyla başlatıldı, bu yüzden telefon yeniden başladığında komutu tekrar çalıştırın.</string>
     <string name="rec_shizuku_no_wireless">Shizuku seçiliyken kablosuz hata ayıklama kullanılmaz. Shizuku çalıştığında Mika, Shizuku üzerinden yeniden bağlanır.</string>
+    <string name="rec_exclude_recents">Son kullanılanlardan gizle</string>
+    <string name="rec_exclude_recents_sub">Mika’yı sistemin son kullanılan uygulamalar listesinde gösterme.</string>
+    <string name="rec_exclude_recents_failed">Son kullanılanlar görünürlüğü değiştirilemedi. Kaydedilen seçiminiz değişmedi; tekrar deneyin.</string>
 </resources>

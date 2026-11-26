@@ -183,6 +183,7 @@
     <string name="attach_recent">最近的照片</string>
     <string name="attach_recent_partial">你允许 Mika 访问的照片</string>
     <string name="attach_all">全部照片</string>
+    <string name="attach_more">更多</string>
     <string name="attach_change">更改范围</string>
     <string name="attach_no_photos">还没有照片</string>
     <string name="attach_need_access">在这里直接选照片,需要允许 Mika 访问照片</string>
@@ -253,6 +254,8 @@
     <string name="pip_closed_hint">这个任务不再浮出小画面。点右下角「显示画面」，或在侧栏「后台屏」里看。</string>
     <string name="chat_conversation_tokens">本对话共 %1$s</string>
     <string name="chat_conversation_tokens_partial">本对话至少 %1$s</string>
+    <string name="chat_current_model">当前模型</string>
+    <string name="chat_usage_view_details">查看 Token 用量</string>
     <string name="chat_task_cost_estimate">约 %1$s</string>
     <string name="chat_task_cost_partial">%1$s（部分）</string>
     <string name="chat_task_cost_unavailable">费用暂不可估</string>
@@ -285,7 +288,7 @@
     <string name="chat_example_schedule_title">设置定时提醒</string>
     <string name="chat_example_pdf">把发来的 PDF 整理成一段摘要</string>
     <string name="chat_example_schedule">每天早上 8 点提醒我查今天的天气</string>
-    <string name="chat_empty_value">一句话，让我帮你操作 App、上网、把事办成</string>
+    <string name="chat_empty_value">说一句话，我帮你操作手机</string>
     <string name="saved_task_save">存为常用任务</string>
     <string name="task_field_add">添加填写项</string>
     <string name="task_field_name">填写项名称</string>
@@ -304,10 +307,31 @@
     <string name="plus_clipboard">剪贴板</string>
     <string name="plus_sub_clipboard">粘贴刚复制的内容</string>
     <string name="plus_sub_teach">做一遍,让它学会</string>
-    <string name="plus_sub_skills">选一个技能用在这一轮</string>
+    <string name="plus_sub_skills">用在这一轮</string>
     <string name="plus_sub_tasks">把常用的说法填进输入框</string>
     <string name="plus_sub_browser">内置浏览器</string>
     <string name="plus_skills_empty">还没有个人技能。Mika 从做成的任务里学会的技能会出现在这里。</string>
     <string name="plus_clipboard_empty">剪贴板里没有可粘贴的文字</string>
     <string name="plus_skill_directive">用「%1$s」技能：</string>
+    <string name="plus_reuse">常用</string>
+    <string name="plus_reuse_hint">说法 · 清单 · 流程</string>
+    <string name="plus_reuse_phrases">常用说法</string>
+    <string name="drawer_calls">AI 电话</string>
+    <!-- 空对话滚动条里的灵感示例;点了填进输入框 -->
+    <string name="chat_idea_maps">导航去最近的咖啡店</string>
+    <string name="chat_idea_camera">打开相机拍张照片</string>
+    <string name="chat_idea_sms">给妈妈发短信：我到家了</string>
+    <string name="chat_idea_news">搜一下今天的科技新闻</string>
+    <string name="chat_idea_dark">把手机调成深色模式</string>
+    <string name="chat_idea_music">放一首轻松的音乐</string>
+    <string name="chat_idea_email">看看最新的邮件说了什么</string>
+    <string name="chat_idea_screenshot">找出相册里最近的截图</string>
+    <string name="chat_idea_meeting">明天下午三点加个会议日程</string>
+    <!-- 空对话推广卡上的一句话说明;完整提示词点了才填进输入框 -->
+    <string name="chat_example_github_star_blurb">支持一下 Mika 开源项目</string>
+    <string name="chat_example_follow_blurb">去小红书关注，再进群交流</string>
+    <string name="chat_example_group_summary_blurb">一句话看完内测群今天聊了啥</string>
+    <string name="chat_example_share_title">把 Mika 分享给朋友</string>
+    <string name="chat_example_share_blurb">推荐给用得上的朋友</string>
+    <string name="chat_example_share">把 Mika 的项目链接 https://github.com/wangzan101/mika 分享给一个朋友，告诉他 Mika 能帮人操作手机</string>
 </resources>

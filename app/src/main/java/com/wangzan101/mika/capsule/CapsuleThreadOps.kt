@@ -5,10 +5,10 @@ import androidx.compose.runtime.setValue
 import com.wangzan101.mika.chat.ConversationStore
 import kotlinx.coroutines.withContext
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
-import com.wangzan101.mika.confirm.ConfirmationNotifier
-import com.wangzan101.mika.core.record.RunEvent
+import com.wangzan101.mika.task.ConfirmationNotifier
+import com.wangzan101.mika.core.run.record.RunEvent
 import com.wangzan101.mika.task.TaskService.Companion.isActive
-import com.wangzan101.mika.ui.ScreenCopy
+import com.wangzan101.mika.chat.ui.ScreenCopy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
@@ -145,7 +145,7 @@ internal fun CapsuleController.wake() {
 internal fun CapsuleController.fade() {
     fadeJob?.cancel()
     val v = view ?: return
-    val idleFor = System.currentTimeMillis() - lastActive
+    val idleFor = if (lastActive == 0L) CapsuleFade.IDLE_MS else (System.currentTimeMillis() - lastActive).coerceAtLeast(0L)
     val before = edgeHidden
     edgeHidden = CapsuleEdge.hidden(last?.hideAtEdge == true, v.kind, v.pill, v.needCount,
         expanded || capturing, dragging, talk.active, note != null, idleFor)

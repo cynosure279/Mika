@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -49,8 +51,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.wangzan101.mika.ui.MarkdownText
-import com.wangzan101.mika.ui.ScreenCopy
-import com.wangzan101.mika.ui.UserMessage
+import com.wangzan101.mika.chat.ui.ScreenCopy
+import com.wangzan101.mika.chat.ui.UserMessage
 import com.wangzan101.mika.ui.components.ScrollToBottomButton
 import com.wangzan101.mika.ui.components.glassSource
 import com.wangzan101.mika.ui.components.rememberGlassBackdrop
@@ -130,17 +132,22 @@ private fun TeachShelf(onTeach: () -> Unit, onVoiceChat: () -> Unit) {
  * 卡片最底下一行:[primary](「查看过程」「回到 Mika」;空闲卡片还没有对话时没有)和灰色的「关闭悬浮胶囊」。
  * 右上角的 × 只是收起;想让胶囊不再出现的人在这里关,不用去找设置。
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun FooterLinks(actions: CardActions, primary: Pair<String, () -> Unit>?) {
-    Row(
+    FlowRow(
         Modifier.fillMaxWidth().padding(top = 6.dp),
-        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
         primary?.let { (text, onClick) ->
-            TextLink(text, onClick = onClick)
-            Text("·", style = Sub, color = MikaTheme.colors.ink3)
+            Row(Modifier.align(Alignment.CenterVertically), verticalAlignment = Alignment.CenterVertically) {
+                TextLink(text, onClick = onClick)
+                Text("·", style = Sub, color = MikaTheme.colors.ink3)
+            }
         }
-        TextLink(CardCopy.HIDE_CAPSULE, MikaTheme.colors.ink3, actions::hideCapsule)
+        Box(Modifier.align(Alignment.CenterVertically)) {
+            TextLink(CardCopy.HIDE_CAPSULE, MikaTheme.colors.ink3, actions::hideCapsule)
+        }
     }
 }
 

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_task_dial_now">Quay số ngay</string>
+    <string name="calls_task_dial_locked">Quay số sau khi khóa</string>
+    <string name="calls_task_dial_locked_note">Khóa điện thoại này trong vòng 45 giây. Mika sẽ thử một lần với số, SIM và tác vụ này. Bạn có thể hủy từ thông báo. Tắt màn hình mà không thực sự khóa điện thoại sẽ không quay số.</string>
+    <string name="calls_task_dial_locked_confirm">Xác nhận và chờ khóa</string>
+</resources>

@@ -13,7 +13,7 @@ import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import com.wangzan101.mika.calls.onCallerLabelEvent
-import com.wangzan101.mika.core.uistate.ScreenEvent
+import com.wangzan101.mika.core.screen.uistate.ScreenEvent
 import kotlin.coroutines.resume
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -102,7 +102,8 @@ open class ScreenAccessibility : AccessibilityService() {
         val displayId = displayOf(event)
         if (displayId == Display.INVALID_DISPLAY) return
         // API 33 以下系统会在回调返回后回收事件对象,订阅方异步读取前先复制一份
-        events.tryEmit(DisplayEvent(displayId, AccessibilityEvent(event)))
+        val copy = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) AccessibilityEvent(event) else @Suppress("DEPRECATION") AccessibilityEvent.obtain(event)
+        events.tryEmit(DisplayEvent(displayId, copy))
     }
 
     override fun onInterrupt() = Unit
@@ -134,8 +135,11 @@ open class ScreenAccessibility : AccessibilityService() {
 
     private suspend fun dispatch(displayId: Int, strokes: List<GestureDescription.StrokeDescription>): Boolean {
         val service = instance.value ?: return false
-        val gesture = GestureDescription.Builder()
-            .setDisplayId(displayId)
+        // 手势指定屏要 Android 11;更早只能在主屏上做
+        val builder = GestureDescription.Builder()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) builder.setDisplayId(displayId)
+        else if (displayId != Display.DEFAULT_DISPLAY) return false
+        val gesture = builder
             .apply { strokes.forEach(::addStroke) }
             .build()
         suspend fun send(): Boolean = suspendCancellableCoroutine { cont ->

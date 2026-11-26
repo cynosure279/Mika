@@ -1,6 +1,17 @@
 package com.wangzan101.mika.capsule
 
 import com.wangzan101.mika.ChineseUi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipe
@@ -27,7 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.wangzan101.mika.confirm.ConfirmationCopy
+import com.wangzan101.mika.task.ConfirmationCopy
 import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.ui.theme.MikaTheme
 import org.junit.Assert.assertEquals
@@ -59,7 +70,8 @@ class CapsuleCardContentTest {
         override fun loadEarlier() { calls += "earlier" }
         override fun captureScreen() { calls += "capture" }
         override fun dropScreen() { calls += "drop" }
-        override fun setFollowUpMode(mode: com.wangzan101.mika.ui.FollowUpMode) { calls += "mode:$mode" }
+        override fun hideCapsule() { calls += "hide" }
+        override fun setFollowUpMode(mode: com.wangzan101.mika.chat.ui.FollowUpMode) { calls += "mode:$mode" }
         override fun askQuit() { calls += "askQuit" }
         override fun cancelQuit() { calls += "cancelQuit" }
         override fun quit() { calls += "quit" }
@@ -75,7 +87,7 @@ class CapsuleCardContentTest {
     private fun show(card: CardView, preview: Bitmap? = null, zoomed: Boolean = false, thread: ChatThread? = null, input: CardInputUi = CardInputUi()) {
         compose.setContent {
             MikaTheme(dark = false, reduceMotion = true) {
-                androidx.compose.runtime.CompositionLocalProvider(com.wangzan101.mika.ui.LocalScreenShots provides shots) {
+                androidx.compose.runtime.CompositionLocalProvider(com.wangzan101.mika.chat.ui.LocalScreenShots provides shots) {
                     CapsuleCard(card, preview, zoomed, actions, { if (it == null) null else "0:23" }, thread = thread, height = 420.dp, input = input)
                 }
             }
@@ -84,11 +96,11 @@ class CapsuleCardContentTest {
 
     /** 假的屏幕存储:s1 是设置页的一屏,s2 是不让截图的页面。 */
     private val at = java.time.LocalDateTime.of(2026, 10, 28, 19, 42).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-    private val shots = com.wangzan101.mika.ui.ScreenShots { _, id ->
+    private val shots = com.wangzan101.mika.chat.ui.ScreenShots { _, id ->
         when (id) {
-            "s1" -> com.wangzan101.mika.ui.ShownScreen(com.wangzan101.mika.core.userscreen.UserScreen("s1", at, "com.android.settings", "设置"),
+            "s1" -> com.wangzan101.mika.chat.ui.ShownScreen(com.wangzan101.mika.core.screen.user.UserScreen("s1", at, "com.android.settings", "设置"),
                 Bitmap.createBitmap(90, 200, Bitmap.Config.ARGB_8888).asImageBitmap())
-            "s2" -> com.wangzan101.mika.ui.ShownScreen(com.wangzan101.mika.core.userscreen.UserScreen("s2", at, "com.example.bank", "银行", blocked = true), null)
+            "s2" -> com.wangzan101.mika.chat.ui.ShownScreen(com.wangzan101.mika.core.screen.user.UserScreen("s2", at, "com.example.bank", "银行", blocked = true), null)
             else -> null
         }
     }
@@ -98,6 +110,79 @@ class CapsuleCardContentTest {
         CapsuleThreads.PAGE, emptyList(),
     )
 
+    private fun footerTextLayout(text: String): TextLayoutResult {
+        val results = mutableListOf<TextLayoutResult>()
+        compose.onNodeWithText(text, useUnmergedTree = true)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(results) }
+        return results.single()
+    }
+
+    private fun assertEightDpVerticalLinkPadding(text: String) {
+        val bounds = compose.onNodeWithText(text).fetchSemanticsNode().boundsInRoot
+        val textHeight = footerTextLayout(text).size.height
+        assertEquals(with(compose.density) { 16.dp.toPx() }, bounds.height - textHeight, 1f)
+    }
+
+    @Test fun shortFooterLinksStayOnOneRow() {
+        val primary = "A primary link over sixteen chars"
+        compose.setContent {
+            MikaTheme(dark = false, reduceMotion = true) {
+                Box(Modifier.width(360.dp).testTag("short-footer")) {
+                    FooterLinks(actions, primary to { calls += "primary" })
+                }
+            }
+        }
+
+        val first = compose.onNodeWithText(primary).fetchSemanticsNode().boundsInRoot
+        val second = compose.onNodeWithText(CardCopy.HIDE_CAPSULE).fetchSemanticsNode().boundsInRoot
+        val separator = compose.onNodeWithText("·").fetchSemanticsNode().boundsInRoot
+        val footer = compose.onNodeWithTag("short-footer").fetchSemanticsNode().boundsInRoot
+        assertEquals("measured short links stay together despite character count", first.center.y, second.center.y, 1f)
+        assertTrue(first.right <= separator.left && separator.right <= second.left)
+        assertTrue(first.left >= footer.left && second.right <= footer.right)
+        assertEquals(1, footerTextLayout(primary).lineCount)
+        assertEquals(1, footerTextLayout(CardCopy.HIDE_CAPSULE).lineCount)
+        assertEightDpVerticalLinkPadding(primary)
+        assertEightDpVerticalLinkPadding(CardCopy.HIDE_CAPSULE)
+        compose.onNodeWithText(primary).performTouchInput { click(center) }
+        compose.onNodeWithText(CardCopy.HIDE_CAPSULE).performTouchInput { click(center) }
+        compose.runOnIdle { assertEquals(listOf("primary", "hide"), calls) }
+    }
+
+    @Test fun longFooterLinksWrapByMeasuredWidth() {
+        // Twelve wide glyphs at large font need more width than the narrow card; a character-count rule would keep one row.
+        val primary = "WWWWWWWWWWWW"
+        compose.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+                MikaTheme(dark = false, reduceMotion = true) {
+                    Box(Modifier.width(220.dp).testTag("long-footer")) {
+                        FooterLinks(actions, primary to { calls += "primary" })
+                    }
+                }
+            }
+        }
+
+        val first = compose.onNodeWithText(primary).fetchSemanticsNode().boundsInRoot
+        val second = compose.onNodeWithText(CardCopy.HIDE_CAPSULE).fetchSemanticsNode().boundsInRoot
+        val footer = compose.onNodeWithTag("long-footer").fetchSemanticsNode().boundsInRoot
+        assertTrue("second complete link wraps below the first: $first / $second", first.bottom <= second.top + 1f)
+        assertTrue(first.left >= footer.left && first.right <= footer.right)
+        assertTrue(second.left >= footer.left && second.right <= footer.right)
+        val primaryLayout = footerTextLayout(primary)
+        val hideLayout = footerTextLayout(CardCopy.HIDE_CAPSULE)
+        assertTrue("primary layout: ${primaryLayout.lineCount} lines, ${primaryLayout.size}", primaryLayout.lineCount > 1)
+        assertTrue("primary clipped: ${primaryLayout.lineCount} lines, ${primaryLayout.size}", !primaryLayout.hasVisualOverflow)
+        assertEquals(1, hideLayout.lineCount)
+        val hideGlyphWidth = hideLayout.getLineRight(0) - hideLayout.getLineLeft(0)
+        assertTrue("complete hide label fits its measured link: $hideGlyphWidth / ${hideLayout.size.width}", hideGlyphWidth <= hideLayout.size.width + 1f)
+        assertEightDpVerticalLinkPadding(primary)
+        assertEightDpVerticalLinkPadding(CardCopy.HIDE_CAPSULE)
+        compose.onNodeWithText(primary).performTouchInput { click(center) }
+        compose.onNodeWithText(CardCopy.HIDE_CAPSULE).performTouchInput { click(center) }
+        compose.runOnIdle { assertEquals(listOf("primary", "hide"), calls) }
+    }
+
     @Test fun threadShowsScreenMessageWithTagAndWords() {
         show(CardView.Chat("c1", title = "t"), thread = idleThread("[[screen:s1]]", "[[screen:s1]]\n第三条有没有坑?", "[[screen:s2]]"))
         val tag = "你此刻的屏幕 · 设置 · 19:42"
@@ -105,7 +190,7 @@ class CapsuleCardContentTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithText(tag, useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
         compose.onAllNodesWithTag("screen-thumb", useUnmergedTree = true).assertCountEquals(1)
         compose.onNodeWithText("第三条有没有坑?", useUnmergedTree = true).assertIsDisplayed()
-        compose.onNodeWithText(com.wangzan101.mika.ui.ScreenCopy.BLOCKED, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText(com.wangzan101.mika.chat.ui.ScreenCopy.BLOCKED, useUnmergedTree = true).assertIsDisplayed()
         // 带屏幕的那句不把编号那一行当成字显示
         compose.onAllNodesWithText("[[screen:", substring = true, useUnmergedTree = true).assertCountEquals(0)
         // 往上翻到第一句:只发了屏幕,没有附言气泡
@@ -125,12 +210,12 @@ class CapsuleCardContentTest {
     }
 
     @Test fun attachmentChipShowsScreenAndCanBeSentOrRemoved() {
-        val screen = com.wangzan101.mika.core.userscreen.UserScreen("", at, "com.android.settings", "设置")
-        val pending = PendingScreen(com.wangzan101.mika.core.userscreen.CapturedScreen(byteArrayOf(1), screen),
+        val screen = com.wangzan101.mika.core.screen.user.UserScreen("", at, "com.android.settings", "设置")
+        val pending = PendingScreen(com.wangzan101.mika.core.screen.user.CapturedScreen(byteArrayOf(1), screen),
             Bitmap.createBitmap(90, 200, Bitmap.Config.ARGB_8888).asImageBitmap())
         show(CardView.Chat("c1", title = "t"), thread = idleThread(), input = CardInputUi(screen = pending))
         compose.onNodeWithTag("capsule-attachment").assertIsDisplayed()
-        compose.onNodeWithText(com.wangzan101.mika.ui.ScreenCopy.TAG, useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithText(com.wangzan101.mika.chat.ui.ScreenCopy.TAG, useUnmergedTree = true).assertIsDisplayed()
         compose.onNodeWithText("设置 · 19:42", useUnmergedTree = true).assertIsDisplayed()
         // 只挂着截图、没写字也能直接发
         compose.onNodeWithTag("capsule-send").performClick()
@@ -139,10 +224,10 @@ class CapsuleCardContentTest {
     }
 
     @Test fun blockedChipSaysNotCaptured() {
-        val screen = com.wangzan101.mika.core.userscreen.UserScreen("", at, "com.example.bank", "银行", blocked = true)
+        val screen = com.wangzan101.mika.core.screen.user.UserScreen("", at, "com.example.bank", "银行", blocked = true)
         show(CardView.Chat("c1", title = "t"), thread = idleThread(),
-            input = CardInputUi(screen = PendingScreen(com.wangzan101.mika.core.userscreen.CapturedScreen(null, screen), null)))
-        compose.onNodeWithText(com.wangzan101.mika.ui.ScreenCopy.BLOCKED, useUnmergedTree = true).assertIsDisplayed()
+            input = CardInputUi(screen = PendingScreen(com.wangzan101.mika.core.screen.user.CapturedScreen(null, screen), null)))
+        compose.onNodeWithText(com.wangzan101.mika.chat.ui.ScreenCopy.BLOCKED, useUnmergedTree = true).assertIsDisplayed()
     }
 
     private fun chat(r: CardRun) = CardView.Chat(r.run.conversationId, r, CapsuleCards.content(r))

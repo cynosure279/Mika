@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rec_a11y">Bật hỗ trợ tiếp cận giúp tôi</string>
+    <string name="rec_default_on">Bật theo mặc định</string>
+    <string name="rec_learn_what">Những mục này làm gì?</string>
+    <string name="rec_a11y_body">Mika dùng Hỗ trợ tiếp cận để đọc văn bản và nút trên màn hình. Khi bật, Mika tự bật dịch vụ hỗ trợ tiếp cận của mình trong cài đặt hệ thống giúp bạn; các dịch vụ hỗ trợ tiếp cận khác bạn đang bật không bị ảnh hưởng. Tắt mục này và Mika sẽ tắt dịch vụ của mình.</string>
+    <string name="rec_battery">Pin không giới hạn</string>
+    <string name="rec_battery_body">Khi bật, Mika tự thêm mình vào ngoại lệ tối ưu hóa pin của hệ thống, để không bị dừng ở nền nhằm tiết kiệm pin và điều khiển điện thoại ít bị gián đoạn hơn. Nó có thể dùng thêm một chút pin. Tắt để quay lại mặc định của hệ thống.</string>
+    <string name="rec_boot">Khôi phục sau khi khởi động lại</string>
+    <string name="rec_boot_body">“Gỡ lỗi không dây” tự tắt sau khi khởi động lại. Khi bật, Mika bật lại nó lúc khởi động và kết nối lại. Việc này cần quyền “Sửa đổi cài đặt hệ thống”, chỉ dùng để bật Gỡ lỗi không dây, và chỉ hoạt động trên Wi-Fi bạn đã tin cậy. Tắt mục này hoặc hủy ghép nối sẽ trả lại quyền.</string>
+    <string name="rec_auto_wireless">Tự động bật Gỡ lỗi không dây</string>
+    <string name="rec_auto_wireless_body">Sau khi Wi-Fi mất hoặc điện thoại khởi động lại, hệ thống tắt “Gỡ lỗi không dây”. Điều khiển điện thoại thường không cần nó — chỉ khi khởi động lại (ví dụ sau khi cập nhật Mika). Khi bật, vào những lúc đó và khi đang dùng Wi-Fi, Mika bật nó và kết nối lại, nhưng không bao giờ tắt giúp bạn. Việc này dùng cùng quyền “Sửa đổi cài đặt hệ thống” như “Khôi phục sau khi khởi động lại” và chỉ hoạt động trên Wi-Fi bạn đã cho phép. Tắt mục này và Mika sẽ dừng làm việc này.</string>
+    <string name="rec_need_setup">Hãy hoàn tất thiết lập điều khiển điện thoại trước</string>
+    <string name="rec_failed">Không thể hoàn tất. Đảm bảo điều khiển điện thoại đã sẵn sàng và thử lại.</string>
+    <string name="rec_working">Đang xử lý…</string>
+    <string name="rec_restarted_at">Dịch vụ hỗ trợ tiếp cận đã được tự động khởi động lại lúc %1$s.</string>
+    <string name="rec_not_allowed_here">Gỡ lỗi không dây chưa được phép trên Wi-Fi này, nên Mika không thể bật nó. Hãy tự bật một lần và chọn “Luôn cho phép trên mạng này” khi được hỏi; sau đó Mika có thể tự bật nó.</string>
+    <string name="rec_refused">Điện thoại này không cho Mika bật Gỡ lỗi không dây. Hãy tự bật khi cần và Mika sẽ kết nối.</string>
+    <string name="rec_gave_up">Mika đã bật Gỡ lỗi không dây vài lần nhưng điều khiển điện thoại vẫn không khởi động, nên đã dừng. Đổi Wi-Fi hoặc nhấn Thử lại trong Điều khiển điện thoại và Mika sẽ thử lại.</string>
+    <string name="rec_permission_missing">Ở lần khởi động trước quyền đã mất, nên không thể khôi phục. Tắt công tắc này rồi bật lại.</string>
+    <string name="rec_setting_unavailable">Điện thoại này không cho Mika bật Gỡ lỗi không dây lúc khởi động. Sau khi khởi động lại, hãy tự bật nó và Mika sẽ kết nối.</string>
+    <string name="rec_not_recovered">Không thể tự động kết nối lại ở lần khởi động trước. Đảm bảo bạn đang dùng Wi-Fi tin cậy với Gỡ lỗi không dây đang bật, và Mika sẽ kết nối.</string>
+    <string name="rec_needs_pairing">Chỉ hoạt động sau khi ghép nối Gỡ lỗi không dây. Trợ lý đã được khởi động bằng lệnh USB, nên hãy chạy lại lệnh sau khi điện thoại khởi động lại.</string>
+    <string name="rec_shizuku_no_wireless">Gỡ lỗi không dây không được dùng khi Shizuku được chọn. Mika kết nối lại qua Shizuku khi Shizuku đang chạy.</string>
+    <string name="rec_exclude_recents">Ẩn khỏi Ứng dụng gần đây</string>
+    <string name="rec_exclude_recents_sub">Không hiển thị Mika trong danh sách ứng dụng gần đây của hệ thống.</string>
+    <string name="rec_exclude_recents_failed">Không thể thay đổi chế độ hiển thị trong Ứng dụng gần đây. Lựa chọn đã lưu không thay đổi; hãy thử lại.</string>
+</resources>

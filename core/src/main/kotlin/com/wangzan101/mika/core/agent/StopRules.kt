@@ -1,7 +1,7 @@
 package com.wangzan101.mika.core.agent
 
 import com.wangzan101.mika.core.net.ProxyFailure
-import com.wangzan101.mika.core.guard.GuardVerdict
+import com.wangzan101.mika.core.safety.guard.GuardVerdict
 import com.wangzan101.mika.core.model.ModelError
 import com.wangzan101.mika.core.tool.Outcome
 import kotlinx.serialization.json.JsonPrimitive
@@ -103,7 +103,11 @@ internal fun userReason(e: ModelError): String = when (e) {
             "连不上网络代理,或代理没有转发这个请求,重试后仍然不通。请检查代理是否开着、设置 › 网络代理 里的地址和端口是否正确;不需要代理时把它清空。"
         ProxyFailure.AuthFailed -> "网络代理拒绝了账号或密码(HTTP 407)。请在设置 › 网络代理 里检查代理地址中的用户名和密码。"
     }
-    is ModelError.Server -> "模型服务出错(HTTP ${e.status}),请稍后再试。"
+    is ModelError.Server -> {
+        val detail = safeServerDetail(e.detail)
+        if (detail != null) "模型服务出错(HTTP ${e.status}: $detail),请稍后再试。"
+        else "模型服务出错(HTTP ${e.status}),请稍后再试。"
+    }
     is ModelError.StreamCut ->
         "模型的回复还没传完,连接就在上游被断开了,重试后仍然如此。常见原因是网络不稳,或中转服务、网关的空闲超时太短(模型长时间思考时容易碰上)。请稍后再试。"
     is ModelError.BadResponse -> "${e.message}。请检查 Base URL 和接口类型是否匹配。"
@@ -133,6 +137,18 @@ private fun chainErrorTag(e: ModelError): String = when (e) {
     is ModelError.RateLimited -> " HTTP 429"
     is ModelError.Auth -> " " + RetryPolicy.label(e)
     else -> " ${RetryPolicy.label(e)}"
+}
+
+private fun safeServerDetail(raw: String?): String? {
+    val trimmed = raw?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    if (trimmed.startsWith("<!", ignoreCase = true) ||
+        trimmed.startsWith("<html", ignoreCase = true) ||
+        trimmed.startsWith("<head", ignoreCase = true) ||
+        trimmed.startsWith("<body", ignoreCase = true)
+    ) return null
+    val normalized = trimmed.replace(Regex("""\s+"""), " ")
+    val masked = com.wangzan101.mika.core.run.record.Redactor.text(normalized).trim()
+    return masked.takeIf { it.isNotEmpty() }?.let(::quoted)
 }
 
 /** 引在句中的服务端原话:去掉末尾一个句号(原话自带的),由引它的句子补上自己的「。」;省略号(截短的「…」、「...」)不动。 */

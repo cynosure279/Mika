@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backup & data (Settings > Backup & data). English-only initial strings with translatable="false" pending localization. -->
+    <string name="backup_title">Sao lưu &amp; dữ liệu</string>
+    <string name="backup_sub">Xuất mọi thứ ra tệp ZIP, hoặc khôi phục từ một tệp</string>
+    <string name="backup_warning_title">Bản sao lưu này không được mã hóa</string>
+    <string name="backup_warning_body">Tệp ZIP chứa mọi bí mật của bạn: khóa API, token OAuth và thông tin đăng nhập dịch vụ. Hãy giữ riêng tư, không chia sẻ, và xóa sau khi đã nhập.</string>
+    <string name="backup_included_label">Những gì được bao gồm</string>
+    <string name="backup_included_body">Nhà cung cấp và khóa, cuộc trò chuyện, nhân vật, kỹ năng, bộ nhớ, quy trình, lần chạy tác vụ và cài đặt.</string>
+    <string name="backup_excluded_body">Không bao gồm: ghép nối gỡ lỗi không dây (ghép nối lại sau khi nhập), cài đặt dịch vụ hỗ trợ tiếp cận (bật lại trong Cài đặt Android), không gian làm việc sandbox và tệp đính kèm thư viện tệp.</string>
+    <string name="backup_export">Xuất bản sao lưu</string>
+    <string name="backup_export_sub">Lưu tệp ZIP chứa mọi dữ liệu của bạn</string>
+    <string name="backup_import">Nhập bản sao lưu</string>
+    <string name="backup_import_sub">Khôi phục mọi thứ từ tệp ZIP sao lưu</string>
+    <string name="backup_exported">Đã lưu bản sao lưu: %1$d tệp.</string>
+    <string name="backup_exported_skipped">Đã lưu bản sao lưu: %1$d tệp. %2$d khóa không thể giải mã và đã bị bỏ ra.</string>
+    <string name="backup_export_failed">Không thể lưu bản sao lưu.</string>
+    <string name="backup_import_failed">Không thể nhập bản sao lưu này.</string>
+    <string name="backup_import_confirm_title">Thay thế dữ liệu hiện tại?</string>
+    <string name="backup_import_confirm_body">Điện thoại này đã có cuộc trò chuyện và nhà cung cấp. Nhập sẽ thay thế chúng.</string>
+    <string name="backup_replace">Thay thế tất cả</string>
+    <string name="backup_imported_title">Đã khôi phục bản sao lưu</string>
+    <string name="backup_imported_body">Đã khôi phục %1$d tệp.</string>
+    <string name="backup_after_import_body">Đóng Mika và mở lại để dùng dữ liệu đã khôi phục. Sau đó ghép nối lại gỡ lỗi không dây, bật lại dịch vụ hỗ trợ tiếp cận trong Cài đặt Android, và xóa tệp ZIP sao lưu.</string>
+    <string name="backup_close_app">Đóng Mika</string>
+    <string name="backup_restart_note">Hãy xuất trước, trước khi gỡ cài đặt bất cứ thứ gì: chỉ bản cài này mới giải mã được dữ liệu của bạn.</string>
+</resources>

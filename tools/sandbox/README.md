@@ -17,9 +17,10 @@ Mika 只以子进程方式运行它们,不链接它们。
 `app/src/main/assets/runtime/rootfs.tar.xz`。手机首次启动 Mika 时在后台解到 `files/sandbox/rootfs`,不联网。
 
 - `runtime/sources.lock`:最小根文件系统的地址与 SHA-256,以及每个软件包的仓库、版本、APKINDEX 校验值、`.apk` 的 SHA-256。
-- `runtime/pip-requires.lock`:要烤进 `site-packages` 的 wheel(名称、版本、文件名、下载地址、SHA-256)。构建时逐个核对 SHA-256
+- `runtime/pip-requires.lock`:要烤进 `site-packages` 的 wheel(名称、版本、文件名、下载地址、SHA-256、许可)。构建时逐个核对 SHA-256
   后直接解开,不运行 pip,所以离线和重编都不依赖 PyPI;换 Python 小版本后按 wheel 自己的 tag 重新求。这个文件和 `sources.lock`
-  一样是构建的必需输入,缺了构建失败。
+  一样是构建的必需输入,缺了构建失败。wheel 也是随 APK 发出去的代码,所以 `license` 是构建的必需字段(记的是 wheel 自己的
+  `METADATA` 声明的许可):许可为 GPL/LGPL/MPL 的 wheel,`runtime-sources.py` 会取同一版本的 sdist 放进源码包。
 - `build-runtime.py`:按 `sources.lock` 下载、校验后拼成 `rootfs.tar.xz`。全程不运行 apk:按 apk 的布局解开软件包,
   并用软件包签过名的元数据写出 `/lib/apk/db/installed`,所以运行环境里的 apk 看到的数据库是一致的。
   每个 `.apk` 都要核对:锁文件里的 SHA-256、它自己的 RSA 签名(公钥取自钉住的最小根文件系统)、控制段校验值与 APKINDEX 一致、
@@ -81,7 +82,8 @@ while read -r name version url sum; do
 done < tools/sandbox/sources.lock
 cp -R tools/sandbox/patches tools/sandbox/sources.lock tools/sandbox/build-native.sh tools/sandbox/README.md "$OUT/"
 cp licenses/GPL-2.0.txt licenses/GPL-3.0.txt licenses/LGPL-3.0.txt "$OUT/"
-# 运行环境里每个 GPL/LGPL/MPL 软件包:Alpine 的构建配方(钉在软件包记录的 aports 提交)与上游源码,逐个按 SHA-512 核对
+# 运行环境里每个 GPL/LGPL/MPL 软件包:Alpine 的构建配方(钉在软件包记录的 aports 提交)与上游源码,逐个按 SHA-512 核对;
+# 烤进 site-packages 的 copyleft wheel(许可写在 runtime/pip-requires.lock)取同一版本的 sdist,按 PyPI 的 SHA-256 核对
 python3 tools/sandbox/runtime-sources.py "$OUT/runtime"
 cp tools/sandbox/build-runtime.py tools/sandbox/runtime-sources.py app/src/main/assets/runtime/packages.json "$OUT/runtime/"
 cp -R tools/sandbox/runtime "$OUT/runtime/lock"
@@ -89,4 +91,4 @@ COPYFILE_DISABLE=1 tar -czf "build/gpl-sources/$NAME.tar.gz" -C build/gpl-source
 ```
 
 运行后得到 `build/gpl-sources/mika-<版本>-gpl-sources.tar.gz`。上传前用 `tar -tzf` 看一眼,确认里面有两个源码包、`patches/`,
-以及 `runtime/` 下每个 GPL/LGPL/MPL 软件包的目录和 `runtime/SOURCES.txt`(gcc 等源码较大,整包约数百 MB)。
+以及 `runtime/` 下每个 GPL/LGPL/MPL 软件包的目录、每个 copyleft wheel 的目录和 `runtime/SOURCES.txt`(gcc 等源码较大,整包约数百 MB)。

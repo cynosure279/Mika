@@ -12,7 +12,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.webkit.WebViewAssetLoader
 import com.wangzan101.mika.cap.phone.a11y.DeviceSupport
 import com.wangzan101.mika.core.agent.TaskState
-import com.wangzan101.mika.core.uistate.ActionResult
+import com.wangzan101.mika.core.screen.uistate.ActionResult
 import com.wangzan101.mika.core.tool.HandBack
 import com.wangzan101.mika.core.tool.HandBackOutcome
 import com.wangzan101.mika.takeover.HandoverActivity
@@ -69,6 +69,7 @@ class WebStackTakeoverTest {
             override suspend fun displayOf(taskId: Int) = -1
             override suspend fun moveToMain(taskId: Int) = false
             override suspend fun moveBack(taskId: Int) = false
+            override suspend fun restoreTarget() = false
             override fun setSound(packageName: String, on: Boolean) {}
             override fun watchInput(packageName: String) {}
             override suspend fun handoverActivity(): HandoverActivity? = null

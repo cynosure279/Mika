@@ -23,6 +23,7 @@
     <string name="settings_saved_data">Kayıtlı veriler</string>
     <string name="settings_web_logins">Web sitesi oturumları</string>
     <plurals name="settings_count_sites">
+        <item quantity="one">%1$d site</item>
         <item quantity="other">%1$d site</item>
     </plurals>
     <string name="settings_advanced">Gelişmiş</string>
@@ -31,6 +32,7 @@
     <string name="settings_sandbox">Dosyalar ve bilgi işlem ortamı</string>
     <string name="settings_routes">Kayıtlı rotalar</string>
     <plurals name="settings_count_routes">
+        <item quantity="one">%1$d rota</item>
         <item quantity="other">%1$d rota</item>
     </plurals>
     <string name="settings_recovery">Kurtarma ve onarım</string>
@@ -81,6 +83,7 @@
     <string name="settings_parallel">Aynı anda görevler</string>
     <string name="settings_parallel_sub">Farklı sohbetlerden gelen görevlerin her biri kendi sanal ekranını alır</string>
     <plurals name="settings_count_tasks">
+        <item quantity="one">%1$d</item>
         <item quantity="other">%1$d</item>
     </plurals>
     <string name="capsule_settings_title">Yüzen kapsül</string>
@@ -104,6 +107,7 @@
     <string name="routes_saved">Kayıtlı rotalar</string>
     <string name="loading">Yükleniyor</string>
     <plurals name="routes_count">
+        <item quantity="one">%1$d rota · daha önce işe yarayanı daha hızlı tekrarlar</item>
         <item quantity="other">%1$d rota · daha önce işe yarayanı daha hızlı tekrarlar</item>
     </plurals>
     <string name="routes_clear_all">Tümünü temizle</string>
@@ -274,6 +278,7 @@
     <string name="settings_auto_archive_sub">Bir süredir yeni mesajı olmayan sohbetler arşive taşınır</string>
     <string name="settings_auto_archive_hint">Seçilen süre boyunca yeni mesajı olmayan sohbetler arşive taşınır.</string>
     <plurals name="settings_auto_archive_days">
+        <item quantity="one">%1$d gün</item>
         <item quantity="other">%1$d gün</item>
     </plurals>
     <string name="settings_scheduled_quiet">Zamanlanmış görev sessiz saatleri</string>
@@ -290,22 +295,26 @@
     <string name="settings_trigger_run_limit">Zamanlanmış görevler için süre sınırı</string>
     <string name="settings_trigger_run_limit_sub">Zamanlanmış görevler siz uzaktayken çalışır. Kapalı, sınırsız demektir; süre dolduğunda görev durur ve süresinin bittiğini söyler.</string>
     <plurals name="settings_trigger_run_minutes_n">
+        <item quantity="one">%1$d dakika</item>
         <item quantity="other">%1$d dakika</item>
     </plurals>
 
     <string name="settings_sandbox_budget">Görev başına bilgi işlem ortamı süre sınırı</string>
     <string name="settings_sandbox_budget_sub">Bir görevde ortam komutlarının toplam çalışma süresi (bağımlılık kurma, derleme gibi). Varsayılan 30 dakika; değişiklik sonraki görevden itibaren geçerli olur.</string>
     <plurals name="settings_sandbox_budget_minutes_n">
+        <item quantity="one">%1$d dakika</item>
         <item quantity="other">%1$d dakika</item>
     </plurals>
     <string name="settings_attachment_file_limit">Yüklenen dosya başına sınır</string>
     <string name="settings_attachment_file_limit_sub">Sohbet ekleri ve cihazdan dosya içe aktarmada kabul edilen en büyük tek dosya; WeChat görselleri ve bilgisayar bağlantısı dosyaları sabit sınırda kalır. Varsayılan 200 MB.</string>
     <plurals name="settings_attachment_file_limit_mb_n">
+        <item quantity="one">%1$d MB</item>
         <item quantity="other">%1$d MB</item>
     </plurals>
     <string name="settings_workspace_size_limit">Çalışma alanı başına sınır</string>
     <string name="settings_workspace_size_limit_sub">Sohbet ekleri ve cihazdan dosya içe aktarma için çalışma alanı alanı. Varsayılan 4 GB.</string>
     <plurals name="settings_workspace_size_limit_gb_n">
+        <item quantity="one">%1$d GB</item>
         <item quantity="other">%1$d GB</item>
     </plurals>
 </resources>

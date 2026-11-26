@@ -27,7 +27,7 @@ import com.wangzan101.mika.cap.phone.a11y.OverlayWindow
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
 import com.wangzan101.mika.core.agent.TaskState
 import com.wangzan101.mika.core.assembly.knownTools
-import com.wangzan101.mika.core.record.RunEvent
+import com.wangzan101.mika.core.run.record.RunEvent
 import com.wangzan101.mika.settings.FeatureFlags
 import com.wangzan101.mika.task.DeviceStateWatcher
 import com.wangzan101.mika.task.TaskCenterState
@@ -35,10 +35,10 @@ import com.wangzan101.mika.task.TaskRun
 import com.wangzan101.mika.task.TaskService
 import com.wangzan101.mika.task.TaskService.Companion.isActive
 import com.wangzan101.mika.takeover.TakeoverQueue
-import com.wangzan101.mika.ui.FollowUpMode
-import com.wangzan101.mika.ui.ChatViewModel
-import com.wangzan101.mika.ui.Exchange
-import com.wangzan101.mika.ui.ExchangeStatus
+import com.wangzan101.mika.chat.ui.FollowUpMode
+import com.wangzan101.mika.chat.ui.ChatViewModel
+import com.wangzan101.mika.chat.ui.Exchange
+import com.wangzan101.mika.chat.ui.ExchangeStatus
 import com.wangzan101.mika.ui.ToolLabels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -172,7 +172,8 @@ class CapsuleController(
     /** 胶囊此刻的透明度(不碰它几秒后淡下去);[lastActive] 是上次碰到或状态变了的时刻。 */
     internal var alpha by mutableStateOf(1f)
     internal var lastActive = 0L
-    internal var look: Any? = null
+    internal var look: CapsuleLook? = null
+    internal var lastLook: CapsuleLook? = null
     internal var fadeJob: Job? = null
 
     /** 卡片展开着;[closing] 是正在缩回胶囊那边(动效做完才真的收起)。 */
@@ -287,7 +288,7 @@ class CapsuleController(
     /** 用户点了「完全退出」:马上拆掉浮层。进程可能被无障碍服务重新拉起,届时按退出标记不再画(见 [start])。 */
     fun stopNow() {
         quitConfirm = false
-        hide()
+        hide(clearLastLook = true)
     }
 
     /** 用户又打开了 Mika:退出标记已清掉,按此刻的状态重新画(进程没被杀、又回到前台时用得上)。 */
@@ -495,7 +496,7 @@ class CapsuleController(
             quitConfirm = false
         }
         override fun quit() {
-            com.wangzan101.mika.quit.MikaQuit.quit(context)
+            com.wangzan101.mika.MikaQuit.quit(context)
         }
         override fun closeKeptPage() {
             keeper.close(KeptPageClose.User)

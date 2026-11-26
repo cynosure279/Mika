@@ -626,8 +626,10 @@ def read_pip_lock():
     data = json.load(open(path, encoding="utf-8"))
     if data.get("spec") != "mika.pip-requires/v1":
         die(f"{path}: unknown spec {data.get('spec')}")
+    # `license` is required, not decorative: runtime-sources.py reads it to decide which wheels the GPL
+    # source pack has to ship the source of, and a wheel with no license would be silently skipped there.
     for w in data.get("wheels", []):
-        for field in ("pkg", "version", "filename", "sha256", "url"):
+        for field in ("pkg", "version", "filename", "sha256", "url", "license"):
             if not w.get(field):
                 die(f"{path}: wheel entry missing {field}")
     return data["wheels"]

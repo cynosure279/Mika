@@ -1,0 +1,9 @@
+<resources>
+    <string name="calls_record_brief">Tóm tắt tác vụ</string>
+    <string name="calls_record_goal">Kết quả mong muốn</string>
+    <string name="calls_record_questions">Câu hỏi cần hỏi</string>
+    <string name="calls_record_context">Bối cảnh</string>
+    <string name="calls_record_constraints">Giới hạn về cam kết và hành động</string>
+    <string name="calls_record_reuse">Dùng làm tác vụ mới</string>
+    <string name="calls_record_result_unconfirmed">Cuộc gọi đã kết thúc. Kiểm tra bản ghi để xác nhận kết quả; đánh dấu đã xử lý không có nghĩa là mục tiêu đã đạt được.</string>
+</resources>

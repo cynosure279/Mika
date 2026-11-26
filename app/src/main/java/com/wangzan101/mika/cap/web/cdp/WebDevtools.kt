@@ -16,7 +16,7 @@ import com.wangzan101.mika.core.cap.web.cdp.CdpDiscovery
 import com.wangzan101.mika.core.cap.web.cdp.CdpSession
 import com.wangzan101.mika.core.cap.web.cdp.CdpTransport
 import com.wangzan101.mika.core.cap.web.cdp.evaluate
-import com.wangzan101.mika.core.shell.DevtoolsSocket
+import com.wangzan101.mika.core.device.shell.DevtoolsSocket
 import com.wangzan101.mika.core.cap.web.WebUrlPolicy
 import android.os.ParcelFileDescriptor
 import com.wangzan101.mika.cap.web.WebHost
@@ -106,6 +106,8 @@ class WebDevtools(private val relay: ((String) -> ParcelFileDescriptor?)?) {
         tab.view.addOnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
             if (r - l != or - ol || b - t != ob - ot) onViewResized(link)
         }
+        // REQUESTED_WITH_HEADER_ALLOW_LIST 是 androidx.webkit 的公开常量,lint 误报为库内部可见
+        @Suppress("RestrictedApi")
         if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
             runCatching { WebSettingsCompat.setRequestedWithHeaderOriginAllowList(st, emptySet()) }
         }

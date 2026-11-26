@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calls_auto_off_short">Tắt</string>
+    <string name="calls_auto_standby_short">Đang chờ</string>
+    <string name="calls_rule_delay">Trả lời sau</string>
+    <string name="calls_seconds_value">%1$d giây</string>
+    <string name="calls_none_added">Không có</string>
+    <string name="calls_not_set">Chưa đặt</string>
+    <string name="calls_is_set">Đã đặt</string>
+    <string name="calls_numbers_count">%1$d số</string>
+    <string name="calls_scope_all_short">Mọi cuộc gọi</string>
+    <string name="calls_scope_strangers_short">Số lạ</string>
+    <string name="calls_allowlist_empty_short">Danh sách trống</string>
+    <string name="calls_list_count_short">%1$d trong danh sách</string>
+    <string name="calls_not_confirmed">Chưa xác nhận</string>
+    <string name="calls_task_more">Câu hỏi, bối cảnh, giới hạn</string>
+    <string name="calls_this_call">Cuộc gọi này</string>
+</resources>

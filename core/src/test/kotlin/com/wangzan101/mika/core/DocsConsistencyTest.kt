@@ -1,6 +1,9 @@
 package com.wangzan101.mika.core
 
 import com.wangzan101.mika.core.assembly.knownToolNames
+import com.wangzan101.mika.core.frontdesk.DeskToolSet
+import com.wangzan101.mika.core.frontdesk.DeskTools
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -68,10 +71,11 @@ class DocsConsistencyTest {
     )
 
     /**
-     * 实时语音会话里注册给模型的工具(定义在 app 的通话协议层,不在 core 的工具表里):
-     * 文档提到它们时按「确实存在」放过。
+     * 前台(聊天、通话)注册给模型的工具:定义在 [DeskTools],不在 Agent 的工具表里,文档提到它们时按「确实存在」放过。
+     * 另加早先通话设计稿里的 `mika_request`:前台上线后已由这些工具取代,设计稿记的是当时的方案,不改。
      */
-    private val sessionToolNames = setOf("mika_request")
+    private val sessionToolNames: Set<String> =
+        DeskToolSet.entries.flatMap(DeskTools::specs).map { it["name"]!!.jsonPrimitive.content }.toSet() + "mika_request"
     private val classLike = Regex("""[A-Z][A-Za-z0-9]*""")
 
     private val toolNames: Set<String> by lazy { knownToolNames() }
@@ -181,13 +185,15 @@ class DocsConsistencyTest {
         assertTrue("没找到文档", docs().size >= 5)
         assertTrue(toolNames.contains("knowledge_read"))
         assertTrue(classExists("ToolDef"))
+        // 前台的工具(聊天、通话都注册)文档里提到时算存在
+        assertTrue(sessionToolNames.containsAll(listOf("dispatch_task", "add_to_task", "answer_task", "cancel_task", "ask_owner")))
         assertTrue(spans(docs().joinToString("\n") { it.readText() }).size > 50)
     }
 
     @Test fun docsMentionOnlyThingsThatExist() {
         // Implementation plans intentionally name files and classes that later tasks will create.
         val bad = docs().filterNot {
-            it.relativeTo(root).invariantSeparatorsPath.startsWith("docs/superpowers/plans/")
+            it.relativeTo(root).invariantSeparatorsPath.startsWith("docs/design/plans/")
         }.flatMap(::problems)
         assertTrue("文档里提到了仓库里没有的东西:\n" + bad.joinToString("\n"), bad.isEmpty())
     }

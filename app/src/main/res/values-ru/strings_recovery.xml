@@ -22,4 +22,7 @@
     <string name="rec_not_recovered">При последнем запуске автоматически подключиться не удалось. Убедитесь, что телефон в доверенной сети Wi-Fi и отладка по Wi-Fi включена, и Mika подключится.</string>
     <string name="rec_needs_pairing">Работает только после сопряжения по отладке по Wi-Fi. Помощник был запущен командой по USB, поэтому после перезагрузки телефона выполните команду снова.</string>
     <string name="rec_shizuku_no_wireless">Пока выбран Shizuku, беспроводная отладка не используется. Как только Shizuku запущен, Mika подключается заново через Shizuku.</string>
+    <string name="rec_exclude_recents">Скрывать из недавних</string>
+    <string name="rec_exclude_recents_sub">Не показывать Mika в списке недавних приложений системы.</string>
+    <string name="rec_exclude_recents_failed">Не удалось изменить отображение в недавних. Сохранённый выбор не изменился; повторите попытку.</string>
 </resources>

@@ -5,10 +5,10 @@ import com.wangzan101.mika.core.action.Risk as ApprovalRisk
 import com.wangzan101.mika.core.capability.Capability
 import com.wangzan101.mika.core.capability.CapabilityStatus
 import com.wangzan101.mika.core.capability.PromptEnv
-import com.wangzan101.mika.core.observation.ObsKind
-import com.wangzan101.mika.core.observation.Observation
-import com.wangzan101.mika.core.observation.Trust
-import com.wangzan101.mika.core.observation.Untrusted
+import com.wangzan101.mika.core.screen.observation.ObsKind
+import com.wangzan101.mika.core.screen.observation.Observation
+import com.wangzan101.mika.core.screen.observation.Trust
+import com.wangzan101.mika.core.screen.observation.Untrusted
 import com.wangzan101.mika.core.prompt.Prompts
 import com.wangzan101.mika.core.tool.AgentTool
 import com.wangzan101.mika.core.tool.Args
@@ -16,6 +16,7 @@ import com.wangzan101.mika.core.tool.Risk
 import com.wangzan101.mika.core.tool.ToolContext
 import com.wangzan101.mika.core.tool.ToolDef
 import com.wangzan101.mika.core.tool.ToolExecution
+import com.wangzan101.mika.core.tool.ToolSchema
 import com.wangzan101.mika.core.tool.Verb
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -343,22 +344,14 @@ private class McpClientTool(
     trust: McpTrust,
     private val displayName: String,
 ) : AgentTool {
-    private val schema = descriptor.inputSchema
     private val approval = mcpApprovalRisk(descriptor.annotations, trust)
-    private val props: Map<String, JsonObject> = (schema["properties"] as? JsonObject).orEmpty()
-        .mapValues { (_, value) -> value as? JsonObject ?: JsonObject(emptyMap()) }
-    private val required: List<String> = (schema["required"] as? JsonArray).orEmpty()
-        .mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString && p.content.isNotBlank() }?.content }
-    // required 可能指向 properties 里没声明的参数(只写了 $ref、生成器漏了等):补一个空的宽松 schema,
-    // 否则 Args 先按 allowed 拒绝传它、再按 required 拒绝不传它,工具两条路都调不成。required 里点了 reason 的
-    // 也补进来:那是服务端自己的参数(见 ToolDef.ownReason),不再是附加的用意说明。
-    private val declaredProps: Map<String, JsonObject> =
-        props + required.filterNot { it in props }.associateWith { JsonObject(emptyMap()) }
+    // MCP tools frequently rely on $defs/$ref, combinators, or omit properties listed in required (incl. ownReason).
+    private val normalized = ToolSchema.normalizeObject(descriptor.inputSchema)
     override val def: ToolDef = ToolDef(
         name,
         descriptor.description,
-        declaredProps,
-        required,
+        normalized.props,
+        normalized.required,
     )
     override val verb = Verb.Interact
     override val risk = when (approval.level) {

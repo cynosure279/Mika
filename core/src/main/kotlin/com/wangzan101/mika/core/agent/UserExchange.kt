@@ -2,13 +2,14 @@ package com.wangzan101.mika.core.agent
 
 import com.wangzan101.mika.core.action.ConfirmChoice
 import com.wangzan101.mika.core.action.Refusals
-import com.wangzan101.mika.core.gate.ConfirmationGate
-import com.wangzan101.mika.core.gate.DeclareResult
+import com.wangzan101.mika.core.safety.gate.ConfirmationGate
+import com.wangzan101.mika.core.safety.gate.DeclareResult
+import com.wangzan101.mika.core.safety.gate.TargetAppRestoreFailed
 import com.wangzan101.mika.core.general.RequestConfirmation
-import com.wangzan101.mika.core.memory.UserUtterances
+import com.wangzan101.mika.core.learn.memory.UserUtterances
 import com.wangzan101.mika.core.prompt.Feedback
-import com.wangzan101.mika.core.record.Redactor
-import com.wangzan101.mika.core.record.RunEvent
+import com.wangzan101.mika.core.run.record.Redactor
+import com.wangzan101.mika.core.run.record.RunEvent
 import com.wangzan101.mika.core.tool.HandBack
 import com.wangzan101.mika.core.tool.HandBackOutcome
 import com.wangzan101.mika.core.tool.Outcome
@@ -117,7 +118,7 @@ internal class UserExchange(
         } finally {
             inputReply = null
             resolve(ask)
-        }.also { if (it == null) emit(RunEvent.State(now(), "no_answer", detail(prompt))) else utterances()?.add(UserWords.said(com.wangzan101.mika.core.userscreen.UserScreenMessage.parse(it).words, tools)) }?.let { answerText(it) }
+        }.also { if (it == null) emit(RunEvent.State(now(), "no_answer", detail(prompt))) else utterances()?.add(UserWords.said(com.wangzan101.mika.core.screen.user.UserScreenMessage.parse(it).words, tools)) }?.let { answerText(it) }
     }
 
     suspend fun input(o: Outcome.Input, running: TaskState): ToolExecution {
@@ -153,7 +154,7 @@ internal class UserExchange(
         return ToolExecution(buildJsonObject {
             put("outcome", back.outcome.name)
             if (back.outcome == HandBackOutcome.complete) {
-                put("ok", true)
+                put("ok", back.appReturnFailure == null)
                 put("durationMs", back.durationMs ?: (now() - since))
                 back.inputCount?.let { put("inputCount", it) }
                 back.stoppedAt?.let { put("stoppedAt", it) }
@@ -166,6 +167,12 @@ internal class UserExchange(
                 put("reason", if (back.outcome == HandBackOutcome.skipped) "takeover_skipped" else "takeover_timeout")
                 put("counts_as_failure", false)
                 put("note", NO_HANDBACK_NOTE)
+            }
+            back.appReturnFailure?.let {
+                put("error", TargetAppRestoreFailed.CODE)
+                put("message", it)
+                put("recoverable", true)
+                put("counts_as_failure", false)
             }
         })
     }

@@ -3,11 +3,12 @@ package com.wangzan101.mika.task
 import com.wangzan101.mika.R
 import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.core.cap.phone.AppPacePlan
-import com.wangzan101.mika.core.shell.AccessibilityRepair
-import com.wangzan101.mika.core.shell.HelperRestart
-import com.wangzan101.mika.ui.StatusCopy
+import com.wangzan101.mika.core.device.shell.AccessibilityRepair
+import com.wangzan101.mika.core.device.shell.HelperRestart
+import com.wangzan101.mika.settings.ui.StatusCopy
 import android.hardware.display.DisplayManager
 import android.os.Build
+import android.os.DeadObjectException
 import android.os.IBinder
 import android.util.DisplayMetrics
 import android.os.RemoteException
@@ -19,11 +20,14 @@ import com.wangzan101.mika.cap.phone.a11y.LazyPhoneScreen
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
 import com.wangzan101.mika.cap.phone.a11y.PhoneUnavailable
 import com.wangzan101.mika.cap.phone.a11y.launchableApps
-import com.wangzan101.mika.confirm.ConfirmationNotifier
+import com.wangzan101.mika.task.ConfirmationNotifier
 import com.wangzan101.mika.MikaApp
 import com.wangzan101.mika.core.agent.GateReason
 import com.wangzan101.mika.core.agent.TaskState
+import com.wangzan101.mika.core.device.access.AppAccessDenied
 import com.wangzan101.mika.core.run.RunOrigin
+import com.wangzan101.mika.core.safety.gate.TargetAppRestoreFailed
+import com.wangzan101.mika.core.screen.uistate.ActionResult
 import com.wangzan101.mika.cap.phone.display.AgentDisplay
 import com.wangzan101.mika.cap.phone.display.LazyAgentDisplay
 import com.wangzan101.mika.settings.FeatureFlags
@@ -80,7 +84,7 @@ internal suspend fun TaskRun.assemblePhone(a: RunAssembly): RunPhone {
             withContext(Dispatchers.IO) { CalendarBulkWriter.insert(service, events) }
         },
     ) { connectPhone(a, appAccess, metrics, pace, shellUp, states) }
-    val accessedPhone = com.wangzan101.mika.core.uistate.AppAccessScreenPort(
+    val accessedPhone = com.wangzan101.mika.core.screen.uistate.AppAccessScreenPort(
         phoneScreen, appAccess,
         packages = { phone?.screen?.accessPackages().orEmpty() },
         protectedUi = { appAccess.sensitiveUi }, ownPackage = service.packageName,
@@ -211,6 +215,28 @@ internal suspend fun TaskRun.connectPhone(a: RunAssembly, appAccess: com.wangzan
         return moveTask(taskId, id)
     }
 
+internal suspend fun TaskRun.moveBackTarget(ph: RunPhone, fromMainOnly: Boolean = false): Boolean {
+    val p = phone ?: return false
+    val displayId = p.display.current?.displayId ?: return false
+    val target = p.screen.target.value ?: return true
+    return try {
+        withContext(Dispatchers.IO) {
+            restoreTargetApp(p.screen._target, p.shell, displayId, fromMainOnly, ::moveBackToAgent) { app ->
+                try {
+                    if (app.userId >= 0) ph.accessedPhone.openAppCopy(app.packageName, app.userId, cold = false)
+                    else ph.accessedPhone.openApp(app.packageName, cold = false)
+                } catch (e: AppAccessDenied) {
+                    ActionResult.Failed(e.code)
+                }
+            }
+        }
+    } catch (_: DeadObjectException) {
+        false
+    } catch (_: RemoteException) {
+        throw TargetAppRestoreFailed(target.packageName, "Couldn't check the current task for ${target.packageName}.")
+    }
+}
+
 internal suspend fun TaskRun.assembleGate(ph: RunPhone): TaskGate {
     val shellUp = ph.shellUp
     val states = ph.states
@@ -269,8 +295,7 @@ internal suspend fun TaskRun.assembleGate(ph: RunPhone): TaskGate {
             })
         },
     ) {
-        val t = phone?.screen?.target?.value
-        t != null && t.taskId >= 0 && moveBackToAgent(t.taskId)
+        moveBackTarget(ph)
     }
     gate = taskGate
     return taskGate

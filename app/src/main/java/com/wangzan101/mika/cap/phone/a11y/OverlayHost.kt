@@ -179,14 +179,16 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
     }
 
     /** 此刻屏幕的大小和四边被系统栏、刘海占掉的部分(转屏后跟着变)。读不到时退回显示尺寸,上下各留一条状态栏常见的高度。 */
-    fun area(): OverlayArea = runCatching {
+    fun area(): OverlayArea = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) fallbackArea() else runCatching {
         val m = wm().currentWindowMetrics
         val i = m.windowInsets.getInsetsIgnoringVisibility(WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
         OverlayArea(m.bounds.width(), m.bounds.height(), i.left, i.top, i.right, i.bottom)
-    }.getOrElse {
+    }.getOrElse { fallbackArea() }
+
+    private fun fallbackArea(): OverlayArea {
         val d = service.resources.displayMetrics
         val bar = (FALLBACK_INSET_DP * d.density).toInt()
-        OverlayArea(d.widthPixels, d.heightPixels, insetTop = bar, insetBottom = bar)
+        return OverlayArea(d.widthPixels, d.heightPixels, insetTop = bar, insetBottom = bar)
     }
 
     /**
@@ -200,7 +202,8 @@ class OverlayHost internal constructor(private val service: ScreenAccessibility)
     /** Enabled only for the optional fullscreen preference. No screenshots, text or app content. */
     fun fullscreenChanges(): Flow<Boolean> = flow {
         while (currentCoroutineContext().isActive) {
-            emit(runCatching {
+            // 读窗口尺寸和状态栏可见性要 Android 11;更早的系统不识别全屏
+            emit(if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) false else runCatching {
                 val metrics = wm().currentWindowMetrics
                 val windows = service.windowsOn(Display.DEFAULT_DISPLAY)
                 val app = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }.maxByOrNull { it.layer }

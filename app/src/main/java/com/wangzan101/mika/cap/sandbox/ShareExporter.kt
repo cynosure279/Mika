@@ -31,9 +31,6 @@ class ShareExporter(private val context: Context) {
     suspend fun export(file: GatedFile, requestedName: String): SharedFile = withContext(Dispatchers.IO) {
         if (!ShareRules.plainName(requestedName)) throw SandboxError("invalid_arguments", "name: must be a plain file name", recoverable = true)
         val name = ShareRules.fitName(requestedName)
-        if (ShareRules.refusedType(name) || ShareRules.refusedType(file.name)) {
-            throw SandboxError("share_refused_type", "App installation packages cannot be shared.", recoverable = false)
-        }
         if (file.size > ShareRules.MAX_BYTES) throw FileTooLarge(file.size)
         copyOut(file.input(), name)
     }

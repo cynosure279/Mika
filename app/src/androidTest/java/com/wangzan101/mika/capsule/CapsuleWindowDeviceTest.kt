@@ -1,19 +1,26 @@
 package com.wangzan101.mika.capsule
 
 import android.app.UiAutomation
+import android.content.Context
 import android.graphics.Bitmap
+import android.os.PowerManager
 import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.wangzan101.mika.ChineseUi
 import com.wangzan101.mika.MikaApp
+import com.wangzan101.mika.R
 import com.wangzan101.mika.cap.phone.a11y.DeviceSupport
 import com.wangzan101.mika.cap.phone.a11y.DeviceSupport.pollUntil
 import com.wangzan101.mika.cap.phone.a11y.GestureTapTestActivity
 import com.wangzan101.mika.cap.phone.a11y.ScreenAccessibility
+import com.wangzan101.mika.i18n.tr
 import com.wangzan101.mika.settings.FeatureFlags
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -33,8 +40,10 @@ class CapsuleWindowDeviceTest {
         val service = DeviceSupport.service()
         val oldMode = flags.capsuleMode()
         val oldQuit = flags.quitRequested()
+        val oldHideAtEdge = flags.capsuleHideAtEdge()
         try {
             flags.setQuitRequested(false)
+            flags.setCapsuleHideAtEdge(false)
             flags.setCapsuleMode(CapsuleMode.Always)
             instrumentation.runOnMainSync { app.capsule.resume() } // 胶囊控制器只在主线程上动窗口
             DeviceSupport.startTestActivity(Display.DEFAULT_DISPLAY, GestureTapTestActivity::class.java)
@@ -62,6 +71,7 @@ class CapsuleWindowDeviceTest {
             )
         } finally {
             find(service, CardCopy.COLLAPSE)?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            flags.setCapsuleHideAtEdge(oldHideAtEdge)
             flags.setCapsuleMode(oldMode)
             flags.setQuitRequested(oldQuit)
             instrumentation.runOnMainSync { app.capsule.resume() } // 胶囊控制器只在主线程上动窗口
@@ -74,8 +84,10 @@ class CapsuleWindowDeviceTest {
         val service = DeviceSupport.service()
         val oldMode = flags.capsuleMode()
         val oldQuit = flags.quitRequested()
+        val oldHideAtEdge = flags.capsuleHideAtEdge()
         try {
             flags.setQuitRequested(false)
+            flags.setCapsuleHideAtEdge(false)
             flags.setCapsuleMode(CapsuleMode.Always)
             instrumentation.runOnMainSync { app.capsule.resume() } // 胶囊控制器只在主线程上动窗口
             DeviceSupport.startTestActivity(Display.DEFAULT_DISPLAY, GestureTapTestActivity::class.java)
@@ -97,9 +109,84 @@ class CapsuleWindowDeviceTest {
             )
         } finally {
             find(service, CardCopy.COLLAPSE)?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            flags.setCapsuleHideAtEdge(oldHideAtEdge)
             flags.setCapsuleMode(oldMode)
             flags.setQuitRequested(oldQuit)
             instrumentation.runOnMainSync { app.capsule.resume() } // 胶囊控制器只在主线程上动窗口
+            instrumentation.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+        }
+    }
+
+    /** 开启「贴边自动隐藏」后,初次出现与熄屏唤醒重新出现都应直接保持贴边半圆与闲置透明度,不再先弹出完整图标 3 秒。 */
+    @Test fun edgeAutoHideStaysTuckedOnAppearAndScreenWake() {
+        val service = DeviceSupport.service()
+        val oldMode = flags.capsuleMode()
+        val oldQuit = flags.quitRequested()
+        val oldHideAtEdge = flags.capsuleHideAtEdge()
+        val oldOpacity = flags.capsuleIdleOpacity()
+        val power = app.getSystemService(Context.POWER_SERVICE) as PowerManager
+        val revealLabel = tr(R.string.capsule_edge_reveal)
+        fun readTuckState(): Pair<Boolean, Float> {
+            var hidden = false
+            var currentAlpha = 1f
+            instrumentation.runOnMainSync {
+                hidden = app.capsule.edgeHidden
+                currentAlpha = app.capsule.alpha
+            }
+            return hidden to currentAlpha
+        }
+        try {
+            DeviceSupport.sh("input keyevent 224")
+            DeviceSupport.sh("wm dismiss-keyguard")
+            flags.setCapsuleMode(CapsuleMode.Off)
+            assertNotNull("capsule did not hide before test", pollUntil(5_000) { true.takeIf { !app.capsule.showing.value } })
+            DeviceSupport.startTestActivity(Display.DEFAULT_DISPLAY, GestureTapTestActivity::class.java)
+            assertNotNull("test page did not open", pollUntil(5_000) { findText(service, "taps:0") })
+            flags.setQuitRequested(false)
+            flags.setCapsuleIdleOpacity(CapsuleIdleOpacity.P40)
+            flags.setCapsuleHideAtEdge(true)
+            flags.setCapsuleMode(CapsuleMode.Always)
+            instrumentation.runOnMainSync { app.capsule.resume() }
+            assertNotNull("capsule did not show on start", pollUntil(15_000) { true.takeIf { app.capsule.showing.value } })
+
+            val (initialHidden, initialAlpha) = readTuckState()
+            assertTrue("capsule should appear tucked at edge without waiting 3s", initialHidden)
+            assertEquals(CapsuleIdleOpacity.P40.alpha, initialAlpha, 0.001f)
+            val edgeBounds = pollUntil(5_000) { windowBounds(service) { it.contentDescription?.toString() == revealLabel } }
+                ?: error("edge capsule reveal node not found on appear")
+            assertTrue("edge window should be narrower than tall: $edgeBounds", edgeBounds.width() < edgeBounds.height())
+            assertNull("full idle ball should not appear on start", find(service, CapsuleCopy.IDLE))
+
+            assertTrue("edge capsule was not clickable", click(service, revealLabel))
+            assertNotNull("idle ball did not reveal on tap", pollUntil(5_000) { find(service, CapsuleCopy.IDLE) })
+            assertFalse("capsule should no longer be edge-hidden after tap", readTuckState().first)
+
+            DeviceSupport.sh("input keyevent 223")
+            assertNotNull("screen did not turn off", pollUntil(5_000) { true.takeIf { !power.isInteractive && !app.capsule.showing.value } })
+
+            DeviceSupport.sh("input keyevent 224")
+            DeviceSupport.sh("wm dismiss-keyguard")
+            assertNotNull("capsule did not resume after wake", pollUntil(10_000) { true.takeIf { power.isInteractive && app.capsule.showing.value } })
+
+            val (wakeHidden, wakeAlpha) = readTuckState()
+            assertTrue("capsule should stay tucked on screen wake without waiting 3s", wakeHidden)
+            assertEquals(CapsuleIdleOpacity.P40.alpha, wakeAlpha, 0.001f)
+            assertNotNull("edge capsule reveal node not found after wake", pollUntil(5_000) { find(service, revealLabel) })
+            assertNull("full idle ball should not pop out on screen wake", find(service, CapsuleCopy.IDLE))
+
+            assertTrue("edge capsule was not clickable after wake", click(service, revealLabel))
+            assertNotNull("idle ball did not reveal on tap after wake", pollUntil(5_000) { find(service, CapsuleCopy.IDLE) })
+            assertNotNull("revealed ball did not tuck again after idle delay", pollUntil(6_000) {
+                true.takeIf { readTuckState().first && find(service, revealLabel) != null }
+            })
+        } finally {
+            DeviceSupport.sh("input keyevent 224")
+            DeviceSupport.sh("wm dismiss-keyguard")
+            flags.setCapsuleIdleOpacity(oldOpacity)
+            flags.setCapsuleHideAtEdge(oldHideAtEdge)
+            flags.setCapsuleMode(oldMode)
+            flags.setQuitRequested(oldQuit)
+            instrumentation.runOnMainSync { app.capsule.resume() }
             instrumentation.uiAutomation.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
         }
     }

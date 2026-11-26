@@ -30,7 +30,9 @@ internal fun CapsuleController.render(s: Snapshot) {
     val shown = model.update(inputs, System.currentTimeMillis()) as? CapsuleView.Shown
     schedule(model.nextChangeAt)
     if (shown == null || service == null) {
-        hide()
+        val suppressed = s.mode == CapsuleMode.Off || service == null || service === failedOn ||
+            s.fullscreen || s.mikaInForeground || s.locked
+        hide(clearLastLook = s.mode == CapsuleMode.Off || !suppressed)
         return
     }
     // App 已交到你手上:顶部那一条代替卡片
@@ -45,22 +47,31 @@ internal fun CapsuleController.render(s: Snapshot) {
     val keptCard = card as? CardView.Kept
     if (keptCard != null) watchKept(keptCard.page.id)
     else watchPreview(detail?.takeIf { CapsuleCards.showsScreen(it.content) }?.run?.run?.key)
+    val nowLook = CapsuleLook.of(shown)
+    val previousLook = look
+    val wakeOnShow = CapsuleEdge.shouldWake(
+        hideAtEdge = s.hideAtEdge,
+        visible = previousLook != null,
+        previous = previousLook ?: lastLook,
+        current = nowLook,
+    )
+    if (nowLook != previousLook) resetTaps()
+    look = nowLook
+    if (wakeOnShow) wake() else fade()
     val w = window ?: openWindows(service)
     if (w == null) {
+        fadeJob?.cancel()
+        look = null
+        lastActive = 0L
+        edgeHidden = false
         view = null
         card = null
         _showing.value = false
         return
     }
+    lastLook = nowLook
     applyDrag()
     place()
-    // 换了状态、件数,展开或缩回:马上恢复,重新计时;只换了一句不算(一颗上看不到那句)
-    val nowLook = listOf(shown.kind, shown.pill, shown.count, shown.needCount)
-    if (nowLook != look) {
-        look = nowLook
-        resetTaps()
-        wake()
-    } else fade()
     _showing.value = true
 }
 
@@ -114,11 +125,13 @@ internal fun CapsuleController.forget(id: String) {
     refresh()
 }
 
-internal fun CapsuleController.hide() {
+internal fun CapsuleController.hide(clearLastLook: Boolean = false) {
     resetTaps()
     snap?.cancel()
     fadeJob?.cancel()
     look = null
+    if (clearLastLook) lastLook = null
+    lastActive = 0L
     imeJob?.cancel()
     imeJob = null
     imeTop = null

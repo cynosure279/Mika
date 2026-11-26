@@ -1,11 +1,11 @@
 package com.wangzan101.mika.core.tool
 
-import com.wangzan101.mika.core.observation.ObsKind
+import com.wangzan101.mika.core.screen.observation.ObsKind
 import com.wangzan101.mika.core.model.Part
 import com.wangzan101.mika.core.cap.sandbox.CommandResult
 import com.wangzan101.mika.core.cap.sandbox.FakeSandbox
 import com.wangzan101.mika.core.cap.sandbox.SandboxStatus
-import com.wangzan101.mika.core.knowledge.ScriptEntry
+import com.wangzan101.mika.core.learn.knowledge.ScriptEntry
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -27,9 +27,9 @@ import java.io.File
 import com.wangzan101.mika.core.cap.sandbox.SandboxTools
 import com.wangzan101.mika.core.cap.sandbox.SearchLimits
 import com.wangzan101.mika.core.assembly.toolDispatcher
-import com.wangzan101.mika.core.vision.JvmTestImageOps
-import com.wangzan101.mika.core.vision.VisionService
-import com.wangzan101.mika.core.vision.says
+import com.wangzan101.mika.core.screen.vision.JvmTestImageOps
+import com.wangzan101.mika.core.screen.vision.VisionService
+import com.wangzan101.mika.core.screen.vision.says
 
 private var seq = 0
 private fun call(name: String, args: JsonObject) = Part.ToolCall("c${++seq}", name, args.toString())
@@ -146,9 +146,9 @@ class ToolDispatcherSandboxTest {
 
     // 沙箱就绪时看个人技能:照常返回正文,不列脚本(个人技能不在沙箱的技能目录里)
     @Test fun personalSkillViewWithSandboxReady() = runTest {
-        val catalog = com.wangzan101.mika.core.knowledge.GuideCatalog.withPersonal(
-            com.wangzan101.mika.core.knowledge.GuideCatalog.loadBundled(),
-            com.wangzan101.mika.core.skills.InMemoryPersonalSkills(com.wangzan101.mika.core.skills.personalSkill("my-trip")),
+        val catalog = com.wangzan101.mika.core.learn.knowledge.GuideCatalog.withPersonal(
+            com.wangzan101.mika.core.learn.knowledge.GuideCatalog.loadBundled(),
+            com.wangzan101.mika.core.learn.skills.InMemoryPersonalSkills(com.wangzan101.mika.core.learn.skills.personalSkill("my-trip")),
         )
         val d = toolDispatcher(FakeScreen(), false, catalog, sandbox = sb, workspace = { "conv1" })
         val r = d.execute(call("skill_read", buildJsonObject { put("name", "my-trip") })).content
@@ -350,13 +350,20 @@ class ToolDispatcherSandboxTest {
         assertEquals("false", r.s("recoverable"))
     }
 
-    @Test fun installPackagesAreNotShared() = runTest {
+    @Test fun installPackagesAreShared() = runTest {
         File(ws, "app.apk").writeText("PK")
         File(ws, "notes.txt").writeText("n")
         val d = dispatcher()
-        assertEquals("share_refused_type", d.execute(call("share_file", buildJsonObject { put("path", "app.apk") })).content.s("error"))
-        assertEquals("share_refused_type", d.execute(call("share_file", buildJsonObject { put("path", "notes.txt"); put("name", "x.APKS") })).content.s("error"))
-        assertTrue(sb.shared.isEmpty())
+        val apk = d.execute(call("share_file", buildJsonObject { put("path", "app.apk") })).content
+        assertEquals(apk.toString(), "true", apk.s("ok"))
+        assertEquals("Download/Mika/app.apk", apk.s("savedAs"))
+        val renamed = d.execute(call("share_file", buildJsonObject { put("path", "notes.txt"); put("name", "x.APKS") })).content
+        assertEquals(renamed.toString(), "true", renamed.s("ok"))
+        assertEquals("Download/Mika/x.APKS", renamed.s("savedAs"))
+        assertEquals(
+            listOf(File(ws, "app.apk").canonicalFile, File(ws, "notes.txt").canonicalFile),
+            sb.shared.map { it.first.canonicalFile },
+        )
     }
 
     @Test fun longNamesFitInBytesAndKeepExtension() {

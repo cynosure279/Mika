@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sms_login_title">Đăng nhập bằng SMS (thử nghiệm)</string>
+    <string name="sms_login_enable">Cho phép đăng nhập bằng SMS</string>
+    <string name="sms_login_default_off">Tắt theo mặc định · hồ sơ cục bộ tin cậy</string>
+    <string name="sms_login_limits">Đăng nhập tự động cho ứng dụng gốc đã cấu hình: khớp chính xác chữ ký ứng dụng, người gửi, dịch vụ và tài khoản. Không xác nhận cho từng lần đăng nhập. Thiếu danh tính, quyền hoặc xác minh thành công thì vẫn thực hiện thủ công. Quan sát văn bản gốc tiếp tục sau khi xác minh; hình ảnh vẫn ở cục bộ trong lần chạy này.</string>
+    <string name="sms_login_permission">Quyền SMS của Android</string>
+    <string name="sms_login_error">Quyền hoặc lưu thất bại. Giữ đăng nhập thủ công; kiểm tra quyền ứng dụng Android.</string>
+    <string name="sms_login_disclosure">Chỉ bật đăng nhập SMS tự động cho tài khoản và ứng dụng đã ký mà bạn cấu hình tại đây. Mika có thể yêu cầu, điền và gửi đăng nhập mà không hỏi lại, rồi xác minh tài khoản cục bộ. Không thanh toán, khôi phục hoặc đăng ký. SMS và mã không bao giờ được lưu hoặc gửi tới mô hình. Tắt hoặc xóa hồ sơ để thu hồi.</string>
+    <string name="sms_login_sender">Người gửi SMS chính xác</string>
+    <string name="sms_login_signature">Tên dịch vụ trong dấu ngoặc</string>
+    <string name="sms_login_account">Chữ số tài khoản khớp (4–11)</string>
+    <string name="sms_login_listening">Đang tự động yêu cầu, điền và xác minh tài khoản đã cấu hình. Hủy sẽ dừng lần thử này.</string>
+    <string name="sms_login_tool">Đăng nhập bằng SMS</string>
+    <string name="sms_profile_title">Dịch vụ và tài khoản tin cậy</string>
+    <string name="sms_profile_help">Cấu hình một lần. Lưu là cho phép tự động yêu cầu mã, nhập tài khoản/mã, đăng nhập cuối cùng và xác minh tài khoản cho ứng dụng đã ký này. Ánh xạ cần ID tài nguyên gốc đã được xem xét và một chỉ báo tài khoản đã đăng nhập duy nhất. Một tài khoản cho mỗi ứng dụng; sửa hoặc xóa để thu hồi. Lưu cục bộ với mã hóa Android Keystore.</string>
+    <string name="sms_profile_accountvalue">Số tài khoản (giữ trên thiết bị này)</string>
+    <string name="sms_profile_package">Gói ứng dụng đã cài</string>
+    <string name="sms_profile_accountfield">ID tài nguyên của trường tài khoản</string>
+    <string name="sms_profile_codefield">ID tài nguyên của trường mã</string>
+    <string name="sms_profile_sendbutton">ID tài nguyên của nút yêu cầu mã</string>
+    <string name="sms_profile_loginbutton">ID tài nguyên của nút đăng nhập cuối cùng</string>
+    <string name="sms_profile_successview">ID tài nguyên của chỉ báo đã đăng nhập</string>
+    <string name="sms_profile_successtext">Văn bản chỉ báo đã đăng nhập chính xác</string>
+    <string name="sms_profile_successaccount">ID tài nguyên của khung xem tài khoản đã đăng nhập</string>
+</resources>

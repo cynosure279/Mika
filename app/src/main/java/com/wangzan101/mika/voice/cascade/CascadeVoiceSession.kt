@@ -3,6 +3,8 @@ package com.wangzan101.mika.voice.cascade
 import com.wangzan101.mika.calls.CallRealtimeSession
 import com.wangzan101.mika.calls.VolcRealtimeEvent
 import com.wangzan101.mika.calls.VolcRealtimeException
+import com.wangzan101.mika.core.frontdesk.DeskBrain
+import com.wangzan101.mika.core.frontdesk.ReplyContext
 import com.wangzan101.mika.voice.Pcm16
 import com.wangzan101.mika.voice.SpeechEvent
 import com.wangzan101.mika.voice.SpeechFailure
@@ -48,7 +50,7 @@ private sealed interface Heard {
  * the assistant is audible.
  */
 class CascadeVoiceSession internal constructor(
-    private val brain: CascadeBrain,
+    private val brain: DeskBrain,
     private val listen: (FeedRecorder) -> SpeechSession,
     private val speak: suspend (String) -> PcmAudioOut,
     silenceMs: Int,
@@ -80,11 +82,15 @@ class CascadeVoiceSession internal constructor(
     private var turnSerial = 0
     private val turns = Channel<Pair<Int, CompletableDeferred<Heard>>>(Channel.UNLIMITED)
     private var held = ""
+    /** 开了头、还没想完的用户话数:有这样的话在,说明用户在说或刚说完还没回。 */
+    private var unheard = 0
 
     // Speaking state.
     @Volatile private var reply: Job? = null
     // Keep cancelled replies until they finish, even if a replacement is itself interrupted while waiting.
     private val replyJobs = mutableSetOf<Job>() // guarded by lock
+    // 等着说的后台消息及各自的收尾回调:手上的回复说完、用户也没在说时才轮到;排着的用户插话也不丢。guarded by lock
+    private val notices = ArrayDeque<Pair<String, (Boolean) -> Unit>>()
     @Volatile private var audibleUntil = 0L
     private val failures = AtomicInteger(0)
     private val callIds = AtomicInteger(0)
@@ -151,16 +157,37 @@ class CascadeVoiceSession internal constructor(
         return true
     }
 
+    override fun sendNotice(text: String, ended: (spoken: Boolean) -> Unit): Boolean {
+        if (closed || text.isBlank()) return false
+        synchronized(lock) {
+            notices.addLast(text to ended)
+            nextNotice()
+        }
+        return true
+    }
+
+    /** 标准通话的汇报本来就是记进模型历史、由模型自己回的一轮(见 [DeskBrain.notice]),不是照念:提示走同一条路。 */
+    override fun sendCue(text: String, ended: (spoken: Boolean) -> Unit): Boolean = sendNotice(text, ended)
+
+    override fun sendUserText(text: String): Boolean {
+        if (closed || text.isBlank()) return false
+        startReply { brain.reply(text, it) }
+        return true
+    }
+
     override fun close() {
         if (closed) return
         closed = true
-        synchronized(lock) {
+        val unspoken = synchronized(lock) {
             speech?.cancel()
             recorder?.cancel()
             speech = null
             recorder = null
+            notices.toList().also { notices.clear() }
         }
         scope.cancel()
+        // 没轮到说的消息也要有交代:算没说出去,调用方改走别的路
+        unspoken.forEach { (_, ended) -> ended(false) }
         pendingTools.values.forEach { it.cancel() }
         out.trySend(VolcRealtimeEvent.Closed)
         out.close()
@@ -182,6 +209,7 @@ class CascadeVoiceSession internal constructor(
         recorder = feed
         speech = session
         feed.feed(preroll)
+        unheard++
         turns.trySend(++turnSerial to heard)
         if (session != null) scope.launch {
             try {
@@ -226,24 +254,39 @@ class CascadeVoiceSession internal constructor(
         for ((serial, heard) in turns) {
             val result = heard.await()
             val current = synchronized(lock) { serial == turnSerial && !detector.inSpeech }
-            when (result) {
-                is Heard.Failed -> {
-                    emit(VolcRealtimeEvent.UserTranscriptionFailed)
-                    if (fatal(result.error)) return
+            val stop = try {
+                think(result, current)
+            } finally {
+                // 这句想完了(回复已经起头,或没听清):用户这会儿不在说话的话,轮到排着的消息
+                synchronized(lock) {
+                    unheard--
+                    nextNotice()
                 }
-                is Heard.Text -> {
-                    failures.set(0)
-                    val text = listOf(held, result.text).filter { it.isNotBlank() }.joinToString(" ")
-                    when {
-                        text.isBlank() -> emit(VolcRealtimeEvent.UserTranscriptionEmpty)
-                        !current -> held = text
-                        else -> {
-                            held = ""
-                            emit(VolcRealtimeEvent.UserTranscript(text, isFinal = true, isCompleteFinal = true, isCurrentTurn = true))
-                            startReply { brain.reply(text, it) }
-                        }
+            }
+            if (stop) return
+        }
+    }
+
+    /** Answers one finished utterance; true when a failure ends the call. */
+    private fun think(result: Heard, current: Boolean): Boolean {
+        when (result) {
+            is Heard.Failed -> {
+                emit(VolcRealtimeEvent.UserTranscriptionFailed)
+                return fatal(result.error)
+            }
+            is Heard.Text -> {
+                failures.set(0)
+                val text = listOf(held, result.text).filter { it.isNotBlank() }.joinToString(" ")
+                when {
+                    text.isBlank() -> emit(VolcRealtimeEvent.UserTranscriptionEmpty)
+                    !current -> held = text
+                    else -> {
+                        held = ""
+                        emit(VolcRealtimeEvent.UserTranscript(text, isFinal = true, isCompleteFinal = true, isCurrentTurn = true))
+                        startReply { brain.reply(text, it) }
                     }
                 }
+                return false
             }
         }
     }
@@ -279,15 +322,34 @@ class CascadeVoiceSession internal constructor(
         audibleUntil = 0
     }
 
-    private fun startReply(block: suspend (ReplyContext) -> Unit) {
+    /**
+     * 没在回复、用户也没在说(没有说到一半或刚说完还没回的话)时说下一条后台消息;
+     * 不然就等(回复结束、用户这句想完时会再来叫)。Called under [lock].
+     */
+    private fun nextNotice() {
+        if (closed || reply?.isActive == true || detector.inSpeech || unheard > 0) return
+        val (text, ended) = notices.removeFirstOrNull() ?: return
+        startReply(interruptCurrent = false, ended = ended) { brain.notice(text, it) }
+    }
+
+    /** [ended] 在这段回复收尾时回一次:完整说完为 true,被打断、出错或通话断了为 false。 */
+    private fun startReply(
+        interruptCurrent: Boolean = true,
+        ended: ((Boolean) -> Unit)? = null,
+        block: suspend (ReplyContext) -> Unit,
+    ) {
         synchronized(lock) {
             // The new reply waits for the old one to unwind (it closes its tool calls in the brain's history).
-            interrupt()
+            if (interruptCurrent) interrupt()
             val previous = replyJobs.toList()
+            var spoken = false
             val next = scope.launch {
                 previous.forEach { it.join() }
                 try {
                     speakReply(block)
+                    // 要交代说没说完的,等已经排出去的声音真的播完;这段里被插话打断照样算没说完
+                    if (ended != null) while (isAudible()) delay(chunkMs.toLong())
+                    spoken = true
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -295,7 +357,13 @@ class CascadeVoiceSession internal constructor(
                 }
             }
             replyJobs += next
-            next.invokeOnCompletion { synchronized(lock) { replyJobs.remove(next) } }
+            next.invokeOnCompletion { cause ->
+                synchronized(lock) {
+                    replyJobs.remove(next)
+                    nextNotice()
+                }
+                ended?.invoke(spoken && cause == null)
+            }
             reply = next
         }
     }

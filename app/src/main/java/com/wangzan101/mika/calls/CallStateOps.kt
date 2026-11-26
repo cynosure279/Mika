@@ -193,7 +193,13 @@ internal fun CallRuntime.liveCalls() = tracked.values.filter { it.call.state != 
 internal fun CallRuntime.confirmedEnded(t: Tracked): Boolean = t.call.state == Call.STATE_DISCONNECTED ||
     (t.call !in tracked && managedCallPresent() == false)
 
-internal fun CallRuntime.managedCallPresent(): Boolean? = runCatching { telecom?.isInManagedCall }.getOrNull()
+internal fun CallRuntime.managedCallPresent(): Boolean? = try {
+    telecom?.isInManagedCall
+} catch (_: SecurityException) {
+    null
+} catch (_: RuntimeException) {
+    null
+}
 
 internal fun CallRuntime.isEmergency(number: String): Boolean? = runCatching { telephony?.isEmergencyNumber(number) }.getOrNull()
 
@@ -224,8 +230,8 @@ internal fun CallRuntime.matchesOutgoing(w: Work, tracked: Tracked): Boolean = O
 
 internal suspend fun CallRuntime.readSims() {
     sims = if (!access.hasPhonePermissions()) emptyList() else withContext(Dispatchers.IO) {
-        runCatching {
-            val service = telecom ?: return@runCatching emptyList()
+        try {
+            val service = telecom ?: return@withContext emptyList()
             val preferred = service.getDefaultOutgoingPhoneAccount(PhoneAccount.SCHEME_TEL)
             val subscriptionService = app.getSystemService(SubscriptionManager::class.java)
             service.callCapablePhoneAccounts.mapNotNull { handle ->
@@ -234,13 +240,19 @@ internal suspend fun CallRuntime.readSims() {
                 CarrierSim(CallSim("sim-$id", sim.displayName?.toString()?.take(80)
                     ?.ifBlank { null } ?: "SIM ${sim.simSlotIndex + 1}", handle == preferred), handle)
             }.distinctBy { it.info.id }
-        }.getOrDefault(emptyList())
+        } catch (_: SecurityException) {
+            emptyList()
+        } catch (_: RuntimeException) {
+            emptyList()
+        }
     }
 }
 
-internal fun CallRuntime.subscription(handle: PhoneAccountHandle): Int? = runCatching {
-    telephony?.createForPhoneAccountHandle(handle)?.subscriptionId?.takeIf { it >= 0 }
-}.getOrNull()
+// 按通话账户取 SIM 的订阅号要 Android 11;更早的系统读不到,当作没有可选的 SIM。
+internal fun CallRuntime.subscription(handle: PhoneAccountHandle): Int? =
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) null else runCatching {
+        telephony?.createForPhoneAccountHandle(handle)?.subscriptionId?.takeIf { it >= 0 }
+    }.getOrNull()
 
 internal fun CallRuntime.callEndMessage(call: Tracked): String = when (call.call.details?.disconnectCause?.code) {
     android.telecom.DisconnectCause.BUSY -> "对方占线，通话已结束"
