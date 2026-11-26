@@ -145,7 +145,8 @@ class AndroidVideoPort(
         else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.lowercase())?.takeIf { it.startsWith("video/") } ?: "video/mp4"
     }
 
-    private companion object {
-        const val MAX_BYTES = 500L * 1024 * 1024
+    companion object {
+        /** 看、存、分享一段工作区视频的上限。 */
+        const val MAX_BYTES = 1024L * 1024 * 1024
     }
 }

@@ -728,11 +728,10 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
         scope.launch { runCatching { com.wangzan101.mika.media.AudioShareExporter(this@MikaApp).cleanPending() } }
         // 上次存相册写到一半被杀留下的空壳条目
         scope.launch { runCatching { com.wangzan101.mika.cap.image.ImageExporter(this@MikaApp).cleanPending() } }
-        // 上次分享图片复制到一半被杀留下的空壳条目
+        // 上次分享图片、视频复制到一半被杀留下的空壳条目
         scope.launch { runCatching { com.wangzan101.mika.media.ShareFileExporter(this@MikaApp).cleanPending() } }
         // 上次存影片库写到一半被杀留下的空壳条目
         scope.launch { runCatching { com.wangzan101.mika.media.VideoExporter(this@MikaApp).cleanPending() } }
-        scope.launch { runCatching { com.wangzan101.mika.media.VideoShareExporter(this@MikaApp).cleanPending() } }
         // 上次进程留下的网页上传副本
         scope.launch { runCatching { WebFiles.clearStale(this@MikaApp, SandboxDirs(this@MikaApp).gate) } }
         // 上次进程留下的视频播放副本

@@ -506,23 +506,26 @@ class TaskRun(
         com.wangzan101.mika.media.ShareFileExporter(service).save(bytes, mime, trimmed.substringAfterLast('/'))
     }
 
-    /** 把工作区里的一段视频复制成别的 App 可读的 content URI(分享用);越界、太大时为 null。 */
+    /**
+     * 把工作区里的一段视频复制成别的 App 可读的 content URI(分享用),和图片走同一个 [com.wangzan101.mika.media.ShareFileExporter];
+     * 边读边写,不整段读进内存。越界、不是视频、太大时为 null。
+     */
     internal suspend fun shareWorkspaceVideo(path: String): com.wangzan101.mika.media.ShareableFile? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         val trimmed = path.trim()
         val prefix = com.wangzan101.mika.core.workspace.SandboxPaths.WORKSPACE + "/"
         if (!trimmed.startsWith(prefix)) return@withContext null
         val rel = trimmed.removePrefix(prefix)
         if (rel.isEmpty() || rel.split('/').any { it.isEmpty() || it == "." || it == ".." }) return@withContext null
-        val dirs = com.wangzan101.mika.cap.sandbox.SandboxDirs(service)
-        val bytes = dirs.tree.shared {
-            dirs.gate.openRead(dirs.workspace(com.wangzan101.mika.chat.WorkspaceResolver.resolveFor(service, conversationId)), rel).use { g ->
-                if (g.size > 500L * 1024 * 1024) null else g.read(0, g.size.toInt())
-            }
-        } ?: return@withContext null
         val mime = android.webkit.MimeTypeMap.getSingleton()
             .getMimeTypeFromExtension(trimmed.substringAfterLast('.', "").lowercase())
-            ?.takeIf { it.startsWith("video/") } ?: "video/mp4"
-        com.wangzan101.mika.media.VideoShareExporter(service).save(bytes, mime, trimmed.substringAfterLast('/'))
+            ?.takeIf { it.startsWith("video/") } ?: return@withContext null
+        val dirs = com.wangzan101.mika.cap.sandbox.SandboxDirs(service)
+        dirs.tree.shared {
+            dirs.gate.openRead(dirs.workspace(com.wangzan101.mika.chat.WorkspaceResolver.resolveFor(service, conversationId)), rel).use { g ->
+                if (g.size > com.wangzan101.mika.media.AndroidVideoPort.MAX_BYTES) null
+                else com.wangzan101.mika.media.ShareFileExporter(service).save(g.input(), mime, trimmed.substringAfterLast('/'))
+            }
+        }
     }
 
     /** 本任务的视频端口:手机上开始的任务才给(视频看/存只对用户本机文件有意义)。 */
