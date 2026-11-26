@@ -7,7 +7,7 @@ import com.wangzan101.mika.core.model.VideoCapabilities
 import com.wangzan101.mika.core.model.VideoModelError
 import com.wangzan101.mika.core.model.VideoRequest
 import com.wangzan101.mika.core.tool.ActionPass
-import com.wangzan101.mika.core.vision.LocScreen
+import com.wangzan101.mika.core.screen.vision.LocScreen
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
