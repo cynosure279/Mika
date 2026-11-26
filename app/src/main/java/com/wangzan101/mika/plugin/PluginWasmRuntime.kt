@@ -98,7 +98,8 @@ class PluginWasmRuntime(
         permissions: List<String>,
         wasmPath: String,
         argsJson: String,
-        timeoutMs: Long,
+        /** manifest 的 `timeoutSec`(秒),限在 1–600。 */
+        timeoutSec: Long,
     ): WasmCallResult {
         if (!PluginManifest.WASM.matches(wasmPath) || ".." in wasmPath) {
             return WasmCallResult("invalid_tool_wasm: $wasmPath", isError = true)
@@ -122,7 +123,7 @@ class PluginWasmRuntime(
                 put("permissions", buildJsonArray { granted.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } })
                 workspace(pluginId)?.let { put("workspace", it.absolutePath) }
             }.toString()
-            val result = engine.call(module, context, argsJson, timeoutMs.coerceIn(1, 600) * 1000L, host)
+            val result = engine.call(module, context, argsJson, timeoutSec.coerceIn(1, 600) * 1000L, host)
             result.logs.forEach { log(pluginId, "guest", it) }
             log(pluginId, "tool", "wasm engine=${engine.name} load_ms=${System.currentTimeMillis() - started} error=${result.isError}")
             result

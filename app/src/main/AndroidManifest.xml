@@ -253,12 +253,13 @@
                 android:value="ongoing" />
         </service>
 
-                <service
+        <!-- 插件 Wasm 引擎:独立进程隔离原生崩溃;和 App 同一个 UID,不是 isolatedProcess(见 docs/dev/plugin-wasm.md「隔离边界」) -->
+        <service
             android:name=".plugin.WasmService"
             android:exported="false"
             android:process=":wasm" />
 
-<service
+        <service
             android:name=".task.TaskService"
             android:exported="false"
             android:foregroundServiceType="specialUse">

@@ -20,7 +20,19 @@ class WasmHostHandler(
 
 /** 把 [WasmHostHandler] 包成 :wasm 进程能回连的 Binder 接口;只在有可用能力时创建。 */
 class WasmHost(private val handler: WasmHostHandler) : IWasmHost.Stub() {
-    override fun http(requestJson: String): String = handler.http(requestJson)
+    override fun http(requestJson: String): String = binderSafe { handler.http(requestJson) }
 
-    override fun settingsSet(requestJson: String): String = handler.settingsSet(requestJson)
+    override fun settingsSet(requestJson: String): String = binderSafe { handler.settingsSet(requestJson) }
+
+    /**
+     * Binder 只能把少数几种异常带回调用方(IllegalStateException 是其中之一);
+     * 别的 RuntimeException(如 [PluginHttp.HttpFailure])会在 App 进程的 Binder 线程上变成未捕获异常,这里统一换掉。
+     */
+    private inline fun binderSafe(block: () -> String): String = try {
+        block()
+    } catch (e: IllegalStateException) {
+        throw e
+    } catch (e: Exception) {
+        throw IllegalStateException(e.message ?: e.javaClass.simpleName)
+    }
 }

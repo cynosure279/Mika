@@ -120,4 +120,12 @@ class PluginWasmRuntimeTest {
         assertTrue(engine.contexts.last().contains(workspace.absolutePath.replace("\\", "\\\\")))
         dir.deleteRecursively()
     }
+
+    /** 引擎进程里 App 不做主进程初始化;只认清单里那个 `:wasm` 后缀。 */
+    @Test fun engineProcessIsRecognizedByName() {
+        assertTrue(WasmSupport.isEngineProcess("com.wangzan101.mika:wasm"))
+        assertTrue(WasmSupport.isEngineProcess("com.wangzan101.mika.dev:wasm"))
+        assertTrue(!WasmSupport.isEngineProcess("com.wangzan101.mika"))
+        assertTrue(!WasmSupport.isEngineProcess(null))
+    }
 }

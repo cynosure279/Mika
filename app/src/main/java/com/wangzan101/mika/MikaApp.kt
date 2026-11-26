@@ -639,6 +639,9 @@ class MikaApp : Application(), WebOwner, SandboxOwner, TaskEnvironment.Owner, Ph
 
     override fun onCreate() {
         super.onCreate()
+        // :wasm 进程只跑插件 Wasm 引擎(WasmService):不做主进程的初始化,否则会把正在跑的运行标成中断、
+        // 再起一份胶囊/微信/定时等后台工作
+        if (com.wangzan101.mika.plugin.WasmSupport.isEngineProcess(getProcessName())) return
         com.wangzan101.mika.plugin.WasmSupport.init(this)
         // One-time legacy voice migration before any migrated consumer is initialized; a failure retains legacy behavior.
         runCatching { migrateLegacyVoice() }
