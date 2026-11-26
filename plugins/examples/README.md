@@ -1,11 +1,12 @@
 # 插件示例
 
-这两个示例都以飞书为例，分别对应插件系统的两类形态：
+飞书的两个示例分别对应插件系统的两类形态；另有一个 Wasm 工具的最小示例：
 
 | 目录 | 形态 | 现在能做什么 | 依赖 |
 |---|---|---|---|
 | [`com.example.feishu/`](com.example.feishu/) | capability pack（能力包） | `manifest.json` 是纯技能插件，P1a 就能装；`manifest.full.json` 加了一个 webhook 工具，等 P1b | P1a（技能）；P1b（工具）、P3（secret） |
 | [`com.example.feishu-connector/`](com.example.feishu-connector/) | connector（外部连接器） | 只是 P4 的 manifest 样例，展示安装指引/命令/状态字段；不运行 App 内代码 | P4，以及官方飞书连接器 PR #160 合入 |
+| [`com.example.wasm-echo/`](com.example.wasm-echo/) | capability pack（Wasm 工具） | 回显工具参数，演示 Wasm 工具 ABI；只有调试包（arm64）接受安装 | Wasm 运行时（[`docs/dev/plugin-wasm.md`](../../docs/dev/plugin-wasm.md)） |
 
 ## 和官方飞书连接器的关系
 

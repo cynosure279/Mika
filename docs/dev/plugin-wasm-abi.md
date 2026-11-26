@@ -36,7 +36,7 @@ import module `mika`:
 ```
 
 - 只认 `GET`/`POST`/`HEAD`;`body` 只允许 POST。
-- 只认 http(s),不允许 URL 内账号密码;本机与私网地址拒绝(`LocalHosts`)。
+- 只认 http(s),不允许 URL 内账号密码;本机、局域网与保留地址拒绝,域名解析后的地址再查一遍(和网页下载同一条规则,`DownloadAddressPolicy`)。
 - 宿主跟着重定向,最多 5 跳,每跳重新校验;请求/响应正文各 1 MB,请求头有上限。
 - `timeoutMs` 默认 10 秒、最多 30 秒,并截到本次工具调用剩余预算。
 - 日志只记方法、域名、状态码与字节数,不记 header 与正文。
@@ -58,7 +58,11 @@ import module `mika`:
 - 模块编译产物按内容 SHA-256 缓存(最多 32 个,总字节上限 32 MiB);每次调用新建实例。
 - 安装时把 `tools/` 下模块的 SHA-256 记进包目录 `wasm.sha256`;运行前复核,模块被换过就拒绝。
 - 单实例内存上限 64 MiB;超时由 manifest `timeoutSec` 决定,死循环会被 trap。
-- 引擎在独立进程 `:wasm`;崩溃只死该进程,宿主重连,连续 3 次失败熔断到进程重启。
+- 引擎在独立进程 `:wasm`;原生崩溃只死该进程,宿主重连。插件自己的错误(trap、超时、缺导出)只算这次调用失败;
+  引擎进程死掉、Binder 不通或宿主兜底超时(插件超时 + 5 秒)才算引擎故障,连续 3 次熔断到 App 进程重启。
+- `:wasm` 和 App 同一个 UID,不是 Android 的 isolatedProcess;能限住插件的是 Wasm 沙箱本身(只能调上面这些 import),
+  不是进程权限。详见 [plugin-wasm.md](plugin-wasm.md)「隔离边界」。
+- 工具结果 JSON 最多 128K 字符;模块经共享内存交给 `:wasm`,不受 Binder 单次事务大小限制。
 - 网络回调是反向 Binder(`IWasmHost.aidl`),由 `:wasm` 回连 App 进程执行;未授权时不提供回调。
 
 ## 最小示例(Rust)
@@ -84,7 +88,7 @@ pub extern "C" fn mika_tool_call(ptr: u32, len: u32) -> u64 {
 }
 ```
 
-完整可安装示例:[`examples/plugins/com.example.wasm-echo`](../../examples/plugins/com.example.wasm-echo/)。
+完整可安装示例:[`plugins/examples/com.example.wasm-echo`](../../plugins/examples/com.example.wasm-echo/)。
 
 ## 验证
 
